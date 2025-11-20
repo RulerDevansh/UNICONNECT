@@ -1,0 +1,9 @@
+listing_id,title,description,category,price,tags,popularity,text_blob
+L1,Gaming Laptop,High performance laptop with RTX graphics,physical,950,"electronics,gaming",0.92,"Gaming Laptop High performance laptop with RTX graphics electronics gaming"
+L2,Organic Chemistry Notes,Comprehensive study guide with diagrams,digital,25,"notes,chemistry",0.81,"Organic Chemistry Notes Comprehensive study guide with diagrams notes chemistry"
+L3,Football Tickets,Two seats for the homecoming game,ticket,120,"sports,event",0.77,"Football Tickets Two seats for the homecoming game sports event"
+L4,3D Printer Access,Library approved 3D printer time slot,digital,40,"maker,lab",0.69,"3D Printer Access Library approved 3D printer time slot maker lab"
+L5,Shared Uber Credits,Split ride credits for weekend trips,service,60,"transport,share",0.64,"Shared Uber Credits Split ride credits for weekend trips transport share"
+L6,Meal Prep Bundle,Healthy meals for the week,physical,80,"food,healthy",0.71,"Meal Prep Bundle Healthy meals for the week food healthy"
+L7,Calculus Tutoring,One hour Calc II tutoring,service,45,"tutoring,math",0.73,"Calculus Tutoring One hour Calc II tutoring tutoring math"
+L8,Roommate Grocery Share,Split Costco haul with roommates,service,90,"share,grocery",0.68,"Roommate Grocery Share Split Costco haul with roommates share grocery"
