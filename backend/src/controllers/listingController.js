@@ -99,13 +99,17 @@ const createListing = async (req, res, next) => {
         ? req.body.tags.split(',').map((tag) => tag.trim()).filter(Boolean)
         : [];
 
+    const auctionData = req.body.listingType === 'auction' && req.body.auction
+      ? { ...req.body.auction, isAuction: true, bidders: [] }
+      : {};
+
     const listing = await Listing.create({
       ...req.body,
       seller: req.user.id,
       collegeDomain: req.user.collegeDomain,
       tags: normalizedTags,
       listingType: req.body.listingType || 'buy-now',
-      auction: req.body.auction || {},
+      auction: auctionData,
     });
 
     const moderation = await callModeration({

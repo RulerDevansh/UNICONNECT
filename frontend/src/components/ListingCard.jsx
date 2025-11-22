@@ -3,6 +3,7 @@ import classNames from 'classnames';
 import { useAuth } from '../context/AuthContext';
 import useChatLauncher from '../hooks/useChatLauncher';
 import { formatCurrency } from '../utils/currency';
+import api from '../services/api';
 
 const ListingCard = ({ listing }) => {
   const { user } = useAuth();
@@ -11,6 +12,18 @@ const ListingCard = ({ listing }) => {
   const status = listing.status || 'active';
   const isOwnListing = sellerId && sellerId === user?.id;
   const showBuyCta = listing.listingType === 'buy-now' && !isOwnListing && sellerId && status === 'active';
+
+  const handleBuyNow = async () => {
+    try {
+      await api.post('/transactions', {
+        listing: listing._id,
+        transactionType: 'buy_request',
+      });
+      alert('Buy request sent to seller! You will be notified when approved.');
+    } catch (err) {
+      alert(err.response?.data?.message || 'Failed to send buy request');
+    }
+  };
   const statusLabelMap = {
     sold: 'Sold',
     flagged: 'Flagged',
@@ -62,7 +75,7 @@ const ListingCard = ({ listing }) => {
           {showBuyCta && (
             <button
               type="button"
-              onClick={() => startChat(sellerId)}
+              onClick={handleBuyNow}
               className="rounded-full bg-brand-primary px-4 py-1.5 text-sm font-semibold text-white shadow-lg shadow-brand-primary/30 transition hover:-translate-y-0.5 hover:bg-brand-secondary"
             >
               Buy Now
@@ -70,7 +83,7 @@ const ListingCard = ({ listing }) => {
           )}
           <Link
             to={`/listings/${listing._id}`}
-            className="text-sm font-semibold text-brand-primary transition hover:text-brand-secondary"
+            className="rounded-full border border-slate-600 px-4 py-1.5 text-sm font-semibold text-slate-200 transition hover:border-slate-400"
           >
             View
           </Link>

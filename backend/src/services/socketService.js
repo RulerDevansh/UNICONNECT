@@ -90,29 +90,102 @@ const initSocket = (io) => {
     socket.on('auction:bid', async ({ listingId, amount }) => {
       const listing = await Listing.findById(listingId);
       if (!listing?.auction?.isAuction) return;
-      const current = auctions.get(listingId) || { amount: listing.auction.startBid };
-      if (amount <= current.amount) {
+      
+      // Get current highest bid from memory or DB
+      const currentHighest = auctions.get(listingId)?.amount 
+        || listing.auction.currentBid?.amount 
+        || listing.auction.startBid;
+
+      if (amount <= currentHighest) {
         socket.emit('auction:rejected', { reason: 'Bid too low' });
         return;
       }
+      
       const bid = { amount, bidder: socket.user.id, createdAt: new Date() };
       auctions.set(listingId, bid);
+      
       listing.auction.currentBid = { amount, bidder: socket.user.id };
       listing.auction.bidders.push(bid);
       await listing.save();
-      io.to(`auction:${listingId}`).emit('auction:bid', bid);
+      
+      // Populate bidder info for frontend display
+      const populatedListing = await listing.populate('auction.currentBid.bidder', 'name email');
+      const bidderInfo = populatedListing.auction.currentBid.bidder;
+
+      io.to(`auction:${listingId}`).emit('auction:bid', { ...bid, bidderName: bidderInfo?.name });
     });
 
     socket.on('auction:end', async ({ listingId }) => {
       const listing = await Listing.findById(listingId);
       if (!listing || listing.seller.toString() !== socket.user.id) return;
+      
       listing.auction.isAuction = false;
       await listing.save();
-      const finalBid = auctions.get(listingId);
+      
+      const finalBid = listing.auction.currentBid;
       io.to(`auction:${listingId}`).emit('auction:ended', finalBid);
       auctions.delete(listingId);
     });
   });
+
+  // Periodic check for expired auctions
+  setInterval(async () => {
+    try {
+      const now = new Date();
+      const expiredListings = await Listing.find({
+        $or: [
+          { 'auction.isAuction': true },
+          { listingType: 'auction', status: 'active' }
+        ],
+        'auction.endTime': { $lte: now }
+      }).populate('auction.currentBid.bidder');
+
+      console.log(`[Auction Cleanup] Checking ${expiredListings.length} expired auctions at ${now.toISOString()}`);
+
+      for (const listing of expiredListings) {
+        // Check if auction has any bids (excluding the initial startBid placeholder)
+        const hasBids = listing.auction.bidders && listing.auction.bidders.length > 0;
+        
+        console.log(`[Auction ${listing._id}] EndTime: ${listing.auction.endTime}, HasBids: ${hasBids}, Bidders: ${listing.auction.bidders?.length || 0}`);
+        
+        if (!hasBids) {
+          // No bids received - delete the listing from database
+          await Listing.findByIdAndDelete(listing._id);
+          
+          io.to(`auction:${listing._id}`).emit('auction:cancelled', {
+            listingId: listing._id.toString(),
+            reason: 'No bids received'
+          });
+          
+          auctions.delete(listing._id.toString());
+          console.log(`[Auction ${listing._id}] ✅ DELETED - no bids received`);
+        } else {
+          // Has bids - mark auction as ended
+          listing.auction.isAuction = false;
+          await listing.save();
+
+          const winner = listing.auction.currentBid?.bidder;
+          const finalAmount = listing.auction.currentBid?.amount;
+
+          io.to(`auction:${listing._id}`).emit('auction:ended', {
+            amount: finalAmount,
+            winner: winner?._id,
+            winnerName: winner?.name
+          });
+
+          // Notify the winner specifically if they are connected
+          // We can't easily find their socket without a user->socket map, 
+          // but the room emission covers the active UI.
+          // Ideally, we would create a notification in the DB here.
+          
+          auctions.delete(listing._id.toString());
+          console.log(`Auction ${listing._id} ended. Winner: ${winner?.name}`);
+        }
+      }
+    } catch (err) {
+      console.error('Error checking expired auctions:', err);
+    }
+  }, 60000); // Check every minute
 };
 
 module.exports = { initSocket, auctions };

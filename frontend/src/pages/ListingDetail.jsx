@@ -1,15 +1,18 @@
 import { useEffect, useState } from 'react';
-import { useParams } from 'react-router-dom';
+import { useParams, useNavigate } from 'react-router-dom';
 import api from '../services/api';
 import OfferModal from '../components/OfferModal';
 import AuctionRoom from '../components/AuctionRoom';
 import { useAuth } from '../context/AuthContext';
+import { useSocket } from '../context/SocketContext';
 import useChatLauncher from '../hooks/useChatLauncher';
 import { formatCurrency } from '../utils/currency';
 
 const ListingDetail = () => {
   const { id } = useParams();
+  const navigate = useNavigate();
   const { user } = useAuth();
+  const { socket } = useSocket();
   const startChat = useChatLauncher();
   const [listing, setListing] = useState(null);
   const [offers, setOffers] = useState([]);
@@ -22,6 +25,29 @@ const ListingDetail = () => {
     if (user && data.seller?._id === user.id) {
       const offerRes = await api.get(`/offers/listing/${id}`);
       setOffers(offerRes.data);
+    }
+  };
+
+  const handleBuyNow = async () => {
+    try {
+      await api.post('/transactions', {
+        listing: id,
+        transactionType: 'buy_request',
+      });
+      alert('Buy request sent to seller! You will be notified when approved.');
+    } catch (err) {
+      alert(err.response?.data?.message || 'Failed to send buy request');
+    }
+  };
+
+  const handleMarkAsSold = async () => {
+    if (!confirm('Are you sure you want to mark this item as sold? This will remove it from the marketplace.')) return;
+    try {
+      await api.delete(`/listings/${id}`);
+      navigate('/marketplace');
+    } catch (err) {
+      console.error(err);
+      alert('Failed to mark as sold');
     }
   };
 
@@ -45,6 +71,23 @@ const ListingDetail = () => {
     };
     fetchRecommendations();
   }, [id, user]);
+
+  useEffect(() => {
+    if (!socket || !listing?.listingType === 'auction') return;
+    
+    const handleAuctionCancelled = (payload) => {
+      if (payload.listingId === id) {
+        alert('This auction has been cancelled due to no bids. The listing has been removed.');
+        navigate('/marketplace');
+      }
+    };
+
+    socket.on('auction:cancelled', handleAuctionCancelled);
+
+    return () => {
+      socket.off('auction:cancelled', handleAuctionCancelled);
+    };
+  }, [socket, listing, id, navigate]);
 
   if (!listing) {
     return <p className="p-8 text-center text-slate-500">Loading listing…</p>;
@@ -74,24 +117,40 @@ const ListingDetail = () => {
                 </span>
               ))}
             </div>
-            {canChat && (
+            {listing.status === 'sold' && (
+              <div className="mt-6">
+                <span className="inline-block rounded-full bg-white/10 px-6 py-2 text-sm font-semibold text-white">
+                  Sold
+                </span>
+              </div>
+            )}
+            {canChat && listing.listingType === 'buy-now' && listing.status !== 'sold' && (
+              <div className="mt-6">
+                <button
+                  type="button"
+                  onClick={handleBuyNow}
+                  className="rounded-full bg-brand-primary px-6 py-2 text-sm font-semibold text-white shadow-lg shadow-brand-primary/30 transition hover:-translate-y-0.5 hover:bg-brand-secondary"
+                >
+                  Buy Now
+                </button>
+              </div>
+            )}
+            {canChat && listing.listingType !== 'buy-now' && (
               <div className="mt-6 flex flex-wrap gap-3">
                 <button
                   type="button"
                   onClick={() => startChat(sellerId)}
                   className="rounded-full bg-brand-primary px-6 py-2 text-sm font-semibold text-white shadow-lg shadow-brand-primary/30 transition hover:-translate-y-0.5 hover:bg-brand-secondary"
                 >
-                  {listing.listingType === 'buy-now' ? 'Buy Now & Chat' : 'Chat with Seller'}
+                  Chat with Seller
                 </button>
-                {listing.listingType !== 'buy-now' && (
-                  <button
-                    type="button"
-                    onClick={() => setShowOffer(true)}
-                    className="rounded-full border border-slate-600 px-4 py-2 text-sm font-semibold text-slate-200 transition hover:border-slate-400"
-                  >
-                    Make Offer
-                  </button>
-                )}
+                <button
+                  type="button"
+                  onClick={() => setShowOffer(true)}
+                  className="rounded-full border border-slate-600 px-4 py-2 text-sm font-semibold text-slate-200 transition hover:border-slate-400"
+                >
+                  Make Offer
+                </button>
               </div>
             )}
             {listing.listingType === 'auction' && <AuctionRoom listing={listing} />}
@@ -99,7 +158,9 @@ const ListingDetail = () => {
         </div>
         {user && listing.seller?._id === user.id && (
           <section className="mt-10 rounded-2xl border border-slate-800 bg-slate-950/40 p-5">
-            <h2 className="text-xl font-semibold text-white">Offers</h2>
+            <h2 className="text-xl font-semibold text-white">Seller Controls</h2>
+            
+            <h3 className="mt-4 text-lg font-medium text-slate-200">Offers</h3>
             <ul className="mt-3 space-y-2 text-sm text-slate-300">
               {offers.map((offer) => (
                 <li key={offer._id} className="rounded border border-slate-800 bg-slate-900/60 p-3">

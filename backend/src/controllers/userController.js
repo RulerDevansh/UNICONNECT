@@ -1,4 +1,6 @@
 const User = require('../models/User');
+const Transaction = require('../models/Transaction');
+const Share = require('../models/Share');
 
 /**
  * @route GET /api/users/me
@@ -56,4 +58,83 @@ const lookupUsers = async (req, res, next) => {
   }
 };
 
-module.exports = { getProfile, updateProfile, listUsers, lookupUsers };
+/**
+ * @route GET /api/users/me/history
+ * @description Get user's buying, selling, and cab sharing history
+ */
+const getUserHistory = async (req, res, next) => {
+  try {
+    const userId = req.user.id;
+
+    // Get buying history (transactions where user is buyer and status is completed)
+    const buyingHistory = await Transaction.find({ 
+      buyer: userId,
+      status: 'completed'
+    })
+      .populate('listing', 'title price images category')
+      .populate('seller', 'name email')
+      .sort('-createdAt')
+      .limit(50)
+      .lean();
+
+    // Get selling history (transactions where user is seller and status is completed)
+    const sellingHistory = await Transaction.find({ 
+      seller: userId,
+      status: 'completed'
+    })
+      .populate('listing', 'title price images category')
+      .populate('buyer', 'name email')
+      .sort('-createdAt')
+      .limit(50)
+      .lean();
+
+    // Merge listing data with snapshot for deleted listings
+    const mergeListing = (transaction) => {
+      if (!transaction.listing && transaction.listingSnapshot) {
+        transaction.listing = transaction.listingSnapshot;
+      }
+      return transaction;
+    };
+
+    const buyingHistoryMerged = buyingHistory.map(mergeListing);
+    const sellingHistoryMerged = sellingHistory.map(mergeListing);
+
+    // Get cab sharing history
+    // Only show completed trips (where departure time has passed)
+    const now = new Date();
+
+    // Get trips where user was host (may be deleted by cleanup service)
+    const cabSharingAsHost = await Share.find({ 
+      host: userId,
+      shareType: 'cab',
+      departureTime: { $lt: now }
+    })
+      .populate('members.user', 'name email')
+      .sort('-departureTime')
+      .limit(25);
+
+    // Get trips where user was member
+    const cabSharingAsMember = await Share.find({ 
+      'members.user': userId,
+      shareType: 'cab',
+      departureTime: { $lt: now }
+    })
+      .populate('host', 'name email')
+      .populate('members.user', 'name email')
+      .sort('-departureTime')
+      .limit(25);
+
+    res.json({
+      buyingHistory: buyingHistoryMerged,
+      sellingHistory: sellingHistoryMerged,
+      cabSharing: {
+        asHost: cabSharingAsHost,
+        asMember: cabSharingAsMember,
+      },
+    });
+  } catch (err) {
+    next(err);
+  }
+};
+
+module.exports = { getProfile, updateProfile, listUsers, lookupUsers, getUserHistory };

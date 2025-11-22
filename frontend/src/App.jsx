@@ -6,11 +6,16 @@ import Register from './pages/Register';
 import ListingDetail from './pages/ListingDetail';
 import CreateListing from './pages/CreateListing';
 import BillShare from './pages/BillShare';
+import MySharing from './pages/MySharing';
 import MyListings from './pages/MyListings';
 import AdminDashboard from './pages/AdminDashboard';
 import Chat from './pages/Chat';
 import Marketplace from './pages/Marketplace';
 import EditListing from './pages/EditListing';
+import UserHistory from './pages/UserHistory';
+import BuyRequests from './pages/BuyRequests';
+import MyBuyRequests from './pages/MyBuyRequests';
+import Profile from './pages/Profile';
 import ProtectedRoute from './components/ProtectedRoute';
 
 const DefaultLayout = () => (
@@ -32,9 +37,14 @@ const App = () => {
           <Route path="/listings/new" element={<CreateListing />} />
           <Route path="/listings/:id/edit" element={<EditListing />} />
           <Route path="/marketplace" element={<Marketplace />} />
+          <Route path="/my-sharing" element={<MySharing />} />
           <Route path="/shares" element={<BillShare />} />
           <Route path="/my-listings" element={<MyListings />} />
           <Route path="/chat" element={<Chat />} />
+          <Route path="/history" element={<UserHistory />} />
+          <Route path="/buy-requests" element={<BuyRequests />} />
+          <Route path="/my-requests" element={<MyBuyRequests />} />
+          <Route path="/profile" element={<Profile />} />
         </Route>
         <Route element={<ProtectedRoute roles={["admin"]} />}>
           <Route path="/admin" element={<AdminDashboard />} />

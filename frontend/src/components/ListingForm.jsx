@@ -45,6 +45,7 @@ const mapListingToForm = (listing) => {
 const ListingForm = ({ onCreated, onSuccess, initialData, mode = 'create' }) => {
   const [form, setForm] = useState(initialData ? mapListingToForm(initialData) : createEmptyForm());
   const [uploading, setUploading] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
   const [image, setImage] = useState(null);
   const [error, setError] = useState('');
 
@@ -82,6 +83,7 @@ const ListingForm = ({ onCreated, onSuccess, initialData, mode = 'create' }) => 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
+    setSubmitting(true);
     try {
       const payload = {
         ...form,
@@ -131,6 +133,8 @@ const ListingForm = ({ onCreated, onSuccess, initialData, mode = 'create' }) => 
     } catch (err) {
       const fallback = mode === 'edit' ? 'Failed to update listing' : 'Failed to create listing';
       setError(err.response?.data?.message || fallback);
+    } finally {
+      setSubmitting(false);
     }
   };
 
@@ -206,7 +210,6 @@ const ListingForm = ({ onCreated, onSuccess, initialData, mode = 'create' }) => 
             className="mt-1 w-full rounded border border-slate-700 bg-slate-950/60 px-3 py-2 text-slate-100"
           >
             <option value="buy-now">Buy Now</option>
-            <option value="offer">Offer</option>
             <option value="auction">Auction</option>
           </select>
         </div>
@@ -253,10 +256,10 @@ const ListingForm = ({ onCreated, onSuccess, initialData, mode = 'create' }) => 
       </div>
       <button
         type="submit"
-        className="w-full rounded-full bg-brand-primary py-3 text-white shadow shadow-brand-primary/40"
-        disabled={uploading}
+        className="w-full rounded-full bg-brand-primary py-3 text-white shadow shadow-brand-primary/40 disabled:cursor-not-allowed disabled:opacity-50"
+        disabled={uploading || submitting}
       >
-        {uploading ? 'Uploading…' : mode === 'edit' ? 'Update Listing' : 'Create Listing'}
+        {uploading ? 'Uploading…' : submitting ? 'Submitting…' : mode === 'edit' ? 'Update Listing' : 'Create Listing'}
       </button>
     </form>
   );

@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import ListingCard from '../components/ListingCard';
+import { useSocket } from '../context/SocketContext';
 import api from '../services/api';
 
 const MyListings = () => {
@@ -11,6 +12,7 @@ const MyListings = () => {
   const location = useLocation();
   const [toast, setToast] = useState('');
   const [pendingDelete, setPendingDelete] = useState(null);
+  const { socket } = useSocket();
 
   const load = async () => {
     const { data } = await api.get('/listings/me');
@@ -27,6 +29,22 @@ const MyListings = () => {
       navigate(location.pathname, { replace: true });
     }
   }, [location.state, location.pathname, navigate]);
+
+  useEffect(() => {
+    if (!socket) return;
+
+    const handleAuctionCancelled = (payload) => {
+      const listingId = payload.listingId;
+      setListings((prev) => prev.filter((listing) => listing._id !== listingId));
+      setToast('Auction expired with no bids and has been automatically removed.');
+    };
+
+    socket.on('auction:cancelled', handleAuctionCancelled);
+
+    return () => {
+      socket.off('auction:cancelled', handleAuctionCancelled);
+    };
+  }, [socket]);
   const deleteListing = async () => {
     if (!pendingDelete) return;
     setUpdatingId(pendingDelete._id);
@@ -45,7 +63,16 @@ const MyListings = () => {
 
   return (
     <main className="mx-auto max-w-5xl px-4 py-10 text-slate-100">
-      <h1 className="text-4xl font-semibold text-white">My Listings</h1>
+      <div className="flex items-center justify-between">
+        <h1 className="text-4xl font-semibold text-white">My Listings</h1>
+        <button
+          type="button"
+          onClick={() => navigate('/listings/new')}
+          className="rounded-full bg-brand-primary px-6 py-2 text-sm font-semibold text-white shadow-lg shadow-brand-primary/40 transition hover:bg-brand-primary/90"
+        >
+          + Create Listing
+        </button>
+      </div>
       {error && <p className="mt-4 rounded border border-red-500/30 bg-red-500/10 p-3 text-sm text-red-200">{error}</p>}
       {toast && (
         <div className="mt-4 flex items-start justify-between gap-4 rounded-2xl border border-emerald-500/30 bg-emerald-500/10 px-4 py-3 text-sm text-emerald-200">
@@ -67,14 +94,21 @@ const MyListings = () => {
               >
                 Edit
               </button>
-              <button
-                type="button"
-                onClick={() => setPendingDelete(listing)}
-                disabled={updatingId === listing._id}
-                className="flex-1 rounded-full border border-red-500/40 px-4 py-2 text-sm font-semibold text-red-200 hover:border-red-300 disabled:cursor-not-allowed disabled:border-slate-700 disabled:text-slate-500"
-              >
-                Delete / Sold
-              </button>
+              {listing.status !== 'sold' && listing.status !== 'archived' && (
+                <button
+                  type="button"
+                  onClick={() => setPendingDelete(listing)}
+                  disabled={updatingId === listing._id}
+                  className="flex-1 rounded-full border border-red-500/40 px-4 py-2 text-sm font-semibold text-red-200 hover:border-red-300 disabled:cursor-not-allowed disabled:border-slate-700 disabled:text-slate-500"
+                >
+                  Delete
+                </button>
+              )}
+              {(listing.status === 'sold' || listing.status === 'archived') && (
+                <span className="flex-1 rounded-full border border-slate-700 bg-slate-800/50 px-4 py-2 text-center text-sm font-semibold text-slate-400">
+                  {listing.status === 'sold' ? 'Sold' : 'Archived'}
+                </span>
+              )}
             </div>
           </div>
         ))}

@@ -162,11 +162,11 @@ const Chat = () => {
 
   const getChatLabel = (chat) => {
     if (chat.isGroup) return chat.name || 'Group';
-    const other =
-      chat.participants?.find((participant) => {
-        const pid = participant._id?.toString?.() || participant.id;
-        return pid !== user?.id;
-      }) || chat.participants?.[0];
+    const currentUserId = String(user?.id || user?._id || '');
+    const other = chat.participants?.find((participant) => {
+      const pid = typeof participant._id === 'object' ? participant._id.toString() : String(participant._id || participant);
+      return pid !== currentUserId;
+    });
     return other?.name || 'Direct Chat';
   };
 

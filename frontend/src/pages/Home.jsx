@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import ListingCard from '../components/ListingCard';
+import { useSocket } from '../context/SocketContext';
 import api from '../services/api';
 import { formatCurrency } from '../utils/currency';
 
@@ -45,6 +46,7 @@ const Home = () => {
   const [shares, setShares] = useState([]);
   const [sharesLoading, setSharesLoading] = useState(true);
   const [shareError, setShareError] = useState('');
+  const { socket } = useSocket();
 
   const loadListings = async () => {
     setListingsLoading(true);
@@ -65,12 +67,34 @@ const Home = () => {
     setShareError('');
     try {
       const { data } = await api.get('/shares');
-      setShares(data);
+      
+      // Filter out cab shares with expired deadline or full seats
+      const filteredShares = data.filter(share => {
+        if (share.shareType === 'cab') {
+          // Check if booking deadline has passed
+          const isDeadlinePassed = share.bookingDeadline 
+            ? new Date() > new Date(share.bookingDeadline) 
+            : false;
+          
+          // Check if all seats are booked
+          const isFullyBooked = share.maxPassengers 
+            ? share.members.length >= share.maxPassengers
+            : false;
+          
+          // Exclude if deadline passed or fully booked
+          if (isDeadlinePassed || isFullyBooked) {
+            return false;
+          }
+        }
+        return true;
+      });
+      
+      setShares(filteredShares);
     } catch (err) {
       if (err.response?.status === 401) {
-        setShareError('Login to view bill shares.');
+        setShareError('Login to view shares.');
       } else {
-        setShareError('Unable to load bill shares right now.');
+        setShareError('Unable to load shares right now.');
       }
       setShares([]);
     } finally {
@@ -83,12 +107,27 @@ const Home = () => {
     loadShares();
   }, []);
 
+  useEffect(() => {
+    if (!socket) return;
+
+    const handleAuctionCancelled = (payload) => {
+      const listingId = payload.listingId;
+      setListings((prev) => prev.filter((listing) => listing._id !== listingId));
+    };
+
+    socket.on('auction:cancelled', handleAuctionCancelled);
+
+    return () => {
+      socket.off('auction:cancelled', handleAuctionCancelled);
+    };
+  }, [socket]);
+
   return (
     <main className="mx-auto max-w-6xl px-4 py-10 text-slate-100">
       <div className="flex flex-col gap-8 text-center">
         <div>
           <p className="text-sm uppercase tracking-[0.2em] text-brand-secondary">UniConnect</p>
-          <h1 className="mt-1 text-4xl font-semibold text-white">Marketplace + Bill Share hub</h1>
+          <h1 className="mt-1 text-4xl font-semibold text-white">Marketplace + Sharing hub</h1>
           <p className="mt-2 text-base text-slate-400">Everything classmates are selling and splitting, side by side.</p>
         </div>
       </div>
@@ -122,7 +161,7 @@ const Home = () => {
         <div className="rounded-3xl border border-slate-800/80 bg-slate-950/70 p-6 shadow-2xl shadow-black/40">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div>
-              <p className="text-xs uppercase tracking-wide text-emerald-400">Bill share</p>
+              <p className="text-xs uppercase tracking-wide text-emerald-400">Sharing</p>
               <h2 className="text-2xl font-semibold text-white">Active Splits</h2>
               <p className="text-sm text-slate-400">Every expense classmates are splitting right now.</p>
             </div>
@@ -132,13 +171,13 @@ const Home = () => {
           </div>
           <div className="mt-6 space-y-4">
             {sharesLoading ? (
-              <p className="text-center text-sm text-slate-400">Loading bill shares…</p>
+              <p className="text-center text-sm text-slate-400">Loading shares…</p>
             ) : shareError ? (
               <p className="text-center text-sm text-slate-500">{shareError}</p>
             ) : shares.length ? (
               shares.map((share) => <SharePreview key={share._id} share={share} />)
             ) : (
-              <p className="text-center text-sm text-slate-500">No bill shares created yet.</p>
+              <p className="text-center text-sm text-slate-500">No shares created yet.</p>
             )}
           </div>
         </div>

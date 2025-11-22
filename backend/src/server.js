@@ -3,6 +3,7 @@ const { Server } = require('socket.io');
 const app = require('./app');
 const { initSocket } = require('./services/socketService');
 const { connectDb } = require('./config/db');
+const { startCleanupService } = require('./services/cleanupService');
 
 const PORT = process.env.PORT || 5000;
 const server = http.createServer(app);
@@ -30,6 +31,9 @@ connectDb()
   .then(() => {
     server.listen(PORT, () => {
       console.log(`UniConnect backend running on port ${PORT}`);
+      
+      // Start cleanup service for expired cab sharing trips
+      startCleanupService();
     });
   })
   .catch((err) => {

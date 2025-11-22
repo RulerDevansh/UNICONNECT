@@ -4,7 +4,8 @@ const Offer = require('../models/Offer');
 
 /**
  * @route POST /api/transactions
- * @body { listing, offer }
+ * @body { listing, offer, transactionType }
+ * @description Create a buy request or offer-based transaction
  */
 const createTransaction = async (req, res, next) => {
   try {
@@ -13,17 +14,39 @@ const createTransaction = async (req, res, next) => {
     if (listing.seller.toString() === req.user.id) {
       return res.status(403).json({ message: 'Seller cannot buy own listing' });
     }
+    if (listing.status !== 'active') {
+      return res.status(400).json({ message: 'Listing is not available for purchase' });
+    }
+
+    // Check if there's already a pending transaction for this buyer and listing
+    const existingTransaction = await Transaction.findOne({
+      listing: listing._id,
+      buyer: req.user.id,
+      status: { $in: ['pending', 'approved', 'payment_received'] },
+    });
+    if (existingTransaction) {
+      return res.status(400).json({ message: 'You already have a pending request for this listing' });
+    }
+
     const offer = req.body.offer ? await Offer.findById(req.body.offer) : null;
     if (offer && offer.listing.toString() !== listing._id.toString()) {
       return res.status(422).json({ message: 'Offer does not belong to listing' });
     }
+
     const transaction = await Transaction.create({
       listing: listing._id,
       buyer: req.user.id,
       seller: listing.seller,
       amount: offer?.amount || listing.price,
       offer: offer?._id,
+      transactionType: req.body.transactionType || 'buy_request',
+      status: 'pending',
+      paymentStatus: 'not_paid',
     });
+
+    await transaction.populate('buyer', 'name email');
+    await transaction.populate('listing', 'title price images');
+
     res.status(201).json(transaction);
   } catch (err) {
     next(err);
@@ -32,17 +55,94 @@ const createTransaction = async (req, res, next) => {
 
 /**
  * @route PUT /api/transactions/:id
- * @body { status }
+ * @body { status, paymentStatus }
+ * @description Update transaction status (approve, reject, mark payment received, complete)
  */
 const updateTransactionStatus = async (req, res, next) => {
   try {
-    const transaction = await Transaction.findById(req.params.id);
-    if (!transaction) return res.status(404).json({ message: 'Not found' });
-    if (![transaction.seller.toString(), transaction.buyer.toString()].includes(req.user.id)) {
+    const transaction = await Transaction.findById(req.params.id).populate('listing');
+    if (!transaction) return res.status(404).json({ message: 'Transaction not found' });
+    
+    const { status, paymentStatus } = req.body;
+    const isSeller = transaction.seller.toString() === req.user.id;
+    const isBuyer = transaction.buyer.toString() === req.user.id;
+
+    if (!isSeller && !isBuyer) {
       return res.status(403).json({ message: 'Forbidden' });
     }
-    transaction.status = req.body.status;
+
+    // Seller approves or rejects the buy request
+    if (status === 'approved' && isSeller && transaction.status === 'pending') {
+      transaction.status = 'approved';
+    } else if (status === 'rejected' && isSeller && (transaction.status === 'pending' || transaction.status === 'approved')) {
+      transaction.status = 'rejected';
+    }
+    // Buyer withdraws/cancels the request
+    else if (status === 'withdrawn' && isBuyer && (transaction.status === 'pending' || transaction.status === 'approved')) {
+      transaction.status = 'withdrawn';
+    }
+    // Buyer marks payment as sent
+    else if (status === 'payment_sent' && isBuyer && transaction.status === 'approved') {
+      transaction.status = 'payment_sent';
+    }
+    // Seller confirms payment received
+    else if (status === 'payment_received' && isSeller && transaction.status === 'payment_sent') {
+      transaction.status = 'payment_received';
+      transaction.paymentStatus = 'paid';
+      
+      // Hide the listing from marketplace
+      const listing = await Listing.findById(transaction.listing._id);
+      if (listing) {
+        listing.status = 'sold';
+        await listing.save();
+      }
+      
+      // Cancel all other pending/approved/payment_sent transactions for the same listing
+      const otherTransactions = await Transaction.find({
+        listing: transaction.listing._id,
+        _id: { $ne: transaction._id },
+        status: { $in: ['pending', 'approved', 'payment_sent'] }
+      });
+
+      for (const otherTx of otherTransactions) {
+        const hadPaid = otherTx.status === 'payment_sent';
+        otherTx.status = 'cancelled';
+        otherTx.cancellationReason = 'Product sold to another buyer';
+        // If the other buyer had already sent payment, mark it for refund
+        if (hadPaid) {
+          otherTx.paymentStatus = 'refunded';
+        }
+        await otherTx.save();
+      }
+    }
+    // Seller marks as completed (product delivered)
+    else if (status === 'completed' && isSeller && transaction.status === 'payment_received') {
+      transaction.status = 'completed';
+      
+      // Store listing snapshot and delete the listing
+      const listing = await Listing.findById(transaction.listing._id);
+      if (listing) {
+        // Save listing details in transaction for history
+        transaction.listingSnapshot = {
+          title: listing.title,
+          price: listing.price,
+          images: listing.images,
+          category: listing.category,
+          description: listing.description,
+        };
+        
+        // Delete the listing from database
+        await Listing.findByIdAndDelete(transaction.listing._id);
+      }
+    } else {
+      return res.status(400).json({ message: 'Invalid status transition' });
+    }
+
     await transaction.save();
+    await transaction.populate('buyer', 'name email');
+    await transaction.populate('seller', 'name email');
+    await transaction.populate('listing', 'title price images');
+
     res.json(transaction);
   } catch (err) {
     next(err);
@@ -65,4 +165,46 @@ const listTransactions = async (req, res, next) => {
   }
 };
 
-module.exports = { createTransaction, updateTransactionStatus, listTransactions };
+/**
+ * @route GET /api/transactions/requests
+ * @description Get all buy requests for seller's listings (all statuses)
+ */
+const getPendingRequests = async (req, res, next) => {
+  try {
+    const requests = await Transaction.find({
+      seller: req.user.id,
+    })
+      .populate('buyer', 'name email')
+      .populate('listing', 'title price images')
+      .sort('-createdAt');
+    res.json(requests);
+  } catch (err) {
+    next(err);
+  }
+};
+
+/**
+ * @route GET /api/transactions/my-requests
+ * @description Get buyer's own buy requests
+ */
+const getMyRequests = async (req, res, next) => {
+  try {
+    const requests = await Transaction.find({
+      buyer: req.user.id,
+    })
+      .populate('seller', 'name email')
+      .populate('listing', 'title price images')
+      .sort('-createdAt');
+    res.json(requests);
+  } catch (err) {
+    next(err);
+  }
+};
+
+module.exports = { 
+  createTransaction, 
+  updateTransactionStatus, 
+  listTransactions,
+  getPendingRequests,
+  getMyRequests,
+};

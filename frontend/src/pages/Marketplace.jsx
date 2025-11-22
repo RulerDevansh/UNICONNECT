@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import ListingCard from '../components/ListingCard';
 import CategorySelect from '../components/CategorySelect';
+import { useSocket } from '../context/SocketContext';
 import api from '../services/api';
 
 const Marketplace = () => {
@@ -8,6 +9,7 @@ const Marketplace = () => {
   const [filters, setFilters] = useState({ q: '', category: '' });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const { socket } = useSocket();
 
   const loadListings = async () => {
     setLoading(true);
@@ -26,6 +28,21 @@ const Marketplace = () => {
     loadListings();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  useEffect(() => {
+    if (!socket) return;
+
+    const handleAuctionCancelled = (payload) => {
+      const listingId = payload.listingId;
+      setListings((prev) => prev.filter((listing) => listing._id !== listingId));
+    };
+
+    socket.on('auction:cancelled', handleAuctionCancelled);
+
+    return () => {
+      socket.off('auction:cancelled', handleAuctionCancelled);
+    };
+  }, [socket]);
 
   const handleSearch = (e) => {
     e.preventDefault();

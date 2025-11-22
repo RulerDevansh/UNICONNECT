@@ -9,8 +9,28 @@ const transactionSchema = new mongoose.Schema(
     amount: { type: Number, required: true },
     status: {
       type: String,
-      enum: ['pending', 'accepted', 'completed', 'disputed'],
+      enum: ['pending', 'approved', 'payment_sent', 'payment_received', 'completed', 'rejected', 'withdrawn', 'cancelled', 'disputed'],
       default: 'pending',
+    },
+    transactionType: {
+      type: String,
+      enum: ['buy_request', 'offer_based'],
+      default: 'buy_request',
+    },
+    paymentStatus: {
+      type: String,
+      enum: ['not_paid', 'paid', 'refunded'],
+      default: 'not_paid',
+    },
+    cancellationReason: {
+      type: String,
+    },
+    listingSnapshot: {
+      title: String,
+      price: Number,
+      images: [{ url: String, publicId: String }],
+      category: String,
+      description: String,
     },
   },
   { timestamps: true }
