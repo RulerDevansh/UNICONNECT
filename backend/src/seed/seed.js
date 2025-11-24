@@ -44,11 +44,10 @@ const run = async () => {
       price: 50,
       category: 'ticket',
       condition: 'like-new',
-      listingType: 'auction',
+      listingType: 'buy-now',
       tags: ['music', 'concert'],
       seller: user._id,
       collegeDomain: 'college.edu',
-      auction: { isAuction: true, startBid: 20 },
     },
   ]);
 

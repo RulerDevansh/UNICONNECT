@@ -7,6 +7,7 @@ const {
   requestJoin,
   cancelRequest,
   approveMember,
+  rejectMember,
   finalizeShare,
   updateShare,
   deleteShare,
@@ -19,6 +20,7 @@ router.post('/', createShare);
 router.post('/:id/join', requestJoin);
 router.post('/:id/cancel', cancelRequest);
 router.post('/:id/approve', approveMember);
+router.post('/:id/reject', rejectMember);
 router.post('/:id/finalize', finalizeShare);
 router.put('/:id', updateShare);
 router.delete('/:id', deleteShare);

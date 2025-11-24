@@ -25,15 +25,42 @@ const BillShare = () => {
   const availableShares = shares.filter(share => {
     const hostId = typeof share.host === 'object' ? share.host._id : share.host;
     
-    // Check if booking deadline has passed for cab sharing
-    const isDeadlinePassed = share.shareType === 'cab' && share.bookingDeadline 
-      ? new Date() > new Date(share.bookingDeadline) 
-      : false;
+    // Check deadlines based on share type
+    let isDeadlinePassed = false;
+    let isFullyBooked = false;
+    const joinedMembersCount = share.members?.filter(m => m.status === 'joined').length || 0;
     
-    // Check if all seats are booked for cab sharing
-    const isFullyBooked = share.shareType === 'cab' && share.maxPassengers 
-      ? share.members.length >= share.maxPassengers
-      : false;
+    if (share.shareType === 'cab') {
+      // Check if booking deadline has passed for cab sharing
+      isDeadlinePassed = share.bookingDeadline 
+        ? new Date() > new Date(share.bookingDeadline) 
+        : false;
+      
+      // Check if all seats are booked for cab sharing
+      isFullyBooked = share.maxPassengers 
+        ? joinedMembersCount >= share.maxPassengers
+        : false;
+    } else if (share.shareType === 'food') {
+      // Check if order deadline has passed for food sharing
+      isDeadlinePassed = share.deadlineTime 
+        ? new Date() > new Date(share.deadlineTime) 
+        : false;
+      
+      // Check if max persons reached for food sharing
+      isFullyBooked = share.maxPersons 
+        ? joinedMembersCount >= share.maxPersons
+        : false;
+    } else if (share.shareType === 'other') {
+      // Check if deadline has passed for other sharing
+      isDeadlinePassed = share.otherDeadline 
+        ? new Date() > new Date(share.otherDeadline) 
+        : false;
+      
+      // Check if max persons reached for other sharing
+      isFullyBooked = share.otherMaxPersons 
+        ? joinedMembersCount >= share.otherMaxPersons
+        : false;
+    }
     
     return hostId !== userId && 
       !share.members.some(m => {
@@ -44,15 +71,15 @@ const BillShare = () => {
         const reqId = typeof r === 'object' ? r._id : r;
         return reqId === userId;
       }) &&
-      !isDeadlinePassed && // Exclude shares with expired booking deadline
-      !isFullyBooked; // Exclude shares with all seats booked
+      !isDeadlinePassed && // Exclude shares with expired deadline
+      !isFullyBooked; // Exclude shares that are fully booked
   });
 
   const myRequestsShares = shares.filter(share => {
     const hostId = typeof share.host === 'object' ? share.host._id : share.host;
     const isNotHost = hostId !== userId;
     
-    // Include shares where user has pending request OR is a member (approved or cancelled)
+    // Include shares where user has pending request OR is a member (approved or cancelled) OR has rejected request
     const hasPendingRequest = share.pendingRequests.some(r => {
       const reqId = typeof r === 'object' ? r._id : r;
       return reqId === userId;
@@ -63,13 +90,31 @@ const BillShare = () => {
       return memberId === userId;
     });
     
-    // For cab sharing, hide after departure time passes (including cancelled bookings)
+    // Check if user has a rejected request
+    const hasRejectedRequest = share.rejectedRequests?.some(r => {
+      const rejectedUserId = typeof r.user === 'object' ? r.user._id : r.user;
+      return rejectedUserId === userId;
+    });
+    
+    // For cab sharing, hide after departure time passes (including cancelled bookings and rejected requests)
     if (share.shareType === 'cab' && share.departureTime) {
       const hasDeparted = new Date() > new Date(share.departureTime);
       if (hasDeparted) return false;
     }
     
-    return isNotHost && (hasPendingRequest || isMember);
+    // For food sharing, hide after deadline time passes (including cancelled orders and rejected requests)
+    if (share.shareType === 'food' && share.deadlineTime) {
+      const isPastDeadline = new Date() > new Date(share.deadlineTime);
+      if (isPastDeadline) return false;
+    }
+    
+    // For other sharing, hide after deadline time passes
+    if (share.shareType === 'other' && share.otherDeadline) {
+      const isPastDeadline = new Date() > new Date(share.otherDeadline);
+      if (isPastDeadline) return false;
+    }
+    
+    return isNotHost && (hasPendingRequest || isMember || hasRejectedRequest);
   });
 
   const receivedRequestsShares = shares.filter(share => {
@@ -84,6 +129,18 @@ const BillShare = () => {
     if (share.shareType === 'cab' && share.departureTime) {
       const hasDeparted = new Date() > new Date(share.departureTime);
       if (hasDeparted) return false;
+    }
+    
+    // For food sharing, only show if deadline time hasn't passed
+    if (share.shareType === 'food' && share.deadlineTime) {
+      const isPastDeadline = new Date() > new Date(share.deadlineTime);
+      if (isPastDeadline) return false;
+    }
+    
+    // For other sharing, only show if deadline time hasn't passed
+    if (share.shareType === 'other' && share.otherDeadline) {
+      const isPastDeadline = new Date() > new Date(share.otherDeadline);
+      if (isPastDeadline) return false;
     }
     
     return hasPendingRequests || hasApprovedMembers;
@@ -129,6 +186,17 @@ const BillShare = () => {
       setSuccessMessage('Member approved');
     } catch (err) {
       setJoinError(err.response?.data?.message || 'Failed to approve member');
+    }
+  };
+
+  const rejectRequest = async (shareId, userId) => {
+    setSuccessMessage('');
+    try {
+      await api.post(`/shares/${shareId}/reject`, { userId });
+      loadShares();
+      setSuccessMessage('Request rejected');
+    } catch (err) {
+      setJoinError(err.response?.data?.message || 'Failed to reject request');
     }
   };
 
@@ -197,6 +265,7 @@ const BillShare = () => {
                   onJoin={requestJoin}
                   onCancel={cancelRequest}
                   onApprove={approveRequest}
+                  onReject={rejectRequest}
                   joiningId={joiningId}
                   cancellingId={cancellingId}
                   currentUserId={user?.id || user?._id}
@@ -217,6 +286,7 @@ const BillShare = () => {
                   onJoin={requestJoin}
                   onCancel={cancelRequest}
                   onApprove={approveRequest}
+                  onReject={rejectRequest}
                   joiningId={joiningId}
                   cancellingId={cancellingId}
                   currentUserId={user?.id || user?._id}
@@ -237,6 +307,7 @@ const BillShare = () => {
                   onJoin={requestJoin}
                   onCancel={cancelRequest}
                   onApprove={approveRequest}
+                  onReject={rejectRequest}
                   cancellingId={cancellingId}
                   joiningId={joiningId}
                   currentUserId={user?.id || user?._id}

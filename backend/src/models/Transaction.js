@@ -14,7 +14,7 @@ const transactionSchema = new mongoose.Schema(
     },
     transactionType: {
       type: String,
-      enum: ['buy_request', 'offer_based'],
+      enum: ['buy_request', 'offer_based', 'auction'],
       default: 'buy_request',
     },
     paymentStatus: {

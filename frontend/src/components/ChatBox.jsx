@@ -19,7 +19,9 @@ const ChatBox = ({ chat, messages, onSend, typingUsers, onTyping, currentUserId 
   }
 
   const otherParticipants = chat.participants?.filter((participant) => participant._id !== currentUserId);
-  const title = chat.isGroup ? chat.name || 'Group Chat' : otherParticipants?.[0]?.name || 'Direct Chat';
+  const title = chat.isGroup 
+    ? (chat.shareRef?.name || chat.name || 'Group Chat') 
+    : (otherParticipants?.[0]?.name || 'Direct Chat');
 
   const handleSubmit = (e) => {
     e.preventDefault();

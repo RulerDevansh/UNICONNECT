@@ -22,7 +22,7 @@ const createOffer = async (req, res, next) => {
       listing: listing._id,
       buyer: req.user.id,
       amount: req.body.amount,
-      type: listing.listingType === 'auction' ? 'bid' : 'offer',
+      type: 'offer',
       notes: req.body.notes,
     });
 

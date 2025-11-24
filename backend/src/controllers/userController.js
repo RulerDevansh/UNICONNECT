@@ -99,11 +99,11 @@ const getUserHistory = async (req, res, next) => {
     const buyingHistoryMerged = buyingHistory.map(mergeListing);
     const sellingHistoryMerged = sellingHistory.map(mergeListing);
 
-    // Get cab sharing history
-    // Only show completed trips (where departure time has passed)
+    // Get sharing history
+    // Only show completed trips/orders (where departure/deadline time has passed)
     const now = new Date();
 
-    // Get trips where user was host (may be deleted by cleanup service)
+    // Get cab trips where user was host (may be deleted by cleanup service)
     const cabSharingAsHost = await Share.find({ 
       host: userId,
       shareType: 'cab',
@@ -113,7 +113,7 @@ const getUserHistory = async (req, res, next) => {
       .sort('-departureTime')
       .limit(25);
 
-    // Get trips where user was member
+    // Get cab trips where user was member
     const cabSharingAsMember = await Share.find({ 
       'members.user': userId,
       shareType: 'cab',
@@ -124,12 +124,62 @@ const getUserHistory = async (req, res, next) => {
       .sort('-departureTime')
       .limit(25);
 
+    // Get food orders where user was host (may be deleted by cleanup service)
+    const foodSharingAsHost = await Share.find({ 
+      host: userId,
+      shareType: 'food',
+      deadlineTime: { $lt: now }
+    })
+      .populate('members.user', 'name email')
+      .sort('-deadlineTime')
+      .limit(25);
+
+    // Get food orders where user was member
+    const foodSharingAsMember = await Share.find({ 
+      'members.user': userId,
+      shareType: 'food',
+      deadlineTime: { $lt: now }
+    })
+      .populate('host', 'name email')
+      .populate('members.user', 'name email')
+      .sort('-deadlineTime')
+      .limit(25);
+
+    // Get other shares where user was host (may be deleted by cleanup service)
+    const otherSharingAsHost = await Share.find({ 
+      host: userId,
+      shareType: 'other',
+      otherDeadline: { $lt: now }
+    })
+      .populate('members.user', 'name email')
+      .sort('-otherDeadline')
+      .limit(25);
+
+    // Get other shares where user was member
+    const otherSharingAsMember = await Share.find({ 
+      'members.user': userId,
+      shareType: 'other',
+      otherDeadline: { $lt: now }
+    })
+      .populate('host', 'name email')
+      .populate('members.user', 'name email')
+      .sort('-otherDeadline')
+      .limit(25);
+
     res.json({
       buyingHistory: buyingHistoryMerged,
       sellingHistory: sellingHistoryMerged,
       cabSharing: {
         asHost: cabSharingAsHost,
         asMember: cabSharingAsMember,
+      },
+      foodSharing: {
+        asHost: foodSharingAsHost,
+        asMember: foodSharingAsMember,
+      },
+      otherSharing: {
+        asHost: otherSharingAsHost,
+        asMember: otherSharingAsMember,
       },
     });
   } catch (err) {

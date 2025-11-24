@@ -72,23 +72,6 @@ const ListingDetail = () => {
     fetchRecommendations();
   }, [id, user]);
 
-  useEffect(() => {
-    if (!socket || !listing?.listingType === 'auction') return;
-    
-    const handleAuctionCancelled = (payload) => {
-      if (payload.listingId === id) {
-        alert('This auction has been cancelled due to no bids. The listing has been removed.');
-        navigate('/marketplace');
-      }
-    };
-
-    socket.on('auction:cancelled', handleAuctionCancelled);
-
-    return () => {
-      socket.off('auction:cancelled', handleAuctionCancelled);
-    };
-  }, [socket, listing, id, navigate]);
-
   if (!listing) {
     return <p className="p-8 text-center text-slate-500">Loading listing…</p>;
   }
@@ -135,7 +118,7 @@ const ListingDetail = () => {
                 </button>
               </div>
             )}
-            {canChat && listing.listingType !== 'buy-now' && (
+            {canChat && listing.listingType === 'offer' && listing.status !== 'sold' && (
               <div className="mt-6 flex flex-wrap gap-3">
                 <button
                   type="button"
@@ -153,9 +136,13 @@ const ListingDetail = () => {
                 </button>
               </div>
             )}
-            {listing.listingType === 'auction' && <AuctionRoom listing={listing} />}
           </div>
         </div>
+
+        {listing.listingType === 'auction' && listing.auction?.isAuction && (
+          <AuctionRoom listing={listing} />
+        )}
+
         {user && listing.seller?._id === user.id && (
           <section className="mt-10 rounded-2xl border border-slate-800 bg-slate-950/40 p-5">
             <h2 className="text-xl font-semibold text-white">Seller Controls</h2>

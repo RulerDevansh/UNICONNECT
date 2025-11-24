@@ -4,6 +4,23 @@ import { useAuth } from '../context/AuthContext';
 import useChatLauncher from '../hooks/useChatLauncher';
 import { formatCurrency } from '../utils/currency';
 import api from '../services/api';
+import { useEffect, useState } from 'react';
+
+const formatTimeRemaining = (endTime) => {
+  const now = new Date();
+  const end = new Date(endTime);
+  const diff = end - now;
+
+  if (diff <= 0) return 'Ended';
+
+  const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+  const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+  const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+
+  if (days > 0) return `${days}d ${hours}h ${minutes}m`;
+  if (hours > 0) return `${hours}h ${minutes}m`;
+  return `${minutes}m`;
+};
 
 const ListingCard = ({ listing }) => {
   const { user } = useAuth();
@@ -12,6 +29,20 @@ const ListingCard = ({ listing }) => {
   const status = listing.status || 'active';
   const isOwnListing = sellerId && sellerId === user?.id;
   const showBuyCta = listing.listingType === 'buy-now' && !isOwnListing && sellerId && status === 'active';
+  const [timeRemaining, setTimeRemaining] = useState('');
+  const isAuction = listing.listingType === 'auction';
+
+  useEffect(() => {
+    if (isAuction && listing.auction?.endTime) {
+      const timer = setInterval(() => {
+        setTimeRemaining(formatTimeRemaining(listing.auction.endTime));
+      }, 60000); // Update every minute
+
+      setTimeRemaining(formatTimeRemaining(listing.auction.endTime));
+
+      return () => clearInterval(timer);
+    }
+  }, [isAuction, listing.auction?.endTime]);
 
   const handleBuyNow = async () => {
     try {
@@ -56,6 +87,7 @@ const ListingCard = ({ listing }) => {
           </span>
         ))}
       </div>
+      
       <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
         <span
           className={classNames('rounded-full px-3 py-0.5 text-xs font-semibold uppercase tracking-wide', {
@@ -66,6 +98,12 @@ const ListingCard = ({ listing }) => {
         >
           {listing.listingType}
         </span>
+        {isAuction && listing.auction?.endTime && (
+          <div className="flex items-center gap-2 rounded-lg bg-purple-500/10 px-2 py-1">
+            <span className="text-xs text-purple-300">⏱</span>
+            <span className="text-xs font-semibold text-purple-200">{timeRemaining}</span>
+          </div>
+        )}
         <div className="flex items-center gap-2">
           {status !== 'active' && (
             <span className="rounded-full bg-white/10 px-3 py-1 text-xs font-semibold text-white">

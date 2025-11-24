@@ -1,6 +1,8 @@
 const Transaction = require('../models/Transaction');
 const Listing = require('../models/Listing');
 const Offer = require('../models/Offer');
+const Chat = require('../models/Chat');
+const Message = require('../models/Message');
 
 /**
  * @route POST /api/transactions
@@ -130,6 +132,15 @@ const updateTransactionStatus = async (req, res, next) => {
           category: listing.category,
           description: listing.description,
         };
+        
+        // Delete chats associated with this listing
+        const chats = await Chat.find({ listingRef: transaction.listing._id });
+        for (const chat of chats) {
+          // Delete all messages in the chat
+          await Message.deleteMany({ chat: chat._id });
+          // Delete the chat itself
+          await Chat.findByIdAndDelete(chat._id);
+        }
         
         // Delete the listing from database
         await Listing.findByIdAndDelete(transaction.listing._id);

@@ -25,6 +25,30 @@ const listingSchema = new mongoose.Schema(
       enum: ['buy-now', 'offer', 'auction'],
       default: 'buy-now',
     },
+    auction: {
+      isAuction: { type: Boolean, default: false },
+      startBid: { type: Number, min: 0 },
+      endTime: { type: Date },
+      currentBid: {
+        amount: { type: Number, default: 0 },
+        bidder: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+        timestamp: { type: Date },
+      },
+      bidders: [
+        {
+          user: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+          amount: { type: Number },
+          timestamp: { type: Date, default: Date.now },
+        },
+      ],
+      highestBidPerUser: { type: Map, of: Number },
+      winner: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+      status: {
+        type: String,
+        enum: ['active', 'ended', 'cancelled'],
+        default: 'active',
+      },
+    },
     tags: [{ type: String }],
     images: [imageSchema],
     seller: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
@@ -33,19 +57,6 @@ const listingSchema = new mongoose.Schema(
       type: String,
       enum: ['draft', 'active', 'flagged', 'sold', 'archived'],
       default: 'active',
-    },
-    auction: {
-      isAuction: { type: Boolean, default: false },
-      startBid: Number,
-      currentBid: { amount: Number, bidder: { type: mongoose.Schema.Types.ObjectId, ref: 'User' } },
-      endTime: Date,
-      bidders: [
-        {
-          bidder: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
-          amount: Number,
-          createdAt: Date,
-        },
-      ],
     },
     moderation: {
       flagged: { type: Boolean, default: false },

@@ -16,6 +16,7 @@ import UserHistory from './pages/UserHistory';
 import BuyRequests from './pages/BuyRequests';
 import MyBuyRequests from './pages/MyBuyRequests';
 import Profile from './pages/Profile';
+import Notifications from './pages/Notifications';
 import ProtectedRoute from './components/ProtectedRoute';
 
 const DefaultLayout = () => (
@@ -45,6 +46,7 @@ const App = () => {
           <Route path="/buy-requests" element={<BuyRequests />} />
           <Route path="/my-requests" element={<MyBuyRequests />} />
           <Route path="/profile" element={<Profile />} />
+          <Route path="/notifications" element={<Notifications />} />
         </Route>
         <Route element={<ProtectedRoute roles={["admin"]} />}>
           <Route path="/admin" element={<AdminDashboard />} />

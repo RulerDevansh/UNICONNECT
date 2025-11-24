@@ -14,7 +14,7 @@ if (!fs.existsSync(TEMP_DIR)) fs.mkdirSync(TEMP_DIR);
 
 const buildQuery = (query) => {
   const filters = validateListingFilters(query);
-  const mongoQuery = { status: { $ne: 'archived' } };
+  const mongoQuery = { status: { $nin: ['archived', 'sold'] } };
   if (filters.collegeDomain) mongoQuery.collegeDomain = filters.collegeDomain;
   if (filters.category) mongoQuery.category = filters.category;
   if (filters.condition) mongoQuery.condition = filters.condition;
@@ -33,7 +33,11 @@ const buildQuery = (query) => {
  */
 const listMyListings = async (req, res, next) => {
   try {
-    const listings = await Listing.find({ seller: req.user.id }).sort('-createdAt');
+    // Exclude sold and archived listings from My Listings view
+    const listings = await Listing.find({ 
+      seller: req.user.id,
+      status: { $nin: ['sold', 'archived'] }
+    }).sort('-createdAt');
     res.json(listings);
   } catch (err) {
     next(err);
@@ -60,6 +64,7 @@ const listListings = async (req, res, next) => {
       .skip((page - 1) * limit)
       .limit(limit);
     const total = await Listing.countDocuments(mongoQuery);
+    
     res.json({ data: listings, page, pages: Math.ceil(total / limit), total });
   } catch (err) {
     next(err);
@@ -72,8 +77,10 @@ const listListings = async (req, res, next) => {
  */
 const getListing = async (req, res, next) => {
   try {
-    const listing = await Listing.findById(req.params.id).populate('seller', 'name email');
+    const listing = await Listing.findById(req.params.id)
+      .populate('seller', 'name email');
     if (!listing) return res.status(404).json({ message: 'Listing not found' });
+    
     res.json(listing);
   } catch (err) {
     next(err);
@@ -82,16 +89,11 @@ const getListing = async (req, res, next) => {
 
 /**
  * @route POST /api/listings
- * @body {title, description, price, category, listingType, auction, tags[]}
+ * @body {title, description, price, category, listingType, tags[]}
  * @returns {Listing}
  */
 const createListing = async (req, res, next) => {
   try {
-    if (req.body.listingType === 'auction') {
-      if (!req.body.auction?.startBid || !req.body.auction?.endTime) {
-        return res.status(422).json({ message: 'Auction requires startBid and endTime' });
-      }
-    }
 
     const normalizedTags = Array.isArray(req.body.tags)
       ? req.body.tags
@@ -99,18 +101,32 @@ const createListing = async (req, res, next) => {
         ? req.body.tags.split(',').map((tag) => tag.trim()).filter(Boolean)
         : [];
 
-    const auctionData = req.body.listingType === 'auction' && req.body.auction
-      ? { ...req.body.auction, isAuction: true, bidders: [] }
-      : {};
-
-    const listing = await Listing.create({
+    const listingData = {
       ...req.body,
       seller: req.user.id,
       collegeDomain: req.user.collegeDomain,
       tags: normalizedTags,
       listingType: req.body.listingType || 'buy-now',
-      auction: auctionData,
-    });
+    };
+
+    // Handle auction data
+    if (req.body.listingType === 'auction' && req.body.auction) {
+      listingData.auction = {
+        isAuction: true,
+        startBid: Number(req.body.auction.startBid),
+        endTime: new Date(req.body.auction.endTime),
+        status: 'active',
+        bidders: [],
+        highestBidPerUser: new Map(),
+      };
+
+      // Validate auction dates
+      if (listingData.auction.endTime <= new Date()) {
+        return res.status(422).json({ message: 'Auction end time must be in the future' });
+      }
+    }
+
+    const listing = await Listing.create(listingData);
 
     const moderation = await callModeration({
       text: `${listing.title} ${listing.description}`,
@@ -144,12 +160,6 @@ const updateListing = async (req, res, next) => {
         : updates.tags.split(',').map((tag) => tag.trim()).filter(Boolean);
     }
     Object.assign(listing, updates);
-    if (listing.listingType === 'auction') {
-      if (!listing.auction?.startBid || !listing.auction?.endTime) {
-        return res.status(422).json({ message: 'Auction requires startBid and endTime' });
-      }
-      listing.auction.isAuction = true;
-    }
     listing.moderation = await callModeration({
       text: `${listing.title} ${listing.description}`,
       metadata: { listingId: listing._id },

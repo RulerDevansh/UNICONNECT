@@ -9,7 +9,8 @@ const listChats = async (req, res, next) => {
   try {
     const chats = await Chat.find({ participants: req.user.id })
       .sort({ lastMessageAt: -1, updatedAt: -1 })
-      .populate('participants', 'name email role avatar');
+      .populate('participants', 'name email role avatar')
+      .populate('shareRef', 'name shareType');
     res.json(chats);
   } catch (err) {
     next(err);

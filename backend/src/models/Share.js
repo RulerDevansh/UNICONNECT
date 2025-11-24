@@ -7,6 +7,12 @@ const memberSchema = new mongoose.Schema({
   status: { type: String, enum: ['pending', 'joined', 'cancelled'], default: 'pending' },
 });
 
+const rejectedRequestSchema = new mongoose.Schema({
+  user: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
+  reason: { type: String, default: 'Trip fully occupied' },
+  rejectedAt: { type: Date, default: Date.now },
+});
+
 const shareSchema = new mongoose.Schema(
   {
     name: { type: String, required: true },
@@ -32,9 +38,9 @@ const shareSchema = new mongoose.Schema(
     // Food sharing fields
     foodItems: String,
     quantity: Number,
-    discount: Number,
-    cuisineType: String,
-    deliveryTime: Date,
+    minPersons: Number,
+    maxPersons: Number,
+    deadlineTime: Date,
     
     // Product sharing fields
     productName: String,
@@ -44,10 +50,17 @@ const shareSchema = new mongoose.Schema(
     
     // Other sharing fields
     category: String,
+    otherMinPersons: Number,
+    otherMaxPersons: Number,
+    otherDeadline: Date,
     
     members: [memberSchema],
     pendingRequests: {
       type: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
+      default: [],
+    },
+    rejectedRequests: {
+      type: [rejectedRequestSchema],
       default: [],
     },
     status: { type: String, enum: ['open', 'closed'], default: 'open' },

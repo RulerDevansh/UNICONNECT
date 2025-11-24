@@ -1,7 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import ListingCard from '../components/ListingCard';
-import { useSocket } from '../context/SocketContext';
 import api from '../services/api';
 
 const MyListings = () => {
@@ -12,7 +11,6 @@ const MyListings = () => {
   const location = useLocation();
   const [toast, setToast] = useState('');
   const [pendingDelete, setPendingDelete] = useState(null);
-  const { socket } = useSocket();
 
   const load = async () => {
     const { data } = await api.get('/listings/me');
@@ -30,21 +28,6 @@ const MyListings = () => {
     }
   }, [location.state, location.pathname, navigate]);
 
-  useEffect(() => {
-    if (!socket) return;
-
-    const handleAuctionCancelled = (payload) => {
-      const listingId = payload.listingId;
-      setListings((prev) => prev.filter((listing) => listing._id !== listingId));
-      setToast('Auction expired with no bids and has been automatically removed.');
-    };
-
-    socket.on('auction:cancelled', handleAuctionCancelled);
-
-    return () => {
-      socket.off('auction:cancelled', handleAuctionCancelled);
-    };
-  }, [socket]);
   const deleteListing = async () => {
     if (!pendingDelete) return;
     setUpdatingId(pendingDelete._id);

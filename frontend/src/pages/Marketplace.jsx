@@ -29,21 +29,6 @@ const Marketplace = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  useEffect(() => {
-    if (!socket) return;
-
-    const handleAuctionCancelled = (payload) => {
-      const listingId = payload.listingId;
-      setListings((prev) => prev.filter((listing) => listing._id !== listingId));
-    };
-
-    socket.on('auction:cancelled', handleAuctionCancelled);
-
-    return () => {
-      socket.off('auction:cancelled', handleAuctionCancelled);
-    };
-  }, [socket]);
-
   const handleSearch = (e) => {
     e.preventDefault();
     loadListings();

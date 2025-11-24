@@ -2,10 +2,12 @@ const jwt = require('jsonwebtoken');
 const Chat = require('../models/Chat');
 const Message = require('../models/Message');
 const Listing = require('../models/Listing');
+const Notification = require('../models/Notification');
 
-const auctions = new Map(); // In production store in Redis or DB for durability.
+let ioInstance = null;
 
 const initSocket = (io) => {
+  ioInstance = io;
   io.use((socket, next) => {
     try {
       const token = socket.handshake.auth?.token;
@@ -64,128 +66,112 @@ const initSocket = (io) => {
       io.to(`share:${shareId}`).emit('share:message', message);
     });
 
-    socket.on('auction:join', (listingId) => {
+    // Auction handlers
+    socket.on('auction:join', async ({ listingId }) => {
       socket.join(`auction:${listingId}`);
-    });
+      
+      try {
+        const listing = await Listing.findById(listingId)
+          .populate('seller', 'name email')
+          .populate('auction.currentBid.bidder', 'name email')
+          .populate('auction.bidders.user', 'name email');
+        
+        if (!listing || !listing.auction?.isAuction) return;
 
-    socket.on('auction:start', async ({ listingId, startBid, endTime }) => {
-      const listing = await Listing.findById(listingId);
-      if (!listing || listing.seller.toString() !== socket.user.id) return;
-      listing.auction = {
-        isAuction: true,
-        startBid,
-        endTime,
-        currentBid: { amount: startBid },
-        bidders: [],
-      };
-      await listing.save();
-      auctions.set(listingId, { amount: startBid });
-      io.to(`auction:${listingId}`).emit('auction:started', {
-        listingId,
-        startBid,
-        endTime,
-      });
+        socket.emit('auction:update', {
+          currentBid: listing.auction.currentBid?.amount || 0,
+          bidder: listing.auction.currentBid?.bidder,
+          allBids: listing.auction.bidders || [],
+        });
+      } catch (err) {
+        console.error('auction:join error:', err);
+      }
     });
 
     socket.on('auction:bid', async ({ listingId, amount }) => {
-      const listing = await Listing.findById(listingId);
-      if (!listing?.auction?.isAuction) return;
-      
-      // Get current highest bid from memory or DB
-      const currentHighest = auctions.get(listingId)?.amount 
-        || listing.auction.currentBid?.amount 
-        || listing.auction.startBid;
+      try {
+        const listing = await Listing.findById(listingId)
+          .populate('seller', 'name email')
+          .populate('auction.bidders.user', 'name email');
+        
+        if (!listing || !listing.auction?.isAuction) {
+          socket.emit('auction:error', { message: 'Auction not found or inactive' });
+          return;
+        }
 
-      if (amount <= currentHighest) {
-        socket.emit('auction:rejected', { reason: 'Bid too low' });
-        return;
+        // Check if auction has ended
+        if (new Date() > new Date(listing.auction.endTime)) {
+          socket.emit('auction:error', { message: 'Auction has ended' });
+          return;
+        }
+
+        // Seller cannot bid
+        if (listing.seller._id.toString() === socket.user.id) {
+          socket.emit('auction:error', { message: 'Seller cannot bid on their own auction' });
+          return;
+        }
+
+        // Validate bid amount
+        const currentHighest = listing.auction.currentBid?.amount || 0;
+        const minBid = currentHighest > 0 ? currentHighest + 1 : listing.auction.startBid;
+        
+        if (amount < minBid) {
+          socket.emit('auction:error', { message: `Bid must be at least ₹${minBid}` });
+          return;
+        }
+
+        // Add bid
+        listing.auction.bidders.push({
+          user: socket.user.id,
+          amount,
+          timestamp: new Date(),
+        });
+
+        // Update current bid
+        listing.auction.currentBid = {
+          amount,
+          bidder: socket.user.id,
+          timestamp: new Date(),
+        };
+
+        // Update highestBidPerUser Map
+        if (!listing.auction.highestBidPerUser) {
+          listing.auction.highestBidPerUser = new Map();
+        }
+        const currentUserHighest = listing.auction.highestBidPerUser.get(socket.user.id) || 0;
+        if (amount > currentUserHighest) {
+          listing.auction.highestBidPerUser.set(socket.user.id, amount);
+        }
+
+        await listing.save();
+
+        // Populate bidders for response
+        await listing.populate('auction.bidders.user', 'name email');
+        await listing.populate('auction.currentBid.bidder', 'name email');
+
+        // Notify all users in auction room
+        io.to(`auction:${listingId}`).emit('auction:update', {
+          currentBid: amount,
+          bidder: listing.auction.currentBid.bidder,
+          allBids: listing.auction.bidders,
+        });
+
+        // Notify seller
+        await Notification.create({
+          user: listing.seller._id,
+          type: 'auction_bid',
+          message: `New bid of ₹${amount} placed on your auction: ${listing.title}`,
+          link: `/listings/${listing._id}`,
+        });
+
+      } catch (err) {
+        console.error('auction:bid error:', err);
+        socket.emit('auction:error', { message: 'Failed to place bid' });
       }
-      
-      const bid = { amount, bidder: socket.user.id, createdAt: new Date() };
-      auctions.set(listingId, bid);
-      
-      listing.auction.currentBid = { amount, bidder: socket.user.id };
-      listing.auction.bidders.push(bid);
-      await listing.save();
-      
-      // Populate bidder info for frontend display
-      const populatedListing = await listing.populate('auction.currentBid.bidder', 'name email');
-      const bidderInfo = populatedListing.auction.currentBid.bidder;
-
-      io.to(`auction:${listingId}`).emit('auction:bid', { ...bid, bidderName: bidderInfo?.name });
-    });
-
-    socket.on('auction:end', async ({ listingId }) => {
-      const listing = await Listing.findById(listingId);
-      if (!listing || listing.seller.toString() !== socket.user.id) return;
-      
-      listing.auction.isAuction = false;
-      await listing.save();
-      
-      const finalBid = listing.auction.currentBid;
-      io.to(`auction:${listingId}`).emit('auction:ended', finalBid);
-      auctions.delete(listingId);
     });
   });
-
-  // Periodic check for expired auctions
-  setInterval(async () => {
-    try {
-      const now = new Date();
-      const expiredListings = await Listing.find({
-        $or: [
-          { 'auction.isAuction': true },
-          { listingType: 'auction', status: 'active' }
-        ],
-        'auction.endTime': { $lte: now }
-      }).populate('auction.currentBid.bidder');
-
-      console.log(`[Auction Cleanup] Checking ${expiredListings.length} expired auctions at ${now.toISOString()}`);
-
-      for (const listing of expiredListings) {
-        // Check if auction has any bids (excluding the initial startBid placeholder)
-        const hasBids = listing.auction.bidders && listing.auction.bidders.length > 0;
-        
-        console.log(`[Auction ${listing._id}] EndTime: ${listing.auction.endTime}, HasBids: ${hasBids}, Bidders: ${listing.auction.bidders?.length || 0}`);
-        
-        if (!hasBids) {
-          // No bids received - delete the listing from database
-          await Listing.findByIdAndDelete(listing._id);
-          
-          io.to(`auction:${listing._id}`).emit('auction:cancelled', {
-            listingId: listing._id.toString(),
-            reason: 'No bids received'
-          });
-          
-          auctions.delete(listing._id.toString());
-          console.log(`[Auction ${listing._id}] ✅ DELETED - no bids received`);
-        } else {
-          // Has bids - mark auction as ended
-          listing.auction.isAuction = false;
-          await listing.save();
-
-          const winner = listing.auction.currentBid?.bidder;
-          const finalAmount = listing.auction.currentBid?.amount;
-
-          io.to(`auction:${listing._id}`).emit('auction:ended', {
-            amount: finalAmount,
-            winner: winner?._id,
-            winnerName: winner?.name
-          });
-
-          // Notify the winner specifically if they are connected
-          // We can't easily find their socket without a user->socket map, 
-          // but the room emission covers the active UI.
-          // Ideally, we would create a notification in the DB here.
-          
-          auctions.delete(listing._id.toString());
-          console.log(`Auction ${listing._id} ended. Winner: ${winner?.name}`);
-        }
-      }
-    } catch (err) {
-      console.error('Error checking expired auctions:', err);
-    }
-  }, 60000); // Check every minute
 };
 
-module.exports = { initSocket, auctions };
+const getIO = () => ioInstance;
+
+module.exports = { initSocket, getIO };

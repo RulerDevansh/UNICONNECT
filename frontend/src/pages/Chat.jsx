@@ -65,16 +65,40 @@ const Chat = () => {
 
   const loadChats = useCallback(async () => {
     const { data } = await api.get('/chats');
-    setChats(data);
-    if (!data.length) {
+    
+    // Filter out chats for expired shares (past deadline/departure time)
+    const now = new Date();
+    const activeChats = data.filter(chat => {
+      if (!chat.shareRef) return true;
+      
+      // For cab sharing, check departure time
+      if (chat.shareRef.shareType === 'cab' && chat.shareRef.departureTime) {
+        return new Date(chat.shareRef.departureTime) > now;
+      }
+      
+      // For food sharing, check deadline time
+      if (chat.shareRef.shareType === 'food' && chat.shareRef.deadlineTime) {
+        return new Date(chat.shareRef.deadlineTime) > now;
+      }
+      
+      // For other sharing, check other deadline
+      if (chat.shareRef.shareType === 'other' && chat.shareRef.otherDeadline) {
+        return new Date(chat.shareRef.otherDeadline) > now;
+      }
+      
+      return true;
+    });
+    
+    setChats(activeChats);
+    if (!activeChats.length) {
       setActiveId(null);
       setMessages([]);
       updateChatParam(null);
       return;
     }
     const current = preferredChatId || activeIdRef.current;
-    const exists = current && data.find((chat) => chat._id === current);
-    const fallbackId = exists ? current : data[0]._id;
+    const exists = current && activeChats.find((chat) => chat._id === current);
+    const fallbackId = exists ? current : activeChats[0]._id;
     if (fallbackId) {
       setActiveId(fallbackId);
       loadMessages(fallbackId);
@@ -161,7 +185,13 @@ const Chat = () => {
   };
 
   const getChatLabel = (chat) => {
-    if (chat.isGroup) return chat.name || 'Group';
+    if (chat.isGroup) {
+      // Use trip name from shareRef if available
+      if (chat.shareRef?.name) {
+        return chat.shareRef.name;
+      }
+      return chat.name || 'Group';
+    }
     const currentUserId = String(user?.id || user?._id || '');
     const other = chat.participants?.find((participant) => {
       const pid = typeof participant._id === 'object' ? participant._id.toString() : String(participant._id || participant);

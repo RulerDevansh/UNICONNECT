@@ -6,22 +6,166 @@ import api from '../services/api';
 import { formatCurrency } from '../utils/currency';
 
 const SharePreview = ({ share }) => {
-  const members = share.members || [];
+  // Filter out cancelled members
+  const members = share.members?.filter(m => m.status !== 'cancelled') || [];
   const visibleMembers = members.slice(0, 3);
   const remainingMembers = Math.max(members.length - visibleMembers.length, 0);
   const hostName = share.host?.name || 'Host';
   const totalAmount = formatCurrency(share.totalAmount);
   const status = share.status || 'open';
   const statusBadgeClasses = status === 'open' ? 'bg-emerald-500/15 text-emerald-300' : 'bg-slate-800 text-slate-300';
+  
+  // Calculate occupancy for cab sharing
+  const joinedMembersCount = share.members?.filter(m => m.status === 'joined').length || 0;
+  const remainingSeats = share.maxPassengers ? share.maxPassengers - joinedMembersCount : null;
+
+  // Get sharing type details
+  const getShareTypeInfo = () => {
+    switch(share.shareType) {
+      case 'cab':
+        return { label: '🚗 Cab', color: 'bg-blue-500/20 text-blue-300' };
+      case 'food':
+        return { label: '🍔 Food', color: 'bg-orange-500/20 text-orange-300' };
+      case 'other':
+        return { label: '📋 Other', color: 'bg-purple-500/20 text-purple-300' };
+      default:
+        return { label: '📋 Split', color: 'bg-slate-500/20 text-slate-300' };
+    }
+  };
+
+  const shareTypeInfo = getShareTypeInfo();
 
   return (
     <div className="rounded-2xl border border-slate-800/70 bg-slate-950/60 p-4 shadow shadow-black/30">
-      <div className="flex items-center justify-between text-xs uppercase tracking-wide text-slate-400">
-        <span>{share.splitType} split</span>
+      <div className="flex items-center justify-between gap-2 text-xs">
+        <div className="flex items-center gap-2 flex-wrap">
+          <span className={`rounded-full px-2.5 py-0.5 text-[11px] font-semibold ${shareTypeInfo.color}`}>
+            {shareTypeInfo.label}
+          </span>
+          <span className="uppercase tracking-wide text-slate-400">{share.splitType} split</span>
+        </div>
         <span className={`rounded-full px-3 py-0.5 text-[11px] font-semibold ${statusBadgeClasses}`}>{status}</span>
       </div>
       <h3 className="mt-2 text-lg font-semibold text-white">{share.name}</h3>
       {share.description && <p className="text-sm text-slate-400">{share.description}</p>}
+      
+      {/* Cab Sharing Details */}
+      {share.shareType === 'cab' && (
+        <div className="mt-3 space-y-1.5 rounded-lg border border-slate-800 bg-slate-950/50 p-2.5 text-xs">
+          {share.fromCity && share.toCity && (
+            <div className="flex items-center gap-1.5 text-slate-300">
+              <span className="font-medium text-white">📍</span>
+              <span>{share.fromCity} → {share.toCity}</span>
+            </div>
+          )}
+          {share.departureTime && (
+            <div className="flex items-center gap-1.5 text-slate-300">
+              <span className="font-medium text-white">🕒</span>
+              <span>{new Date(share.departureTime).toLocaleString()}</span>
+            </div>
+          )}
+          {share.bookingDeadline && (
+            <div className="flex items-center gap-1.5 text-slate-300">
+              <span className="font-medium text-white">⏰</span>
+              <span>Deadline: {new Date(share.bookingDeadline).toLocaleDateString()}</span>
+            </div>
+          )}
+          {share.maxPassengers && (
+            <div className="flex items-center gap-3">
+              <div className="flex items-center gap-1.5 text-slate-300">
+                <span className="font-medium text-white">👥</span>
+                <span>Occupancy: {joinedMembersCount}/{share.maxPassengers}</span>
+              </div>
+              {remainingSeats > 0 && (
+                <span className="rounded-full bg-emerald-500/20 px-2 py-0.5 text-[10px] font-semibold text-emerald-300">
+                  {remainingSeats} seat{remainingSeats !== 1 ? 's' : ''} left
+                </span>
+              )}
+            </div>
+          )}
+        </div>
+      )}
+      
+      {/* Food Sharing Details */}
+      {share.shareType === 'food' && (
+        <div className="mt-3 space-y-1.5 rounded-lg border border-slate-800 bg-slate-950/50 p-2.5 text-xs">
+          {share.foodItems && (
+            <div className="flex items-center gap-1.5 text-slate-300">
+              <span className="font-medium text-white">🍽️</span>
+              <span>{share.foodItems}</span>
+            </div>
+          )}
+          {share.deadlineTime && (
+            <div className="flex items-center gap-1.5 text-slate-300">
+              <span className="font-medium text-white">⏰</span>
+              <span>Deadline: {new Date(share.deadlineTime).toLocaleString()}</span>
+            </div>
+          )}
+          {share.maxPersons && (
+            <div className="flex items-center gap-3">
+              <div className="flex items-center gap-1.5 text-slate-300">
+                <span className="font-medium text-white">👥</span>
+                <span>Participants: {joinedMembersCount}/{share.maxPersons}</span>
+              </div>
+              {(share.maxPersons - joinedMembersCount) > 0 && (
+                <span className="rounded-full bg-emerald-500/20 px-2 py-0.5 text-[10px] font-semibold text-emerald-300">
+                  {share.maxPersons - joinedMembersCount} spot{(share.maxPersons - joinedMembersCount) !== 1 ? 's' : ''} left
+                </span>
+              )}
+            </div>
+          )}
+          {share.minPersons && (
+            <div className="flex items-center gap-1.5 text-slate-300">
+              <span className="font-medium text-white">🔢</span>
+              <span className={joinedMembersCount < share.minPersons ? 'text-orange-400 font-semibold' : ''}>
+                Min Required: {share.minPersons}
+                {joinedMembersCount < share.minPersons && ' ⚠️'}
+              </span>
+            </div>
+          )}
+        </div>
+      )}
+      
+      {/* Other Sharing Details */}
+      {share.shareType === 'other' && (
+        <div className="mt-3 space-y-1.5 rounded-lg border border-slate-800 bg-slate-950/50 p-2.5 text-xs">
+          {share.category && (
+            <div className="flex items-center gap-1.5 text-slate-300">
+              <span className="font-medium text-white">📋</span>
+              <span className="rounded-full bg-purple-500/20 px-2 py-0.5 text-[10px] font-semibold text-purple-300">{share.category}</span>
+            </div>
+          )}
+          {share.otherDeadline && (
+            <div className="flex items-center gap-1.5 text-slate-300">
+              <span className="font-medium text-white">⏰</span>
+              <span>Deadline: {new Date(share.otherDeadline).toLocaleString()}</span>
+            </div>
+          )}
+          {share.otherMaxPersons && (
+            <div className="flex items-center gap-3">
+              <div className="flex items-center gap-1.5 text-slate-300">
+                <span className="font-medium text-white">👥</span>
+                <span>Participants: {joinedMembersCount}/{share.otherMaxPersons}</span>
+              </div>
+              {(share.otherMaxPersons - joinedMembersCount) > 0 && (
+                <span className="rounded-full bg-emerald-500/20 px-2 py-0.5 text-[10px] font-semibold text-emerald-300">
+                  {share.otherMaxPersons - joinedMembersCount} spot{(share.otherMaxPersons - joinedMembersCount) !== 1 ? 's' : ''} left
+                </span>
+              )}
+            </div>
+          )}
+          {share.otherMinPersons && (
+            <div className="flex items-center gap-1.5 text-slate-300">
+              <span className="font-medium text-white">🔢</span>
+              <span className={joinedMembersCount < share.otherMinPersons ? 'text-orange-400 font-semibold' : ''}>
+                Min Required: {share.otherMinPersons}
+                {joinedMembersCount < share.otherMinPersons && ' ⚠️'}
+              </span>
+            </div>
+          )}
+        </div>
+      )}
+      
       <p className="mt-3 text-sm text-slate-300">
         Total <span className="font-semibold text-white">{totalAmount}</span>
       </p>
@@ -68,7 +212,7 @@ const Home = () => {
     try {
       const { data } = await api.get('/shares');
       
-      // Filter out cab shares with expired deadline or full seats
+      // Filter out cab shares with expired deadline or full seats, and food shares with expired deadline
       const filteredShares = data.filter(share => {
         if (share.shareType === 'cab') {
           // Check if booking deadline has passed
@@ -77,8 +221,9 @@ const Home = () => {
             : false;
           
           // Check if all seats are booked
+          const joinedMembersCount = share.members?.filter(m => m.status === 'joined').length || 0;
           const isFullyBooked = share.maxPassengers 
-            ? share.members.length >= share.maxPassengers
+            ? joinedMembersCount >= share.maxPassengers
             : false;
           
           // Exclude if deadline passed or fully booked
@@ -86,6 +231,43 @@ const Home = () => {
             return false;
           }
         }
+        
+        if (share.shareType === 'food') {
+          // Check if order deadline has passed
+          const isDeadlinePassed = share.deadlineTime 
+            ? new Date() > new Date(share.deadlineTime) 
+            : false;
+          
+          // Check if max persons reached
+          const joinedMembersCount = share.members?.filter(m => m.status === 'joined').length || 0;
+          const isFullyBooked = share.maxPersons 
+            ? joinedMembersCount >= share.maxPersons
+            : false;
+          
+          // Exclude if deadline passed or fully booked
+          if (isDeadlinePassed || isFullyBooked) {
+            return false;
+          }
+        }
+        
+        if (share.shareType === 'other') {
+          // Check if deadline has passed
+          const isDeadlinePassed = share.otherDeadline 
+            ? new Date() > new Date(share.otherDeadline) 
+            : false;
+          
+          // Check if max persons reached
+          const joinedMembersCount = share.members?.filter(m => m.status === 'joined').length || 0;
+          const isFullyBooked = share.otherMaxPersons 
+            ? joinedMembersCount >= share.otherMaxPersons
+            : false;
+          
+          // Exclude if deadline passed or fully booked
+          if (isDeadlinePassed || isFullyBooked) {
+            return false;
+          }
+        }
+        
         return true;
       });
       
@@ -106,21 +288,6 @@ const Home = () => {
     loadListings();
     loadShares();
   }, []);
-
-  useEffect(() => {
-    if (!socket) return;
-
-    const handleAuctionCancelled = (payload) => {
-      const listingId = payload.listingId;
-      setListings((prev) => prev.filter((listing) => listing._id !== listingId));
-    };
-
-    socket.on('auction:cancelled', handleAuctionCancelled);
-
-    return () => {
-      socket.off('auction:cancelled', handleAuctionCancelled);
-    };
-  }, [socket]);
 
   return (
     <main className="mx-auto max-w-6xl px-4 py-10 text-slate-100">

@@ -19,16 +19,14 @@ const defaultForm = {
   // Food sharing
   foodItems: '',
   quantity: 1,
-  discount: 0,
-  cuisineType: '',
-  deliveryTime: '',
-  // Product sharing
-  productName: '',
-  productCategory: '',
-  bulkQuantity: 1,
-  pricePerUnit: 0,
+  minPersons: 2,
+  maxPersons: 10,
+  deadlineTime: '',
   // Other sharing
   category: '',
+  otherMinPersons: 2,
+  otherMaxPersons: 10,
+  otherDeadline: '',
   // Common fields
   totalAmount: 0,
   splitType: 'equal',
@@ -56,10 +54,34 @@ const MySharing = () => {
         const hostId = typeof share.host === 'object' ? share.host._id : share.host;
         const isHost = hostId === userId;
         
-        // For cab sharing, exclude trips where departure time has passed
-        if (isHost && share.shareType === 'cab' && share.departureTime) {
-          const hasDeparted = new Date(share.departureTime) < now;
-          if (hasDeparted) return false;
+        // Keep all host shares including completed/cancelled ones
+        // Only exclude if status is closed or cancelled AND deadline has passed by more than 24 hours
+        if (isHost && (share.status === 'closed' || share.status === 'cancelled')) {
+          const deadlineTime = share.shareType === 'cab' ? share.departureTime : 
+                               share.shareType === 'food' ? share.deadlineTime : 
+                               share.otherDeadline;
+          if (deadlineTime) {
+            const timeSinceDeadline = now - new Date(deadlineTime);
+            const hoursSinceDeadline = timeSinceDeadline / (1000 * 60 * 60);
+            // Keep showing for 24 hours after completion/cancellation
+            if (hoursSinceDeadline > 24) return false;
+          }
+        }
+        
+        // For open shares, exclude if deadline has passed (auto-cleanup)
+        if (isHost && share.status === 'open') {
+          if (share.shareType === 'cab' && share.departureTime) {
+            const hasDeparted = new Date(share.departureTime) < now;
+            if (hasDeparted) return false;
+          }
+          if (share.shareType === 'food' && share.deadlineTime) {
+            const isPastDeadline = new Date(share.deadlineTime) < now;
+            if (isPastDeadline) return false;
+          }
+          if (share.shareType === 'other' && share.otherDeadline) {
+            const isPastDeadline = new Date(share.otherDeadline) < now;
+            if (isPastDeadline) return false;
+          }
         }
         
         return isHost;
@@ -104,6 +126,42 @@ const MySharing = () => {
     }
   };
 
+  const rejectRequest = async (shareId, userId) => {
+    setSuccessMessage('');
+    try {
+      await api.post(`/shares/${shareId}/reject`, { userId });
+      loadMyShares();
+      setSuccessMessage('Request rejected');
+      setTimeout(() => setSuccessMessage(''), 3000);
+    } catch (err) {
+      setError(err.response?.data?.message || 'Failed to reject');
+    }
+  };
+
+  const handleFinalize = async (shareId) => {
+    setSuccessMessage('');
+    setError('');
+    try {
+      await api.post(`/shares/${shareId}/finalize`);
+      loadMyShares();
+      setSuccessMessage('Share completed successfully');
+      setTimeout(() => setSuccessMessage(''), 3000);
+    } catch (err) {
+      setError(err.response?.data?.message || 'Failed to complete share');
+      setTimeout(() => setError(''), 5000);
+    }
+  };
+
+  // Helper function to convert UTC date to local datetime-local format
+  const toLocalDatetimeString = (dateString) => {
+    if (!dateString) return '';
+    const date = new Date(dateString);
+    // Get local time offset
+    const offset = date.getTimezoneOffset() * 60000; // offset in milliseconds
+    const localDate = new Date(date.getTime() - offset);
+    return localDate.toISOString().slice(0, 16);
+  };
+
   const handleUpdate = (shareId) => {
     const shareToUpdate = myShares.find(s => s._id === shareId);
     if (shareToUpdate) {
@@ -115,17 +173,17 @@ const MySharing = () => {
         // Cab sharing
         fromCity: shareToUpdate.fromCity || '',
         toCity: shareToUpdate.toCity || '',
-        departureTime: shareToUpdate.departureTime ? new Date(shareToUpdate.departureTime).toISOString().slice(0, 16) : '',
-        arrivalTime: shareToUpdate.arrivalTime ? new Date(shareToUpdate.arrivalTime).toISOString().slice(0, 16) : '',
-        bookingDeadline: shareToUpdate.bookingDeadline ? new Date(shareToUpdate.bookingDeadline).toISOString().slice(0, 16) : '',
+        departureTime: toLocalDatetimeString(shareToUpdate.departureTime),
+        arrivalTime: toLocalDatetimeString(shareToUpdate.arrivalTime),
+        bookingDeadline: toLocalDatetimeString(shareToUpdate.bookingDeadline),
         maxPassengers: shareToUpdate.maxPassengers || 4,
         vehicleType: shareToUpdate.vehicleType || '',
         // Food sharing
         foodItems: shareToUpdate.foodItems || '',
         quantity: shareToUpdate.quantity || 1,
-        discount: shareToUpdate.discount || 0,
-        cuisineType: shareToUpdate.cuisineType || '',
-        deliveryTime: shareToUpdate.deliveryTime ? new Date(shareToUpdate.deliveryTime).toISOString().slice(0, 16) : '',
+        minPersons: shareToUpdate.minPersons || 2,
+        maxPersons: shareToUpdate.maxPersons || 10,
+        deadlineTime: toLocalDatetimeString(shareToUpdate.deadlineTime),
         // Product sharing
         productName: shareToUpdate.productName || '',
         productCategory: shareToUpdate.productCategory || '',
@@ -133,6 +191,9 @@ const MySharing = () => {
         pricePerUnit: shareToUpdate.pricePerUnit || 0,
         // Other sharing
         category: shareToUpdate.category || '',
+        otherMinPersons: shareToUpdate.otherMinPersons || 2,
+        otherMaxPersons: shareToUpdate.otherMaxPersons || 10,
+        otherDeadline: toLocalDatetimeString(shareToUpdate.otherDeadline),
         // Common fields
         totalAmount: shareToUpdate.totalAmount || 0,
         splitType: shareToUpdate.splitType || 'equal',
@@ -186,8 +247,8 @@ const MySharing = () => {
         </button>
       </div>
 
-      {error && <p className="mb-4 rounded border border-red-500/30 bg-red-500/10 px-3 py-2 text-sm text-red-300">{error}</p>}
-      {successMessage && <p className="mb-4 rounded border border-emerald-500/30 bg-emerald-500/10 px-3 py-2 text-sm text-emerald-300">{successMessage}</p>}
+      {error && <p className="relative z-[9999] mb-4 rounded border border-red-500/30 bg-red-500/10 px-3 py-2 text-sm text-red-300">{error}</p>}
+      {successMessage && <p className="relative z-[9999] mb-4 rounded border border-emerald-500/30 bg-emerald-500/10 px-3 py-2 text-sm text-emerald-300">{successMessage}</p>}
 
       {/* Create Share Modal */}
       {showCreateForm && (
@@ -215,7 +276,6 @@ const MySharing = () => {
               >
                 <option value="cab">Cab Sharing</option>
                 <option value="food">Food Sharing</option>
-                <option value="product">Product Sharing</option>
                 <option value="other">Other Sharing</option>
               </select>
             </div>
@@ -320,7 +380,7 @@ const MySharing = () => {
                   className="w-full rounded border border-slate-700 bg-slate-950/60 px-3 py-2 text-slate-100 placeholder:text-slate-500"
                   required
                 />
-                <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-3 gap-3">
                   <div>
                     <label className="mb-1 block text-xs text-slate-400">Quantity</label>
                     <input
@@ -333,29 +393,34 @@ const MySharing = () => {
                     />
                   </div>
                   <div>
-                    <label className="mb-1 block text-xs text-slate-400">Discount (%)</label>
+                    <label className="mb-1 block text-xs text-slate-400">Min Persons</label>
                     <input
                       type="number"
-                      min="0"
-                      max="100"
-                      value={form.discount}
-                      onChange={(e) => setForm((prev) => ({ ...prev, discount: Number(e.target.value) }))}
+                      min="2"
+                      value={form.minPersons}
+                      onChange={(e) => setForm((prev) => ({ ...prev, minPersons: Number(e.target.value) }))}
                       className="w-full rounded border border-slate-700 bg-slate-950/60 px-3 py-2 text-slate-100"
+                      required
+                    />
+                  </div>
+                  <div>
+                    <label className="mb-1 block text-xs text-slate-400">Max Persons</label>
+                    <input
+                      type="number"
+                      min={form.minPersons || 2}
+                      value={form.maxPersons}
+                      onChange={(e) => setForm((prev) => ({ ...prev, maxPersons: Number(e.target.value) }))}
+                      className="w-full rounded border border-slate-700 bg-slate-950/60 px-3 py-2 text-slate-100"
+                      required
                     />
                   </div>
                 </div>
-                <input
-                  placeholder="Cuisine Type"
-                  value={form.cuisineType}
-                  onChange={(e) => setForm((prev) => ({ ...prev, cuisineType: e.target.value }))}
-                  className="w-full rounded border border-slate-700 bg-slate-950/60 px-3 py-2 text-slate-100 placeholder:text-slate-500"
-                />
                 <div>
                   <label className="mb-1 block text-xs text-slate-400">Delivery Time</label>
                   <input
                     type="datetime-local"
-                    value={form.deliveryTime}
-                    onChange={(e) => setForm((prev) => ({ ...prev, deliveryTime: e.target.value }))}
+                    value={form.deadlineTime}
+                    onChange={(e) => setForm((prev) => ({ ...prev, deadlineTime: e.target.value }))}
                     className="w-full rounded border border-slate-700 bg-slate-950/60 px-3 py-2 text-slate-100"
                   />
                 </div>
@@ -408,12 +473,59 @@ const MySharing = () => {
 
             {/* Other Sharing Fields */}
             {form.shareType === 'other' && (
-              <input
-                placeholder="Category"
-                value={form.category}
-                onChange={(e) => setForm((prev) => ({ ...prev, category: e.target.value }))}
-                className="w-full rounded border border-slate-700 bg-slate-950/60 px-3 py-2 text-slate-100 placeholder:text-slate-500"
-              />
+              <>
+                <div>
+                  <label className="mb-1 block text-xs text-slate-400">Category</label>
+                  <select
+                    value={form.category}
+                    onChange={(e) => setForm((prev) => ({ ...prev, category: e.target.value }))}
+                    className="w-full rounded border border-slate-700 bg-slate-950/60 px-3 py-2 text-slate-100"
+                    required
+                  >
+                    <option value="">Select Category</option>
+                    <option value="Physical">Physical</option>
+                    <option value="Digital">Digital</option>
+                    <option value="Ticket">Ticket</option>
+                    <option value="Merch">Merch</option>
+                  </select>
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="mb-1 block text-xs text-slate-400">Min Persons</label>
+                    <input
+                      type="number"
+                      min="2"
+                      max="50"
+                      value={form.otherMinPersons}
+                      onChange={(e) => setForm((prev) => ({ ...prev, otherMinPersons: Number(e.target.value) }))}
+                      className="w-full rounded border border-slate-700 bg-slate-950/60 px-3 py-2 text-slate-100"
+                      required
+                    />
+                  </div>
+                  <div>
+                    <label className="mb-1 block text-xs text-slate-400">Max Persons</label>
+                    <input
+                      type="number"
+                      min="2"
+                      max="50"
+                      value={form.otherMaxPersons}
+                      onChange={(e) => setForm((prev) => ({ ...prev, otherMaxPersons: Number(e.target.value) }))}
+                      className="w-full rounded border border-slate-700 bg-slate-950/60 px-3 py-2 text-slate-100"
+                      required
+                    />
+                  </div>
+                </div>
+                <div>
+                  <label className="mb-1 block text-xs text-slate-400">Deadline</label>
+                  <input
+                    type="datetime-local"
+                    value={form.otherDeadline}
+                    onChange={(e) => setForm((prev) => ({ ...prev, otherDeadline: e.target.value }))}
+                    className="w-full rounded border border-slate-700 bg-slate-950/60 px-3 py-2 text-slate-100"
+                    required
+                  />
+                </div>
+              </>
             )}
 
             <div>
@@ -435,7 +547,6 @@ const MySharing = () => {
             >
               <option value="equal">Equal</option>
               <option value="custom">Custom</option>
-              <option value="percentage">Percentage</option>
             </select>
             {form.splitType === 'custom' && (
               <div>
@@ -490,7 +601,6 @@ const MySharing = () => {
               >
                 <option value="cab">Cab Sharing</option>
                 <option value="food">Food Sharing</option>
-                <option value="product">Product Sharing</option>
                 <option value="other">Other Sharing</option>
               </select>
             </div>
@@ -595,7 +705,7 @@ const MySharing = () => {
                   className="w-full rounded border border-slate-700 bg-slate-950/60 px-3 py-2 text-slate-100 placeholder:text-slate-500"
                   required
                 />
-                <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-3 gap-3">
                   <div>
                     <label className="mb-1 block text-xs text-slate-400">Quantity</label>
                     <input
@@ -608,29 +718,34 @@ const MySharing = () => {
                     />
                   </div>
                   <div>
-                    <label className="mb-1 block text-xs text-slate-400">Discount (%)</label>
+                    <label className="mb-1 block text-xs text-slate-400">Min Persons</label>
                     <input
                       type="number"
-                      min="0"
-                      max="100"
-                      value={form.discount}
-                      onChange={(e) => setForm((prev) => ({ ...prev, discount: Number(e.target.value) }))}
+                      min="2"
+                      value={form.minPersons}
+                      onChange={(e) => setForm((prev) => ({ ...prev, minPersons: Number(e.target.value) }))}
                       className="w-full rounded border border-slate-700 bg-slate-950/60 px-3 py-2 text-slate-100"
+                      required
+                    />
+                  </div>
+                  <div>
+                    <label className="mb-1 block text-xs text-slate-400">Max Persons</label>
+                    <input
+                      type="number"
+                      min={form.minPersons || 2}
+                      value={form.maxPersons}
+                      onChange={(e) => setForm((prev) => ({ ...prev, maxPersons: Number(e.target.value) }))}
+                      className="w-full rounded border border-slate-700 bg-slate-950/60 px-3 py-2 text-slate-100"
+                      required
                     />
                   </div>
                 </div>
-                <input
-                  placeholder="Cuisine Type"
-                  value={form.cuisineType}
-                  onChange={(e) => setForm((prev) => ({ ...prev, cuisineType: e.target.value }))}
-                  className="w-full rounded border border-slate-700 bg-slate-950/60 px-3 py-2 text-slate-100 placeholder:text-slate-500"
-                />
                 <div>
                   <label className="mb-1 block text-xs text-slate-400">Delivery Time</label>
                   <input
                     type="datetime-local"
-                    value={form.deliveryTime}
-                    onChange={(e) => setForm((prev) => ({ ...prev, deliveryTime: e.target.value }))}
+                    value={form.deadlineTime}
+                    onChange={(e) => setForm((prev) => ({ ...prev, deadlineTime: e.target.value }))}
                     className="w-full rounded border border-slate-700 bg-slate-950/60 px-3 py-2 text-slate-100"
                   />
                 </div>
@@ -683,12 +798,59 @@ const MySharing = () => {
 
             {/* Other Sharing Fields */}
             {form.shareType === 'other' && (
-              <input
-                placeholder="Category"
-                value={form.category}
-                onChange={(e) => setForm((prev) => ({ ...prev, category: e.target.value }))}
-                className="w-full rounded border border-slate-700 bg-slate-950/60 px-3 py-2 text-slate-100 placeholder:text-slate-500"
-              />
+              <>
+                <div>
+                  <label className="mb-1 block text-xs text-slate-400">Category</label>
+                  <select
+                    value={form.category}
+                    onChange={(e) => setForm((prev) => ({ ...prev, category: e.target.value }))}
+                    className="w-full rounded border border-slate-700 bg-slate-950/60 px-3 py-2 text-slate-100"
+                    required
+                  >
+                    <option value="">Select Category</option>
+                    <option value="Physical">Physical</option>
+                    <option value="Digital">Digital</option>
+                    <option value="Ticket">Ticket</option>
+                    <option value="Merch">Merch</option>
+                  </select>
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="mb-1 block text-xs text-slate-400">Min Persons</label>
+                    <input
+                      type="number"
+                      min="2"
+                      max="50"
+                      value={form.otherMinPersons}
+                      onChange={(e) => setForm((prev) => ({ ...prev, otherMinPersons: Number(e.target.value) }))}
+                      className="w-full rounded border border-slate-700 bg-slate-950/60 px-3 py-2 text-slate-100"
+                      required
+                    />
+                  </div>
+                  <div>
+                    <label className="mb-1 block text-xs text-slate-400">Max Persons</label>
+                    <input
+                      type="number"
+                      min="2"
+                      max="50"
+                      value={form.otherMaxPersons}
+                      onChange={(e) => setForm((prev) => ({ ...prev, otherMaxPersons: Number(e.target.value) }))}
+                      className="w-full rounded border border-slate-700 bg-slate-950/60 px-3 py-2 text-slate-100"
+                      required
+                    />
+                  </div>
+                </div>
+                <div>
+                  <label className="mb-1 block text-xs text-slate-400">Deadline</label>
+                  <input
+                    type="datetime-local"
+                    value={form.otherDeadline}
+                    onChange={(e) => setForm((prev) => ({ ...prev, otherDeadline: e.target.value }))}
+                    className="w-full rounded border border-slate-700 bg-slate-950/60 px-3 py-2 text-slate-100"
+                    required
+                  />
+                </div>
+              </>
             )}
 
             <div>
@@ -710,7 +872,6 @@ const MySharing = () => {
             >
               <option value="equal">Equal</option>
               <option value="custom">Custom</option>
-              <option value="percentage">Percentage</option>
             </select>
             {form.splitType === 'custom' && (
               <div>
@@ -746,8 +907,10 @@ const MySharing = () => {
               <BillShareCard
                 key={share._id}
                 share={share}
-                onApprove={approveRequest}
-                onUpdate={handleUpdate}
+              onApprove={approveRequest}
+              onReject={rejectRequest}
+              onUpdate={handleUpdate}
+              onFinalize={handleFinalize}
                 onDelete={handleDelete}
                 joiningId={joiningId}
                 currentUserId={user?.id || user?._id}

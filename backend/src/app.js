@@ -16,13 +16,14 @@ const chatRoutes = require('./routes/chatRoutes');
 const reportRoutes = require('./routes/reportRoutes');
 const adminRoutes = require('./routes/adminRoutes');
 const mlProxyRoutes = require('./routes/mlProxyRoutes');
+const notificationRoutes = require('./routes/notificationRoutes');
 const { errorHandler } = require('./middlewares/errorMiddleware');
 const { rateLimiter } = require('./middlewares/rateLimiter');
 const { xssClean } = require('./middlewares/xssMiddleware');
 
 const app = express();
 
-const defaultCorsOrigins = ['http://localhost:5173', 'http://localhost:5174'];
+const defaultCorsOrigins = ['http://localhost:5173', 'http://localhost:5174', 'http://localhost:5175'];
 const envOrigins = process.env.FRONTEND_URL ? process.env.FRONTEND_URL.split(',').map((origin) => origin.trim()) : [];
 const allowedOrigins = [...new Set([...defaultCorsOrigins, ...envOrigins].filter(Boolean))];
 
@@ -61,6 +62,7 @@ app.use('/api/chats', chatRoutes);
 app.use('/api/reports', reportRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/ml', mlProxyRoutes);
+app.use('/api/notifications', notificationRoutes);
 
 app.use(errorHandler);
 

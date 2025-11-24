@@ -9,7 +9,10 @@ const createEmptyForm = () => ({
   condition: 'good',
   listingType: 'buy-now',
   tags: '',
-  auction: { startBid: '', endTime: '' },
+  auction: {
+    startBid: 0,
+    endTime: '',
+  },
 });
 
 const toLocalDateTime = (value) => {
@@ -36,7 +39,7 @@ const mapListingToForm = (listing) => {
     listingType: listing.listingType || 'buy-now',
     tags: Array.isArray(listing.tags) ? listing.tags.join(', ') : listing.tags || '',
     auction: {
-      startBid: listing.auction?.startBid ?? '',
+      startBid: listing.auction?.startBid ?? 0,
       endTime: toLocalDateTime(listing.auction?.endTime) || '',
     },
   };
@@ -93,13 +96,13 @@ const ListingForm = ({ onCreated, onSuccess, initialData, mode = 'create' }) => 
           .map((tag) => tag.trim())
           .filter(Boolean),
       };
+
       if (form.listingType === 'auction') {
         payload.auction = {
+          ...form.auction,
           startBid: Number(form.auction.startBid),
-          endTime: form.auction.endTime,
+          endTime: form.auction.endTime ? new Date(form.auction.endTime).toISOString() : undefined,
         };
-      } else {
-        delete payload.auction;
       }
 
       let response;
@@ -210,33 +213,35 @@ const ListingForm = ({ onCreated, onSuccess, initialData, mode = 'create' }) => 
             className="mt-1 w-full rounded border border-slate-700 bg-slate-950/60 px-3 py-2 text-slate-100"
           >
             <option value="buy-now">Buy Now</option>
+            <option value="offer">Make Offer</option>
             <option value="auction">Auction</option>
           </select>
         </div>
       </div>
       {form.listingType === 'auction' && (
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 rounded border border-purple-500/30 bg-purple-500/10 p-4">
           <div>
-            <label className="text-sm font-medium text-slate-300">Start Bid</label>
+            <label className="text-sm font-medium text-purple-300">Starting Bid (₹)</label>
             <input
               name="startBid"
               type="number"
-              min="1"
+              min="0"
               value={form.auction.startBid}
               onChange={handleAuctionChange}
-              className="mt-1 w-full rounded border border-slate-700 bg-slate-950/60 px-3 py-2 text-slate-100"
-              required
+              className="mt-1 w-full rounded border border-purple-700 bg-purple-950/60 px-3 py-2 text-slate-100"
+              required={form.listingType === 'auction'}
             />
           </div>
           <div>
-            <label className="text-sm font-medium text-slate-300">End Time</label>
+            <label className="text-sm font-medium text-purple-300">Auction End Time</label>
             <input
               name="endTime"
               type="datetime-local"
               value={form.auction.endTime}
               onChange={handleAuctionChange}
-              className="mt-1 w-full rounded border border-slate-700 bg-slate-950/60 px-3 py-2 text-slate-100"
-              required
+              min={new Date(Date.now() + 60 * 60 * 1000).toISOString().slice(0, 16)}
+              className="mt-1 w-full rounded border border-purple-700 bg-purple-950/60 px-3 py-2 text-slate-100"
+              required={form.listingType === 'auction'}
             />
           </div>
         </div>
