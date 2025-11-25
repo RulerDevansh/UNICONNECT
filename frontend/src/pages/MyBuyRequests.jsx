@@ -192,8 +192,11 @@ const MyBuyRequests = () => {
 
                   {request.status === 'completed' && (
                     <div className="mt-3 rounded-lg border border-emerald-500/30 bg-emerald-500/10 p-3">
-                      <p className="text-sm text-emerald-200">
-                        Transaction completed successfully! Check your history for details.
+                      <p className="text-sm font-semibold text-emerald-200">
+                        🎉 Transaction completed successfully!
+                      </p>
+                      <p className="mt-2 text-sm text-emerald-300">
+                        You purchased <span className="font-semibold">{request.listing?.title}</span> for {formatCurrency(request.amount)}
                       </p>
                     </div>
                   )}

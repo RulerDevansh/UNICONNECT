@@ -213,7 +213,6 @@ const ListingForm = ({ onCreated, onSuccess, initialData, mode = 'create' }) => 
             className="mt-1 w-full rounded border border-slate-700 bg-slate-950/60 px-3 py-2 text-slate-100"
           >
             <option value="buy-now">Buy Now</option>
-            <option value="offer">Make Offer</option>
             <option value="auction">Auction</option>
           </select>
         </div>

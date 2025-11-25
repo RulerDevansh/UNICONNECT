@@ -51,6 +51,15 @@ const Notifications = () => {
     }
   };
 
+  const clearAllNotifications = async () => {
+    try {
+      await api.delete('/notifications/clear-all');
+      setNotifications([]);
+    } catch (err) {
+      console.error('Failed to clear all notifications:', err);
+    }
+  };
+
   const getNotificationIcon = (type) => {
     switch (type) {
       case 'minimum_not_met':
@@ -76,14 +85,24 @@ const Notifications = () => {
     <main className="mx-auto max-w-4xl px-4 py-10 text-slate-100">
       <div className="mb-6 flex items-center justify-between">
         <h1 className="text-4xl font-bold text-white">Notifications</h1>
-        {notifications.some(n => !n.read) && (
-          <button
-            onClick={markAllAsRead}
-            className="rounded-full bg-brand-primary px-4 py-2 text-sm font-semibold text-white transition hover:bg-brand-primary/80"
-          >
-            Mark All as Read
-          </button>
-        )}
+        <div className="flex gap-3">
+          {notifications.some(n => !n.read) && (
+            <button
+              onClick={markAllAsRead}
+              className="rounded-full bg-brand-primary px-4 py-2 text-sm font-semibold text-white transition hover:bg-brand-primary/80"
+            >
+              Mark All as Read
+            </button>
+          )}
+          {notifications.length > 0 && (
+            <button
+              onClick={clearAllNotifications}
+              className="rounded-full bg-red-500/20 px-4 py-2 text-sm font-semibold text-red-400 transition hover:bg-red-500/30"
+            >
+              Clear All
+            </button>
+          )}
+        </div>
       </div>
 
       {notifications.length === 0 ? (

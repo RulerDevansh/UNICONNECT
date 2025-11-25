@@ -10,7 +10,7 @@ const notificationSchema = new mongoose.Schema(
     },
     type: {
       type: String,
-      enum: ['order_cancelled', 'request_approved', 'request_rejected', 'share_full', 'minimum_not_met'],
+      enum: ['order_cancelled', 'request_approved', 'request_rejected', 'share_full', 'minimum_not_met', 'new_message'],
       required: true,
     },
     title: {

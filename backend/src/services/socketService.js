@@ -35,9 +35,41 @@ const initSocket = (io) => {
         sender: socket.user.id,
         content,
       });
-      await Chat.findByIdAndUpdate(chatId, { lastMessageAt: new Date() });
+      
+      // Update chat last message time
+      const chat = await Chat.findByIdAndUpdate(
+        chatId, 
+        { lastMessageAt: new Date() },
+        { new: true }
+      ).populate('participants', '_id name');
+      
       await message.populate('sender', 'name email');
       io.to(`chat:${chatId}`).emit('message', message);
+      
+      // Create notification for other participants
+      if (chat && chat.participants) {
+        const recipients = chat.participants
+          .filter(p => p._id.toString() !== socket.user.id)
+          .map(p => p._id);
+        
+        if (recipients.length > 0) {
+          const senderName = message.sender?.name || 'Someone';
+          
+          // Create notification for each recipient
+          for (const recipientId of recipients) {
+            const notification = await Notification.create({
+              user: recipientId,
+              type: 'new_message',
+              title: 'New Message',
+              message: `${senderName} sent you a message`,
+              shareRef: chat.shareRef || null
+            });
+            
+            // Emit notification to recipient
+            io.to(`user:${recipientId}`).emit('notification', notification);
+          }
+        }
+      }
     });
 
     socket.on('message:read', async ({ chatId, messageId }) => {

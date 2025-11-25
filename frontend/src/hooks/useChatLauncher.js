@@ -9,14 +9,17 @@ const useChatLauncher = () => {
   const { user } = useAuth();
 
   return useCallback(
-    async (targetUserId) => {
-      if (!targetUserId) return;
+    async (listingId, targetUserId) => {
+      if (!listingId && !targetUserId) return;
       if (!user) {
         navigate('/login', { state: { from: `${location.pathname}${location.search}` } });
         return;
       }
       try {
-        const { data } = await api.post('/chats', { userId: targetUserId });
+        const payload = {};
+        if (listingId) payload.listingId = listingId;
+        if (targetUserId) payload.userId = targetUserId;
+        const { data } = await api.post('/chats', payload);
         navigate(`/chat?chatId=${data._id}`);
       } catch (err) {
         console.error('Failed to start chat', err);

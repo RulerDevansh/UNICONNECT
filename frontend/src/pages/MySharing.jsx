@@ -247,57 +247,58 @@ const MySharing = () => {
         </button>
       </div>
 
-      {error && <p className="relative z-[9999] mb-4 rounded border border-red-500/30 bg-red-500/10 px-3 py-2 text-sm text-red-300">{error}</p>}
-      {successMessage && <p className="relative z-[9999] mb-4 rounded border border-emerald-500/30 bg-emerald-500/10 px-3 py-2 text-sm text-emerald-300">{successMessage}</p>}
-
-      {/* Create Share Modal */}
+      {/* Error message above dialog/modal */}
       {showCreateForm && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4">
-          <div className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-2xl border border-slate-800 bg-slate-900 p-6 shadow-2xl">
-            <div className="mb-4 flex items-center justify-between">
-              <h2 className="text-2xl font-semibold text-white">Create Share</h2>
-              <button
-                onClick={() => {
-                  setShowCreateForm(false);
-                  setError('');
-                }}
-                className="text-2xl text-slate-400 hover:text-white"
-              >
-                ×
-              </button>
-            </div>
-            <form onSubmit={createShare} className="space-y-3">
-            <div>
-              <label className="mb-1 block text-sm text-slate-300">Type of Sharing</label>
-              <select
-                value={form.shareType}
-                onChange={(e) => setForm((prev) => ({ ...prev, shareType: e.target.value }))}
-                className="w-full rounded border border-slate-700 bg-slate-950/60 px-3 py-2 text-slate-100"
-              >
-                <option value="cab">Cab Sharing</option>
-                <option value="food">Food Sharing</option>
-                <option value="other">Other Sharing</option>
-              </select>
-            </div>
-            <input
-              placeholder="Name"
-              value={form.name}
-              onChange={(e) => setForm((prev) => ({ ...prev, name: e.target.value }))}
-              className="w-full rounded border border-slate-700 bg-slate-950/60 px-3 py-2 text-slate-100 placeholder:text-slate-500"
-              required
-            />
-            <textarea
-              placeholder="Description"
-              rows="3"
-              value={form.description}
-              onChange={(e) => setForm((prev) => ({ ...prev, description: e.target.value }))}
-              className="w-full rounded border border-slate-700 bg-slate-950/60 px-3 py-2 text-slate-100 placeholder:text-slate-500"
-            />
+        <>
+          {error && (
+            <p className="fixed left-1/2 top-8 z-[9999] w-full max-w-lg -translate-x-1/2 rounded border border-red-500/30 bg-red-500/10 px-3 py-2 text-center text-sm text-red-300 shadow-lg">{error}</p>
+          )}
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4">
+            <div className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-2xl border border-slate-800 bg-slate-900 p-6 shadow-2xl">
+              <div className="mb-4 flex items-center justify-between">
+                <h2 className="text-2xl font-semibold text-white">Create Share</h2>
+                <button
+                  onClick={() => {
+                    setShowCreateForm(false);
+                    setError('');
+                  }}
+                  className="text-2xl text-slate-400 hover:text-white"
+                >
+                  ×
+                </button>
+              </div>
+              <form onSubmit={createShare} className="space-y-3">
+                <div>
+                  <label className="mb-1 block text-sm text-slate-300">Type of Sharing</label>
+                  <select
+                    value={form.shareType}
+                    onChange={(e) => setForm((prev) => ({ ...prev, shareType: e.target.value }))}
+                    className="w-full rounded border border-slate-700 bg-slate-950/60 px-3 py-2 text-slate-100"
+                  >
+                    <option value="cab">Cab Sharing</option>
+                    <option value="food">Food Sharing</option>
+                    <option value="other">Other Sharing</option>
+                  </select>
+                </div>
+                <input
+                  placeholder="Name"
+                  value={form.name}
+                  onChange={(e) => setForm((prev) => ({ ...prev, name: e.target.value }))}
+                  className="w-full rounded border border-slate-700 bg-slate-950/60 px-3 py-2 text-slate-100 placeholder:text-slate-500"
+                  required
+                />
+                <textarea
+                  placeholder="Description"
+                  rows="3"
+                  value={form.description}
+                  onChange={(e) => setForm((prev) => ({ ...prev, description: e.target.value }))}
+                  className="w-full rounded border border-slate-700 bg-slate-950/60 px-3 py-2 text-slate-100 placeholder:text-slate-500"
+                />
 
-            {/* Cab Sharing Fields */}
-            {form.shareType === 'cab' && (
-              <>
-                <div className="grid grid-cols-2 gap-3">
+                {/* Cab Sharing Fields */}
+                {form.shareType === 'cab' && (
+                  <>
+                    <div className="grid grid-cols-2 gap-3">
                   <input
                     placeholder="From City"
                     value={form.fromCity}
@@ -569,8 +570,9 @@ const MySharing = () => {
               Create Share
             </button>
           </form>
+            </div>
           </div>
-        </div>
+        </>
       )}
 
       {/* Update Share Modal */}

@@ -78,6 +78,19 @@ router.put('/mark-all-read', auth(), async (req, res, next) => {
 });
 
 /**
+ * @route DELETE /api/notifications/clear-all
+ * @desc Delete all notifications for user
+ */
+router.delete('/clear-all', auth(), async (req, res, next) => {
+  try {
+    await Notification.deleteMany({ user: req.user.id });
+    res.json({ message: 'All notifications cleared' });
+  } catch (err) {
+    next(err);
+  }
+});
+
+/**
  * @route DELETE /api/notifications/:id
  * @desc Delete a notification
  */

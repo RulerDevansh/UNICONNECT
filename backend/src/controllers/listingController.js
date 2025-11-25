@@ -18,7 +18,14 @@ const buildQuery = (query) => {
   if (filters.collegeDomain) mongoQuery.collegeDomain = filters.collegeDomain;
   if (filters.category) mongoQuery.category = filters.category;
   if (filters.condition) mongoQuery.condition = filters.condition;
-  if (filters.q) mongoQuery.$text = { $search: filters.q };
+  if (filters.q) {
+    // Use regex search instead of text index for better compatibility
+    mongoQuery.$or = [
+      { title: { $regex: filters.q, $options: 'i' } },
+      { description: { $regex: filters.q, $options: 'i' } },
+      { tags: { $regex: filters.q, $options: 'i' } }
+    ];
+  }
   if (filters.tags?.length) mongoQuery.tags = { $in: filters.tags };
   if (filters.priceMin || filters.priceMax) {
     mongoQuery.price = {};
@@ -170,7 +177,17 @@ const updateListing = async (req, res, next) => {
       listing.status = 'active';
     }
 
+    // If status is being set to 'sold', delete related chats/messages
+    const statusChangedToSold = updates.status === 'sold' && listing.status !== 'sold';
     await listing.save();
+    if (statusChangedToSold) {
+      const chats = await Chat.find({ listingRef: listing._id }, '_id');
+      if (chats.length) {
+        const chatIds = chats.map((chat) => chat._id);
+        await Message.deleteMany({ chat: { $in: chatIds } });
+        await Chat.deleteMany({ _id: { $in: chatIds } });
+      }
+    }
     res.json(listing);
   } catch (err) {
     next(err);

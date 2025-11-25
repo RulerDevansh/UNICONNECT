@@ -18,6 +18,7 @@ const ListingDetail = () => {
   const [offers, setOffers] = useState([]);
   const [showOffer, setShowOffer] = useState(false);
   const [recommended, setRecommended] = useState([]);
+  const [hasPendingRequest, setHasPendingRequest] = useState(false);
 
   const loadListing = async () => {
     const { data } = await api.get(`/listings/${id}`);
@@ -25,6 +26,20 @@ const ListingDetail = () => {
     if (user && data.seller?._id === user.id) {
       const offerRes = await api.get(`/offers/listing/${id}`);
       setOffers(offerRes.data);
+    }
+    // Check if user already has a pending buy request for this listing
+    if (user && data.seller?._id !== user.id) {
+      try {
+        const { data: transactions } = await api.get('/transactions');
+        const pendingForThisListing = transactions.some(
+          (t) => 
+            t.listing._id === id && 
+            ['pending', 'approved', 'payment_sent'].includes(t.status)
+        );
+        setHasPendingRequest(pendingForThisListing);
+      } catch (err) {
+        console.error('Failed to check pending requests:', err);
+      }
     }
   };
 
@@ -35,6 +50,7 @@ const ListingDetail = () => {
         transactionType: 'buy_request',
       });
       alert('Buy request sent to seller! You will be notified when approved.');
+      setHasPendingRequest(true);
     } catch (err) {
       alert(err.response?.data?.message || 'Failed to send buy request');
     }
@@ -93,12 +109,10 @@ const ListingDetail = () => {
             <h1 className="mt-1 text-4xl font-semibold text-white">{listing.title}</h1>
             <p className="mt-3 text-lg text-slate-300">{listing.description}</p>
             <p className="mt-5 text-3xl font-bold text-white">{formatCurrency(listing.price)}</p>
-            <div className="mt-4 flex flex-wrap gap-2 text-xs text-slate-300">
-              {listing.tags?.map((tag) => (
-                <span key={tag} className="rounded-full bg-slate-800 px-3 py-0.5 text-slate-200">
-                  {tag}
-                </span>
-              ))}
+            <div className="mt-4">
+              <span className="inline-block rounded-full bg-slate-800 px-4 py-1.5 text-sm font-medium capitalize text-slate-200">
+                Condition: {listing.condition}
+              </span>
             </div>
             {listing.status === 'sold' && (
               <div className="mt-6">
@@ -109,13 +123,19 @@ const ListingDetail = () => {
             )}
             {canChat && listing.listingType === 'buy-now' && listing.status !== 'sold' && (
               <div className="mt-6">
-                <button
-                  type="button"
-                  onClick={handleBuyNow}
-                  className="rounded-full bg-brand-primary px-6 py-2 text-sm font-semibold text-white shadow-lg shadow-brand-primary/30 transition hover:-translate-y-0.5 hover:bg-brand-secondary"
-                >
-                  Buy Now
-                </button>
+                {hasPendingRequest ? (
+                  <div className="rounded-full bg-yellow-500/20 border border-yellow-500/50 px-6 py-2 text-sm font-semibold text-yellow-300">
+                    Request Pending
+                  </div>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={handleBuyNow}
+                    className="rounded-full bg-brand-primary px-6 py-2 text-sm font-semibold text-white shadow-lg shadow-brand-primary/30 transition hover:-translate-y-0.5 hover:bg-brand-secondary"
+                  >
+                    Buy Now
+                  </button>
+                )}
               </div>
             )}
             {canChat && listing.listingType === 'offer' && listing.status !== 'sold' && (
@@ -141,24 +161,6 @@ const ListingDetail = () => {
 
         {listing.listingType === 'auction' && listing.auction?.isAuction && (
           <AuctionRoom listing={listing} />
-        )}
-
-        {user && listing.seller?._id === user.id && (
-          <section className="mt-10 rounded-2xl border border-slate-800 bg-slate-950/40 p-5">
-            <h2 className="text-xl font-semibold text-white">Seller Controls</h2>
-            
-            <h3 className="mt-4 text-lg font-medium text-slate-200">Offers</h3>
-            <ul className="mt-3 space-y-2 text-sm text-slate-300">
-              {offers.map((offer) => (
-                <li key={offer._id} className="rounded border border-slate-800 bg-slate-900/60 p-3">
-                  <p>
-                    {formatCurrency(offer.amount)} — {offer.status} by {offer.buyer?.name}
-                  </p>
-                </li>
-              ))}
-              {!offers.length && <p>No offers yet.</p>}
-            </ul>
-          </section>
         )}
       </div>
       {recommended.length > 0 && (

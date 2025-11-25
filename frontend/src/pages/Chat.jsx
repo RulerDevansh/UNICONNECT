@@ -197,6 +197,14 @@ const Chat = () => {
       const pid = typeof participant._id === 'object' ? participant._id.toString() : String(participant._id || participant);
       return pid !== currentUserId;
     });
+    
+    // If there's a listing reference, show product name with other user's name
+    if (chat.listingRef) {
+      const productName = chat.listingRef?.title || 'Product';
+      const otherName = other?.name || 'User';
+      return `${productName} - ${otherName}`;
+    }
+    
     return other?.name || 'Direct Chat';
   };
 

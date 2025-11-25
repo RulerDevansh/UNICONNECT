@@ -81,11 +81,6 @@ const ListingCard = ({ listing }) => {
       </div>
       <p className="mt-2 line-clamp-2 text-sm text-slate-300">{listing.description}</p>
       <div className="mt-3 flex flex-wrap gap-2">
-        {listing.tags?.map((tag) => (
-          <span key={tag} className="rounded-full bg-slate-800 px-2 py-0.5 text-xs text-slate-300">
-            {tag}
-          </span>
-        ))}
       </div>
       
       <div className="mt-3 flex flex-wrap items-center justify-between gap-3">

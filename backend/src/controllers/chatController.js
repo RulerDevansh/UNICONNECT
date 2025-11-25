@@ -10,7 +10,8 @@ const listChats = async (req, res, next) => {
     const chats = await Chat.find({ participants: req.user.id })
       .sort({ lastMessageAt: -1, updatedAt: -1 })
       .populate('participants', 'name email role avatar')
-      .populate('shareRef', 'name shareType');
+      .populate('shareRef', 'name shareType')
+      .populate('listingRef', 'title');
     res.json(chats);
   } catch (err) {
     next(err);
@@ -37,7 +38,7 @@ const getMessages = async (req, res, next) => {
 
 /**
  * @route POST /api/chats
- * @body { userId }
+ * @body { userId, listingId }
  */
 const createChat = async (req, res, next) => {
   try {
@@ -55,7 +56,11 @@ const createChat = async (req, res, next) => {
         return res.status(404).json({ message: 'Listing not found' });
       }
       listingRef = listing._id;
-      targetUserId = listing.seller?.toString();
+      // If userId is provided, use it (for seller chatting with buyer)
+      // Otherwise, use listing seller (for buyer chatting with seller)
+      if (!userId) {
+        targetUserId = listing.seller?.toString();
+      }
     }
 
     if (!targetUserId) {

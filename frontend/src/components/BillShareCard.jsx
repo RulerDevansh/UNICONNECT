@@ -756,27 +756,7 @@ const BillShareCard = ({ share, onJoin, onCancel, onApprove, onReject, onUpdate,
       )}
       {isHost && (onUpdate || onDelete || (onFinalize && share.status === 'open')) && (
         <div className="mt-4 space-y-3">
-          {onFinalize && share.status === 'open' && (
-            <div className="space-y-2">
-              {((share.shareType === 'food' && share.minPersons && joinedMembersCount < share.minPersons) ||
-                (share.shareType === 'other' && share.otherMinPersons && joinedMembersCount < share.otherMinPersons)) && (
-                <p className="text-xs text-orange-400 flex items-center gap-1">
-                  ⚠️ Minimum {share.shareType === 'food' ? share.minPersons : share.otherMinPersons} persons required to complete
-                </p>
-              )}
-              <button
-                type="button"
-                onClick={() => onFinalize(share._id)}
-                disabled={
-                  (share.shareType === 'food' && share.minPersons && joinedMembersCount < share.minPersons) ||
-                  (share.shareType === 'other' && share.otherMinPersons && joinedMembersCount < share.otherMinPersons)
-                }
-                className="w-full rounded-full border border-emerald-500 bg-emerald-500/10 px-4 py-2 text-sm font-semibold text-emerald-400 transition hover:bg-emerald-500 hover:text-white disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:bg-emerald-500/10 disabled:hover:text-emerald-400"
-              >
-                ✅ Mark as Complete
-              </button>
-            </div>
-          )}
+          {/* Mark as Complete button removed for host */}
           <div className="flex gap-3">
             {onUpdate && (
               <button

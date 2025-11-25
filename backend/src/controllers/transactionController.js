@@ -78,10 +78,36 @@ const updateTransactionStatus = async (req, res, next) => {
       transaction.status = 'approved';
     } else if (status === 'rejected' && isSeller && (transaction.status === 'pending' || transaction.status === 'approved')) {
       transaction.status = 'rejected';
+      // Delete related chat/messages for this listing and buyer
+      try {
+        const Chat = require('../models/Chat');
+        const Message = require('../models/Message');
+        const chats = await Chat.find({ listingRef: transaction.listing._id, participants: transaction.buyer }, '_id');
+        if (chats.length) {
+          const chatIds = chats.map((chat) => chat._id);
+          await Message.deleteMany({ chat: { $in: chatIds } });
+          await Chat.deleteMany({ _id: { $in: chatIds } });
+        }
+      } catch (err) {
+        console.error('Error during chat cleanup for rejected request:', err);
+      }
     }
     // Buyer withdraws/cancels the request
     else if (status === 'withdrawn' && isBuyer && (transaction.status === 'pending' || transaction.status === 'approved')) {
       transaction.status = 'withdrawn';
+      // Delete related chat/messages for this listing and buyer
+      try {
+        const Chat = require('../models/Chat');
+        const Message = require('../models/Message');
+        const chats = await Chat.find({ listingRef: transaction.listing._id, participants: transaction.buyer }, '_id');
+        if (chats.length) {
+          const chatIds = chats.map((chat) => chat._id);
+          await Message.deleteMany({ chat: { $in: chatIds } });
+          await Chat.deleteMany({ _id: { $in: chatIds } });
+        }
+      } catch (err) {
+        console.error('Error during chat cleanup for withdrawn request:', err);
+      }
     }
     // Buyer marks payment as sent
     else if (status === 'payment_sent' && isBuyer && transaction.status === 'approved') {
@@ -132,16 +158,24 @@ const updateTransactionStatus = async (req, res, next) => {
           category: listing.category,
           description: listing.description,
         };
-        
         // Delete chats associated with this listing
-        const chats = await Chat.find({ listingRef: transaction.listing._id });
-        for (const chat of chats) {
-          // Delete all messages in the chat
-          await Message.deleteMany({ chat: chat._id });
-          // Delete the chat itself
-          await Chat.findByIdAndDelete(chat._id);
+        try {
+          const chats = await Chat.find({ listingRef: transaction.listing._id });
+          let deletedChats = 0, deletedMessages = 0;
+          for (const chat of chats) {
+            try {
+              const msgResult = await Message.deleteMany({ chat: chat._id });
+              deletedMessages += msgResult.deletedCount || 0;
+              await Chat.findByIdAndDelete(chat._id);
+              deletedChats++;
+            } catch (err) {
+              console.error(`Error deleting chat/messages for chat ${chat._id}:`, err);
+            }
+          }
+          console.log(`Cleanup: Deleted ${deletedChats} chats and ${deletedMessages} messages for completed listing ${transaction.listing._id}`);
+        } catch (err) {
+          console.error('Error during chat cleanup for completed listing:', err);
         }
-        
         // Delete the listing from database
         await Listing.findByIdAndDelete(transaction.listing._id);
       }

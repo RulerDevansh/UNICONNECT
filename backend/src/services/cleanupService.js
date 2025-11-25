@@ -29,6 +29,17 @@ const startCleanupService = () => {
       const now = new Date();
       const thirtyDaysAgo = new Date(now.getTime() - (30 * 24 * 60 * 60 * 1000));
       
+      // Cleanup buy requests and transactions older than 30 days
+      const Transaction = require('../models/Transaction');
+      const oldTransactions = await Transaction.find({
+        createdAt: { $lt: thirtyDaysAgo }
+      });
+      if (oldTransactions.length > 0) {
+        const transactionIds = oldTransactions.map(t => t._id);
+        await Transaction.deleteMany({ _id: { $in: transactionIds } });
+        console.log(`Cleanup: Deleted ${transactionIds.length} transactions older than 30 days`);
+      }
+      
       // 1. Find cab trips that have departed (but not older than 30 days)
       const departedShares = await Share.find({
         shareType: 'cab',
@@ -321,7 +332,6 @@ const startCleanupService = () => {
 
       // Auction cleanup logic
       const Notification = require('../models/Notification');
-      const Transaction = require('../models/Transaction');
       
       // Find expired auctions
       const expiredAuctions = await Listing.find({

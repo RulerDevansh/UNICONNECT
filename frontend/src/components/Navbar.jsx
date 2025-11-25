@@ -7,7 +7,6 @@ import api from '../services/api';
 const navItems = [
   { to: '/', label: 'Home', private: false },
   { to: '/my-listings', label: 'My Listings', private: true },
-  { to: '/my-sharing', label: 'My Sharing', private: true },
   { to: '/shares', label: 'Sharing', private: true },
   { to: '/marketplace', label: 'Marketplace', private: true },
   { to: '/chat', label: 'Chat', private: true },

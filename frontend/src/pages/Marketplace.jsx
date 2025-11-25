@@ -6,18 +6,24 @@ import api from '../services/api';
 
 const Marketplace = () => {
   const [listings, setListings] = useState([]);
-  const [filters, setFilters] = useState({ q: '', category: '' });
+  const [searchQuery, setSearchQuery] = useState('');
+  const [category, setCategory] = useState('');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const { socket } = useSocket();
 
-  const loadListings = async () => {
+  const loadListings = async (q = '', cat = '') => {
     setLoading(true);
     setError('');
     try {
-      const { data } = await api.get('/listings', { params: filters });
+      const params = {};
+      if (q) params.q = q;
+      if (cat) params.category = cat;
+      
+      const { data } = await api.get('/listings', { params });
       setListings(data.data);
     } catch (err) {
+      console.error('Failed to load listings:', err);
       setError('Unable to load listings right now.');
     } finally {
       setLoading(false);
@@ -26,12 +32,11 @@ const Marketplace = () => {
 
   useEffect(() => {
     loadListings();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const handleSearch = (e) => {
     e.preventDefault();
-    loadListings();
+    loadListings(searchQuery, category);
   };
 
   return (
@@ -40,15 +45,33 @@ const Marketplace = () => {
         <h1 className="text-4xl font-semibold text-white">Marketplace</h1>
         <p className="mt-3 text-lg text-slate-200">Search every listing in one focused view.</p>
         <form onSubmit={handleSearch} className="mt-6 flex flex-wrap gap-3">
-          <input
-            placeholder="Search listings"
-            value={filters.q}
-            onChange={(e) => setFilters((prev) => ({ ...prev, q: e.target.value }))}
-            className="flex-1 rounded-full border border-white/20 bg-white/10 px-5 py-3 text-white placeholder:text-white/70"
-          />
+          <div className="relative flex-1">
+            <input
+              placeholder="Search listings"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="w-full rounded-full border border-white/20 bg-white/10 px-5 py-3 pr-10 text-white placeholder:text-white/70"
+            />
+            {searchQuery && (
+              <button
+                type="button"
+                aria-label="Clear search"
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-300 hover:text-white text-xl"
+                onClick={() => {
+                  setSearchQuery('');
+                  loadListings('', category);
+                }}
+              >
+                &#10005;
+              </button>
+            )}
+          </div>
           <CategorySelect
-            value={filters.category}
-            onChange={(e) => setFilters((prev) => ({ ...prev, category: e.target.value }))}
+            value={category}
+            onChange={(e) => {
+              setCategory(e.target.value);
+              loadListings(searchQuery, e.target.value);
+            }}
           />
           <button type="submit" className="rounded-full bg-white px-6 py-3 font-semibold text-slate-900 shadow-lg shadow-white/40">
             Search
