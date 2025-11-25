@@ -1,4 +1,6 @@
 listing_id,title,description,category,price,tags,popularity,text_blob
+
+
 L1,Gaming Laptop,High performance laptop with RTX graphics,physical,950,"electronics,gaming",0.92,"Gaming Laptop High performance laptop with RTX graphics electronics gaming"
 L2,Organic Chemistry Notes,Comprehensive study guide with diagrams,digital,25,"notes,chemistry",0.81,"Organic Chemistry Notes Comprehensive study guide with diagrams notes chemistry"
 L3,Football Tickets,Two seats for the homecoming game,ticket,120,"sports,event",0.77,"Football Tickets Two seats for the homecoming game sports event"
