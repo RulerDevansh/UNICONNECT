@@ -10,7 +10,7 @@ from sklearn.neighbors import NearestNeighbors
 
 
 class RecommendationEngine:
-  def __init__(self, model_path: str, data_path: str = 'data/sample_listings.csv'):
+  def __init__(self, model_path: str, data_path: str):
     self.model_path = Path(model_path)
     self.data_path = Path(data_path)
     self.vectorizer = None

@@ -51,11 +51,15 @@ const listingSchema = new mongoose.Schema(
     },
     tags: [{ type: String }],
     images: [imageSchema],
+    mlFlag: { type: Boolean, default: false },
+    mlPredictionLabel: { type: String },
+    mlConfidence: { type: Number },
+    mlNeedsReview: { type: Boolean, default: false },
     seller: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
     collegeDomain: { type: String, required: true },
     status: {
       type: String,
-      enum: ['draft', 'active', 'flagged', 'sold', 'archived'],
+      enum: ['draft', 'active', 'flagged', 'sold', 'archived', 'blocked'],
       default: 'active',
     },
     moderation: {

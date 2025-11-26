@@ -1,5 +1,5 @@
-from pydantic import BaseModel, Field
-from typing import List, Optional
+from pydantic import AnyHttpUrl, BaseModel, Field
+from typing import Dict, List, Optional
 
 
 class RecommendationRequest(BaseModel):
@@ -16,8 +16,9 @@ class RecommendationResponseItem(BaseModel):
 
 
 class ModerationRequest(BaseModel):
-    title: str
-    description: str
+    title: Optional[str] = None
+    description: Optional[str] = None
+    text: Optional[str] = None
     category: Optional[str] = None
 
 
@@ -25,3 +26,15 @@ class ModerationResponse(BaseModel):
     flagged: bool
     score: float
     reason: str
+
+
+class AlcoholDetectionRequest(BaseModel):
+    image_url: AnyHttpUrl
+
+
+class AlcoholDetectionResponse(BaseModel):
+    predicted_label: str
+    confidence: float
+    scores: Dict[str, float]
+    flagged: bool
+    is_beer: bool

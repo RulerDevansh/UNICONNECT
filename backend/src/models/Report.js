@@ -7,7 +7,7 @@ const reportSchema = new mongoose.Schema(
     message: String,
     reason: {
       type: String,
-      enum: ['spam', 'fraud', 'policy', 'other'],
+      enum: ['spam', 'fraud', 'policy', 'other', 'beer_bottle_detected'],
       default: 'other',
     },
     status: { type: String, enum: ['open', 'reviewed', 'resolved'], default: 'open' },

@@ -15,4 +15,9 @@ const uploadImage = async (filePath, folder = 'uniconnect') => {
   return { url: res.secure_url, publicId: res.public_id };
 };
 
-module.exports = { cloudinary, uploadImage };
+const deleteImage = async (publicId) => {
+  if (!publicId) return;
+  await cloudinary.uploader.destroy(publicId, { resource_type: 'image', invalidate: true });
+};
+
+module.exports = { cloudinary, uploadImage, deleteImage };

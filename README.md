@@ -22,11 +22,10 @@ Full-stack campus marketplace featuring:
    ```
 3. **ML Service**
    ```bash
+   # from the repo root
    cd ml_service
-   python -m venv .venv && source .venv/bin/activate
-   pip install -r requirements.txt
-   python scripts/train_recommender.py
-   uvicorn src.app.main:app --reload --port 8001
+   scripts/setup_ml_env.sh                # one-time venv + deps install
+   scripts/run_ml_service.sh --reload     # starts FastAPI on port 8001
    ```
 
 Ensure `backend/.env` sets `ML_SERVICE_URL=http://localhost:8001` so listings and moderation flows reach the service.

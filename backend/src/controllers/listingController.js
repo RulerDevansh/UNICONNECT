@@ -4,17 +4,55 @@ const Listing = require('../models/Listing');
 const Offer = require('../models/Offer');
 const Chat = require('../models/Chat');
 const Message = require('../models/Message');
-const { uploadImage } = require('../config/cloudinary');
+const Report = require('../models/Report');
+const { uploadImage, deleteImage } = require('../config/cloudinary');
 const { paginate } = require('../utils/pagination');
 const { validateListingFilters } = require('../utils/validators');
-const { callModeration } = require('../services/moderationService');
+const { callModeration, checkAlcoholImage } = require('../services/moderationService');
 
 const TEMP_DIR = path.join(__dirname, '../../tmp');
 if (!fs.existsSync(TEMP_DIR)) fs.mkdirSync(TEMP_DIR);
 
+const BEER_BLOCK_MESSAGE = 'Your listing appears to contain an abusive product and cannot be posted. If you think this is an error, request review.';
+const TEXT_BLOCK_MESSAGE = 'Your listing appears to contain blocked keywords and cannot be posted. If you think this is an error, request review.';
+
+const ensureBeerBottleReport = async (listingId, reporterId) => {
+  const existing = await Report.findOne({ listing: listingId, reason: 'beer_bottle_detected', status: 'open' }).lean();
+  if (existing) return existing;
+  return Report.create({
+    reporter: reporterId,
+    listing: listingId,
+    reason: 'beer_bottle_detected',
+    message: 'Automated moderation: beer bottle detected by ML.',
+  });
+};
+
+const applyAlcoholScan = async ({ listing, sellerId, imageUrl }) => {
+  if (!imageUrl) return null;
+  const detection = await checkAlcoholImage(imageUrl);
+  if (!detection) return null;
+
+  listing.mlConfidence = detection.confidence ?? listing.mlConfidence;
+  listing.mlPredictionLabel = detection.predicted_label || listing.mlPredictionLabel;
+  listing.mlFlag = Boolean(detection.blocked || detection.flagged || detection.needs_review);
+  listing.mlNeedsReview = Boolean(detection.needs_review);
+
+  if (detection.blocked) {
+    const alreadyBlocked = listing.status === 'blocked';
+    listing.status = 'blocked';
+    await ensureBeerBottleReport(listing._id, sellerId);
+    if (!alreadyBlocked) {
+      if (!listing.moderation) listing.moderation = {};
+      listing.moderation.flagged = true;
+      listing.moderation.reason = 'beer_bottle_detected';
+    }
+  }
+  return detection;
+};
+
 const buildQuery = (query) => {
   const filters = validateListingFilters(query);
-  const mongoQuery = { status: { $nin: ['archived', 'sold'] } };
+  const mongoQuery = { status: { $nin: ['archived', 'sold', 'blocked'] } };
   if (filters.collegeDomain) mongoQuery.collegeDomain = filters.collegeDomain;
   if (filters.category) mongoQuery.category = filters.category;
   if (filters.condition) mongoQuery.condition = filters.condition;
@@ -135,15 +173,46 @@ const createListing = async (req, res, next) => {
 
     const listing = await Listing.create(listingData);
 
+    const primaryImageUrl = listing.images?.[0]?.url || req.body.primaryImageUrl || req.body.imageUrl;
+    const alcoholResult = await applyAlcoholScan({ listing, sellerId: req.user.id, imageUrl: primaryImageUrl });
+    const blockedByAlcohol = Boolean(alcoholResult?.blocked);
+
     const moderation = await callModeration({
       text: `${listing.title} ${listing.description}`,
       metadata: { listingId: listing._id },
     });
-    listing.moderation = moderation;
-    if (moderation.flagged) {
-      listing.status = 'flagged';
+    if (blockedByAlcohol) {
+      listing.moderation = {
+        ...moderation,
+        flagged: true,
+        reason: 'beer_bottle_detected',
+      };
+    } else {
+      listing.moderation = moderation;
+    }
+    const textBlocked = !blockedByAlcohol && Boolean(moderation.flagged);
+    if (textBlocked) {
+      listing.status = 'blocked';
     }
     await listing.save();
+
+    if (alcoholResult?.blocked) {
+      return res.status(400).json({
+        message: BEER_BLOCK_MESSAGE,
+        reason: 'beer_bottle_detected',
+        details: {
+          predicted_label: alcoholResult.predicted_label,
+          confidence: alcoholResult.confidence,
+        },
+      });
+    }
+
+    if (textBlocked) {
+      return res.status(400).json({
+        message: TEXT_BLOCK_MESSAGE,
+        reason: listing.moderation?.reason || 'text_flagged',
+      });
+    }
 
     res.status(201).json(listing);
   } catch (err) {
@@ -171,9 +240,10 @@ const updateListing = async (req, res, next) => {
       text: `${listing.title} ${listing.description}`,
       metadata: { listingId: listing._id },
     });
-    if (listing.moderation.flagged) {
-      listing.status = 'flagged';
-    } else if (listing.status === 'flagged') {
+    const textBlocked = Boolean(listing.moderation.flagged);
+    if (textBlocked) {
+      listing.status = 'blocked';
+    } else if (listing.status === 'blocked') {
       listing.status = 'active';
     }
 
@@ -188,6 +258,13 @@ const updateListing = async (req, res, next) => {
         await Chat.deleteMany({ _id: { $in: chatIds } });
       }
     }
+    if (textBlocked) {
+      return res.status(400).json({
+        message: TEXT_BLOCK_MESSAGE,
+        reason: listing.moderation?.reason || 'text_flagged',
+      });
+    }
+
     res.json(listing);
   } catch (err) {
     next(err);
@@ -201,12 +278,39 @@ const updateListing = async (req, res, next) => {
 const uploadListingImage = async (req, res, next) => {
   try {
     if (!req.file) return res.status(400).json({ message: 'Image required' });
+    const listing = await Listing.findOne({ _id: req.params.id, seller: req.user.id });
+    if (!listing) return res.status(404).json({ message: 'Listing not found' });
 
     const tempPath = path.join(TEMP_DIR, `${Date.now()}-${req.file.originalname}`);
     await fs.promises.writeFile(tempPath, req.file.buffer);
     try {
       const { url, publicId } = await uploadImage(tempPath, 'uniconnect/listings');
-      res.json({ url, publicId });
+      const isPrimaryUpload = listing.images.length === 0;
+      listing.images.push({ url, publicId });
+
+      let alcoholResult = null;
+      if (isPrimaryUpload && listing.images[0]?.url) {
+        alcoholResult = await applyAlcoholScan({
+          listing,
+          sellerId: req.user.id,
+          imageUrl: listing.images[0].url,
+        });
+      }
+
+      await listing.save();
+
+      if (alcoholResult?.blocked) {
+        return res.status(400).json({
+          message: BEER_BLOCK_MESSAGE,
+          reason: 'beer_bottle_detected',
+          details: {
+            predicted_label: alcoholResult.predicted_label,
+            confidence: alcoholResult.confidence,
+          },
+        });
+      }
+
+      res.json({ url, publicId, images: listing.images });
     } finally {
       await fs.promises.unlink(tempPath);
     }
@@ -222,6 +326,18 @@ const deleteListing = async (req, res, next) => {
   try {
     const listing = await Listing.findOneAndDelete({ _id: req.params.id, seller: req.user.id });
     if (!listing) return res.status(404).json({ message: 'Not found' });
+
+    const publicIds = (listing.images || [])
+      .map((img) => img?.publicId)
+      .filter(Boolean);
+    await Promise.all(
+      publicIds.map((publicId) =>
+        deleteImage(publicId).catch((err) => {
+          console.warn('Failed to delete Cloudinary image', publicId, err.message);
+        })
+      )
+    );
+
     await Offer.deleteMany({ listing: listing._id });
 
     const chats = await Chat.find({ listingRef: listing._id }, '_id');
