@@ -9,7 +9,8 @@ const useChatLauncher = () => {
   const { user } = useAuth();
 
   return useCallback(
-    async (listingId, targetUserId) => {
+    async (targetUserId, options = {}) => {
+      const { listingId } = options;
       if (!listingId && !targetUserId) return;
       if (!user) {
         navigate('/login', { state: { from: `${location.pathname}${location.search}` } });

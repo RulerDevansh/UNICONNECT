@@ -3,6 +3,31 @@ const Listing = require('../models/Listing');
 const Offer = require('../models/Offer');
 const Chat = require('../models/Chat');
 const Message = require('../models/Message');
+const Notification = require('../models/Notification');
+const { getIO } = require('../services/socketService');
+
+const SAFE_CURRENCY = (value) => `₹${Number(value || 0).toLocaleString('en-IN')}`;
+
+const sendNotification = async ({ userId, type, title, message, listingId, transactionId }) => {
+  try {
+    const notification = await Notification.create({
+      user: userId,
+      type,
+      title,
+      message,
+      listingRef: listingId,
+      transactionRef: transactionId,
+    });
+    const io = getIO();
+    if (io) {
+      io.to(`user:${userId}`).emit('notification', notification);
+    }
+    return notification;
+  } catch (err) {
+    console.error('Failed to dispatch notification:', err.message || err);
+    return null;
+  }
+};
 
 /**
  * @route POST /api/transactions
@@ -49,6 +74,15 @@ const createTransaction = async (req, res, next) => {
     await transaction.populate('buyer', 'name email');
     await transaction.populate('listing', 'title price images');
 
+    await sendNotification({
+      userId: listing.seller,
+      type: 'buy_request_created',
+      title: 'New buy request',
+      message: `${transaction.buyer?.name || 'A buyer'} wants to purchase ${listing.title} for ${SAFE_CURRENCY(transaction.amount)}.`,
+      listingId: listing._id,
+      transactionId: transaction._id,
+    });
+
     res.status(201).json(transaction);
   } catch (err) {
     next(err);
@@ -62,12 +96,21 @@ const createTransaction = async (req, res, next) => {
  */
 const updateTransactionStatus = async (req, res, next) => {
   try {
-    const transaction = await Transaction.findById(req.params.id).populate('listing');
+    const transaction = await Transaction.findById(req.params.id)
+      .populate('listing')
+      .populate('buyer', 'name email')
+      .populate('seller', 'name email');
     if (!transaction) return res.status(404).json({ message: 'Transaction not found' });
     
-    const { status, paymentStatus } = req.body;
-    const isSeller = transaction.seller.toString() === req.user.id;
-    const isBuyer = transaction.buyer.toString() === req.user.id;
+    const { status } = req.body;
+    const sellerId = transaction.seller?._id?.toString?.() || transaction.seller?.toString();
+    const buyerId = transaction.buyer?._id?.toString?.() || transaction.buyer?.toString();
+    const isSeller = sellerId === req.user.id;
+    const isBuyer = buyerId === req.user.id;
+    const listingId = transaction.listing?._id || transaction.listing;
+    const listingTitle = transaction.listing?.title || 'your listing';
+    const buyerName = transaction.buyer?.name || 'Buyer';
+    const sellerName = transaction.seller?.name || 'Seller';
 
     if (!isSeller && !isBuyer) {
       return res.status(403).json({ message: 'Forbidden' });
@@ -76,6 +119,14 @@ const updateTransactionStatus = async (req, res, next) => {
     // Seller approves or rejects the buy request
     if (status === 'approved' && isSeller && transaction.status === 'pending') {
       transaction.status = 'approved';
+      await sendNotification({
+        userId: buyerId,
+        type: 'buy_request_approved',
+        title: 'Buy request approved',
+        message: `${sellerName} approved your buy request for ${listingTitle}.`,
+        listingId,
+        transactionId: transaction._id,
+      });
     } else if (status === 'rejected' && isSeller && (transaction.status === 'pending' || transaction.status === 'approved')) {
       transaction.status = 'rejected';
       // Delete related chat/messages for this listing and buyer
@@ -91,6 +142,14 @@ const updateTransactionStatus = async (req, res, next) => {
       } catch (err) {
         console.error('Error during chat cleanup for rejected request:', err);
       }
+      await sendNotification({
+        userId: buyerId,
+        type: 'buy_request_rejected',
+        title: 'Buy request rejected',
+        message: `${sellerName} rejected your buy request for ${listingTitle}.`,
+        listingId,
+        transactionId: transaction._id,
+      });
     }
     // Buyer withdraws/cancels the request
     else if (status === 'withdrawn' && isBuyer && (transaction.status === 'pending' || transaction.status === 'approved')) {
@@ -108,15 +167,39 @@ const updateTransactionStatus = async (req, res, next) => {
       } catch (err) {
         console.error('Error during chat cleanup for withdrawn request:', err);
       }
+      await sendNotification({
+        userId: sellerId,
+        type: 'buy_request_withdrawn',
+        title: 'Buyer withdrew request',
+        message: `${buyerName} withdrew their buy request for ${listingTitle}.`,
+        listingId,
+        transactionId: transaction._id,
+      });
     }
     // Buyer marks payment as sent
     else if (status === 'payment_sent' && isBuyer && transaction.status === 'approved') {
       transaction.status = 'payment_sent';
+      await sendNotification({
+        userId: sellerId,
+        type: 'buy_request_payment_sent',
+        title: 'Payment sent',
+        message: `${buyerName} marked payment as sent for ${listingTitle}.`,
+        listingId,
+        transactionId: transaction._id,
+      });
     }
     // Seller confirms payment received
     else if (status === 'payment_received' && isSeller && transaction.status === 'payment_sent') {
       transaction.status = 'payment_received';
       transaction.paymentStatus = 'paid';
+      await sendNotification({
+        userId: buyerId,
+        type: 'buy_request_payment_received',
+        title: 'Payment confirmed',
+        message: `${sellerName} confirmed your payment for ${listingTitle}.`,
+        listingId,
+        transactionId: transaction._id,
+      });
       
       // Hide the listing from marketplace
       const listing = await Listing.findById(transaction.listing._id);
@@ -141,6 +224,15 @@ const updateTransactionStatus = async (req, res, next) => {
           otherTx.paymentStatus = 'refunded';
         }
         await otherTx.save();
+
+        await sendNotification({
+          userId: otherTx.buyer,
+          type: 'buy_request_cancelled',
+          title: 'Buy request cancelled',
+          message: `Your buy request for ${listingTitle} was cancelled because the product was sold to another buyer.`,
+          listingId,
+          transactionId: otherTx._id,
+        });
       }
     }
     // Seller marks as completed (product delivered)
@@ -179,6 +271,15 @@ const updateTransactionStatus = async (req, res, next) => {
         // Delete the listing from database
         await Listing.findByIdAndDelete(transaction.listing._id);
       }
+
+      await sendNotification({
+        userId: buyerId,
+        type: 'buy_request_completed',
+        title: 'Purchase completed',
+        message: `${sellerName} marked the transaction for ${listingTitle} as completed.`,
+        listingId,
+        transactionId: transaction._id,
+      });
     } else {
       return res.status(400).json({ message: 'Invalid status transition' });
     }

@@ -13,8 +13,6 @@ import Chat from './pages/Chat';
 import Marketplace from './pages/Marketplace';
 import EditListing from './pages/EditListing';
 import UserHistory from './pages/UserHistory';
-import BuyRequests from './pages/BuyRequests';
-import MyBuyRequests from './pages/MyBuyRequests';
 import Profile from './pages/Profile';
 import Notifications from './pages/Notifications';
 import ProtectedRoute from './components/ProtectedRoute';
@@ -43,8 +41,6 @@ const App = () => {
           <Route path="/my-listings" element={<MyListings />} />
           <Route path="/chat" element={<Chat />} />
           <Route path="/history" element={<UserHistory />} />
-          <Route path="/buy-requests" element={<BuyRequests />} />
-          <Route path="/my-requests" element={<MyBuyRequests />} />
           <Route path="/profile" element={<Profile />} />
           <Route path="/notifications" element={<Notifications />} />
         </Route>

@@ -5,13 +5,16 @@ import App from './App';
 import './styles/tailwind.css';
 import { AuthProvider } from './context/AuthContext';
 import { SocketProvider } from './context/SocketContext';
+import { NotificationProvider } from './context/NotificationContext';
 
 ReactDOM.createRoot(document.getElementById('root')).render(
   <React.StrictMode>
     <BrowserRouter>
       <AuthProvider>
         <SocketProvider>
-          <App />
+          <NotificationProvider>
+            <App />
+          </NotificationProvider>
         </SocketProvider>
       </AuthProvider>
     </BrowserRouter>

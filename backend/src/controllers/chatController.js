@@ -52,14 +52,15 @@ const createChat = async (req, res, next) => {
 
     if (listingId) {
       const listing = await Listing.findById(listingId).select('seller');
-      if (!listing) {
+      if (listing) {
+        listingRef = listing._id;
+        if (!targetUserId) {
+          // If userId is provided, use it (for seller chatting with buyer)
+          // Otherwise, use listing seller (for buyer chatting with seller)
+          targetUserId = listing.seller?.toString();
+        }
+      } else if (!targetUserId) {
         return res.status(404).json({ message: 'Listing not found' });
-      }
-      listingRef = listing._id;
-      // If userId is provided, use it (for seller chatting with buyer)
-      // Otherwise, use listing seller (for buyer chatting with seller)
-      if (!userId) {
-        targetUserId = listing.seller?.toString();
       }
     }
 

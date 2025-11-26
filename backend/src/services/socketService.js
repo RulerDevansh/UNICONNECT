@@ -21,6 +21,8 @@ const initSocket = (io) => {
   });
 
   io.on('connection', (socket) => {
+    socket.join(`user:${socket.user.id}`);
+
     socket.on('joinChat', (chatId) => {
       socket.join(`chat:${chatId}`);
     });

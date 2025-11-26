@@ -10,7 +10,23 @@ const notificationSchema = new mongoose.Schema(
     },
     type: {
       type: String,
-      enum: ['order_cancelled', 'request_approved', 'request_rejected', 'share_full', 'minimum_not_met', 'new_message'],
+      enum: [
+        'order_cancelled',
+        'request_approved',
+        'request_rejected',
+        'share_full',
+        'minimum_not_met',
+        'new_message',
+        'auction_bid',
+        'buy_request_created',
+        'buy_request_approved',
+        'buy_request_rejected',
+        'buy_request_withdrawn',
+        'buy_request_payment_sent',
+        'buy_request_payment_received',
+        'buy_request_completed',
+        'buy_request_cancelled',
+      ],
       required: true,
     },
     title: {
@@ -24,6 +40,14 @@ const notificationSchema = new mongoose.Schema(
     shareRef: {
       type: mongoose.Schema.Types.ObjectId,
       ref: 'Share',
+    },
+    listingRef: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'Listing',
+    },
+    transactionRef: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'Transaction',
     },
     read: {
       type: Boolean,

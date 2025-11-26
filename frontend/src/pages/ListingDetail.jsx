@@ -142,7 +142,7 @@ const ListingDetail = () => {
               <div className="mt-6 flex flex-wrap gap-3">
                 <button
                   type="button"
-                  onClick={() => startChat(sellerId)}
+                  onClick={() => startChat(sellerId, { listingId: listing._id })}
                   className="rounded-full bg-brand-primary px-6 py-2 text-sm font-semibold text-white shadow-lg shadow-brand-primary/30 transition hover:-translate-y-0.5 hover:bg-brand-secondary"
                 >
                   Chat with Seller

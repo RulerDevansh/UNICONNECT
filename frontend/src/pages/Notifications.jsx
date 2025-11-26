@@ -1,11 +1,11 @@
 import { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
 import api from '../services/api';
+import { useNotifications } from '../context/NotificationContext';
 
 const Notifications = () => {
   const [notifications, setNotifications] = useState([]);
   const [loading, setLoading] = useState(true);
-  const navigate = useNavigate();
+  const { markAllReadLocal, decrementUnread } = useNotifications();
 
   const loadNotifications = async () => {
     try {
@@ -24,10 +24,12 @@ const Notifications = () => {
 
   const markAsRead = async (id) => {
     try {
+      const target = notifications.find((n) => n._id === id);
       await api.put(`/notifications/${id}/read`);
-      setNotifications(notifications.map(n => 
-        n._id === id ? { ...n, read: true } : n
-      ));
+      setNotifications(notifications.map((n) => (n._id === id ? { ...n, read: true } : n)));
+      if (target && !target.read) {
+        decrementUnread();
+      }
     } catch (err) {
       console.error('Failed to mark as read:', err);
     }
@@ -36,7 +38,8 @@ const Notifications = () => {
   const markAllAsRead = async () => {
     try {
       await api.put('/notifications/mark-all-read');
-      setNotifications(notifications.map(n => ({ ...n, read: true })));
+      setNotifications(notifications.map((n) => ({ ...n, read: true })));
+      markAllReadLocal();
     } catch (err) {
       console.error('Failed to mark all as read:', err);
     }
@@ -44,8 +47,12 @@ const Notifications = () => {
 
   const deleteNotification = async (id) => {
     try {
+      const target = notifications.find((n) => n._id === id);
       await api.delete(`/notifications/${id}`);
-      setNotifications(notifications.filter(n => n._id !== id));
+      setNotifications(notifications.filter((n) => n._id !== id));
+      if (target && !target.read) {
+        decrementUnread();
+      }
     } catch (err) {
       console.error('Failed to delete notification:', err);
     }
@@ -55,6 +62,7 @@ const Notifications = () => {
     try {
       await api.delete('/notifications/clear-all');
       setNotifications([]);
+      markAllReadLocal();
     } catch (err) {
       console.error('Failed to clear all notifications:', err);
     }

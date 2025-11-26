@@ -1,10 +1,9 @@
 import { Link } from 'react-router-dom';
 import classNames from 'classnames';
+import { useEffect, useState } from 'react';
 import { useAuth } from '../context/AuthContext';
-import useChatLauncher from '../hooks/useChatLauncher';
 import { formatCurrency } from '../utils/currency';
 import api from '../services/api';
-import { useEffect, useState } from 'react';
 
 const formatTimeRemaining = (endTime) => {
   const now = new Date();
@@ -24,10 +23,10 @@ const formatTimeRemaining = (endTime) => {
 
 const ListingCard = ({ listing }) => {
   const { user } = useAuth();
-  const startChat = useChatLauncher();
-  const sellerId = listing.seller?._id || listing.seller?.id || listing.seller;
+    const sellerId = listing.seller?._id || listing.seller?.id || listing.seller;
+    const currentUserId = user?.id || user?._id;
   const status = listing.status || 'active';
-  const isOwnListing = sellerId && sellerId === user?.id;
+    const isOwnListing = sellerId && currentUserId && String(sellerId) === String(currentUserId);
   const showBuyCta = listing.listingType === 'buy-now' && !isOwnListing && sellerId && status === 'active';
   const [timeRemaining, setTimeRemaining] = useState('');
   const isAuction = listing.listingType === 'auction';

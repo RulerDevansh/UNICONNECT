@@ -391,7 +391,8 @@ const MyListings = () => {
                               <button
                                 onClick={() => {
                                   const buyerId = request.buyer?._id || request.buyer;
-                                  startChat(request.listing?._id, buyerId);
+                                  const listingId = request.listing?._id || request.listing;
+                                  startChat(buyerId, { listingId });
                                 }}
                                 className="w-full rounded-full border border-slate-700 px-4 py-2 text-sm font-semibold text-white hover:border-slate-600"
                               >
@@ -523,7 +524,8 @@ const MyListings = () => {
                               <button
                                 onClick={() => {
                                   const sellerId = request.seller?._id || request.seller;
-                                  startChat(request.listing?._id, sellerId);
+                                  const listingId = request.listing?._id || request.listing;
+                                  startChat(sellerId, { listingId });
                                 }}
                                 className="rounded-full border border-slate-700 px-4 py-2 text-sm font-semibold text-white hover:border-slate-600"
                               >

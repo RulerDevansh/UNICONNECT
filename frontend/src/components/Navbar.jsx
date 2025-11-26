@@ -1,8 +1,7 @@
-import { useState, useEffect } from 'react';
-import { Link, NavLink, useNavigate } from 'react-router-dom';
+import { Link, NavLink } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useSocket } from '../context/SocketContext';
-import api from '../services/api';
+import { useNotifications } from '../context/NotificationContext';
 
 const navItems = [
   { to: '/', label: 'Home', private: false },
@@ -14,34 +13,10 @@ const navItems = [
   { to: '/admin', label: 'Admin', private: true, roles: ['admin'] },
 ];
 
-const requestItems = [
-  { to: '/buy-requests', label: 'Buy Requests' },
-  { to: '/my-requests', label: 'My Requests' },
-];
-
 const Navbar = () => {
   const { user, logout } = useAuth();
   const { hasNewMessage } = useSocket();
-  const [showRequestsDropdown, setShowRequestsDropdown] = useState(false);
-  const [unreadCount, setUnreadCount] = useState(0);
-  const navigate = useNavigate();
-
-  useEffect(() => {
-    const fetchUnreadCount = async () => {
-      if (!user) return;
-      try {
-        const { data } = await api.get('/notifications/unread-count');
-        setUnreadCount(data.count);
-      } catch (err) {
-        console.error('Failed to fetch unread count:', err);
-      }
-    };
-
-    fetchUnreadCount();
-    // Poll every 30 seconds
-    const interval = setInterval(fetchUnreadCount, 30000);
-    return () => clearInterval(interval);
-  }, [user]);
+  const { unreadCount } = useNotifications();
 
   const getInitials = () => {
     if (!user?.name) return 'U';
@@ -83,35 +58,6 @@ const Navbar = () => {
                 </span>
               </NavLink>
             ))}
-          {user && (
-            <div className="relative">
-              <button
-                type="button"
-                onClick={() => setShowRequestsDropdown(!showRequestsDropdown)}
-                onBlur={() => setTimeout(() => setShowRequestsDropdown(false), 200)}
-                className="rounded px-2 py-1 text-slate-400 transition hover:text-white focus:bg-white/10 focus:text-white"
-              >
-                Requests ▾
-              </button>
-              {showRequestsDropdown && (
-                <div className="absolute right-0 top-full mt-1 w-40 rounded-lg border border-slate-800 bg-slate-900 py-1 shadow-xl">
-                  {requestItems.map((item) => (
-                    <button
-                      key={item.to}
-                      type="button"
-                      onClick={() => {
-                        navigate(item.to);
-                        setShowRequestsDropdown(false);
-                      }}
-                      className="block w-full px-4 py-2 text-left text-sm text-slate-300 hover:bg-slate-800 hover:text-white"
-                    >
-                      {item.label}
-                    </button>
-                  ))}
-                </div>
-              )}
-            </div>
-          )}
           {!user ? (
             <>
               <NavLink to="/login" className="text-slate-400 hover:text-white">
