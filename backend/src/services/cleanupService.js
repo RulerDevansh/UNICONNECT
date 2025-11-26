@@ -360,10 +360,15 @@ const startCleanupService = () => {
           const { getIO } = require('./socketService');
           const io = getIO();
           if (io) {
-            // Emit to entire auction room with winner ID
+            // Emit to entire auction room with winner details
             // Frontend will check if current user is the winner
             io.to(`auction:${listing._id}`).emit('auction:end', {
               winner: winnerId,
+              winnerDetails: {
+                _id: winnerId,
+                name: winner.name,
+                email: winner.email
+              },
               finalBid: finalBid,
               listingId: listing._id
             });

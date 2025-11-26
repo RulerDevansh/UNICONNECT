@@ -239,16 +239,6 @@ const MyListings = () => {
             {/* Tab Navigation */}
             <div className="flex gap-2 border-b border-slate-700">
               <button
-                onClick={() => setActiveTab('available')}
-                className={`px-4 py-2 font-medium transition-colors ${
-                  activeTab === 'available'
-                    ? 'border-b-2 border-brand-primary text-brand-primary'
-                    : 'text-slate-400 hover:text-slate-200'
-                }`}
-              >
-                Available Listings
-              </button>
-              <button
                 onClick={() => setActiveTab('buyRequests')}
                 className={`px-4 py-2 font-medium transition-colors ${
                   activeTab === 'buyRequests'
@@ -272,19 +262,6 @@ const MyListings = () => {
 
             {/* Tab Content */}
             <div className="space-y-3">
-              {activeTab === 'available' && (
-                <div className="space-y-3">
-                  {listings.filter(l => l.status === 'available').length > 0 ? (
-                    listings.filter(l => l.status === 'available').map((listing) => (
-                      <div key={listing._id} className="rounded-2xl border border-slate-800 bg-slate-900/50 p-4">
-                        <ListingCard listing={listing} />
-                      </div>
-                    ))
-                  ) : (
-                    <p className="text-sm text-slate-400">No available listings at the moment.</p>
-                  )}
-                </div>
-              )}
 
               {activeTab === 'buyRequests' && (
                 <div className="space-y-3">

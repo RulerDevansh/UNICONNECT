@@ -1,4 +1,5 @@
-import { Link, NavLink } from 'react-router-dom';
+import { useState } from 'react';
+import { Link, NavLink, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useSocket } from '../context/SocketContext';
 import { useNotifications } from '../context/NotificationContext';
@@ -9,7 +10,6 @@ const navItems = [
   { to: '/shares', label: 'Sharing', private: true },
   { to: '/marketplace', label: 'Marketplace', private: true },
   { to: '/chat', label: 'Chat', private: true },
-  { to: '/history', label: 'History', private: true },
   { to: '/admin', label: 'Admin', private: true, roles: ['admin'] },
 ];
 
@@ -17,6 +17,8 @@ const Navbar = () => {
   const { user, logout } = useAuth();
   const { hasNewMessage } = useSocket();
   const { unreadCount } = useNotifications();
+  const [showProfileDropdown, setShowProfileDropdown] = useState(false);
+  const navigate = useNavigate();
 
   const getInitials = () => {
     if (!user?.name) return 'U';
@@ -72,13 +74,6 @@ const Navbar = () => {
             </>
           ) : (
             <>
-              <button
-                type="button"
-                onClick={logout}
-                className="rounded-full border border-white/20 px-3 py-1 text-slate-200 transition hover:border-white/50"
-              >
-                Logout
-              </button>
               <Link
                 to="/notifications"
                 className="relative flex h-8 w-8 items-center justify-center rounded-full text-slate-300 transition hover:bg-white/10 hover:text-white"
@@ -104,13 +99,52 @@ const Navbar = () => {
                   </span>
                 )}
               </Link>
-              <Link
-                to="/profile"
-                className="flex h-8 w-8 items-center justify-center rounded-full bg-gradient-to-br from-brand-primary to-brand-secondary text-sm font-semibold text-white shadow-lg transition hover:scale-105"
-                title={user.name}
-              >
-                {getInitials()}
-              </Link>
+              <div className="relative">
+                <button
+                  type="button"
+                  onClick={() => setShowProfileDropdown(!showProfileDropdown)}
+                  onBlur={() => setTimeout(() => setShowProfileDropdown(false), 200)}
+                  className="flex h-8 w-8 items-center justify-center rounded-full bg-gradient-to-br from-brand-primary to-brand-secondary text-sm font-semibold text-white shadow-lg transition hover:scale-105"
+                  title={user.name}
+                >
+                  {getInitials()}
+                </button>
+                {showProfileDropdown && (
+                  <div className="absolute right-0 top-full mt-2 w-48 rounded-lg border border-slate-800 bg-slate-900 py-2 shadow-xl">
+                    <div className="border-b border-slate-800 px-4 py-2">
+                      <p className="text-sm font-semibold text-white">{user.name}</p>
+                      <p className="text-xs text-slate-400">{user.email}</p>
+                    </div>
+                    <button
+                      onClick={() => {
+                        navigate('/profile');
+                        setShowProfileDropdown(false);
+                      }}
+                      className="w-full px-4 py-2 text-left text-sm text-slate-300 transition hover:bg-slate-800 hover:text-white"
+                    >
+                      Edit Profile
+                    </button>
+                    <button
+                      onClick={() => {
+                        navigate('/history');
+                        setShowProfileDropdown(false);
+                      }}
+                      className="w-full px-4 py-2 text-left text-sm text-slate-300 transition hover:bg-slate-800 hover:text-white"
+                    >
+                      History
+                    </button>
+                    <button
+                      onClick={() => {
+                        logout();
+                        setShowProfileDropdown(false);
+                      }}
+                      className="w-full px-4 py-2 text-left text-sm text-red-300 transition hover:bg-slate-800 hover:text-red-200"
+                    >
+                      Logout
+                    </button>
+                  </div>
+                )}
+              </div>
             </>
           )}
         </nav>

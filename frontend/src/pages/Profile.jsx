@@ -7,12 +7,18 @@ const Profile = () => {
   const [profile, setProfile] = useState(null);
   const [loading, setLoading] = useState(true);
   const [isEditing, setIsEditing] = useState(false);
+  const [showPasswordChange, setShowPasswordChange] = useState(false);
   const [formData, setFormData] = useState({
     name: '',
     preferences: {
       categories: [],
       tags: [],
     },
+  });
+  const [passwordData, setPasswordData] = useState({
+    currentPassword: '',
+    newPassword: '',
+    confirmPassword: '',
   });
 
   useEffect(() => {
@@ -42,6 +48,33 @@ const Profile = () => {
       alert('Profile updated successfully!');
     } catch (err) {
       alert(err.response?.data?.message || 'Failed to update profile');
+    }
+  };
+
+  const handlePasswordChange = async (e) => {
+    e.preventDefault();
+    if (passwordData.newPassword !== passwordData.confirmPassword) {
+      alert('New passwords do not match!');
+      return;
+    }
+    if (passwordData.newPassword.length < 6) {
+      alert('Password must be at least 6 characters long!');
+      return;
+    }
+    try {
+      await api.put('/users/me/password', {
+        currentPassword: passwordData.currentPassword,
+        newPassword: passwordData.newPassword,
+      });
+      alert('Password changed successfully!');
+      setShowPasswordChange(false);
+      setPasswordData({
+        currentPassword: '',
+        newPassword: '',
+        confirmPassword: '',
+      });
+    } catch (err) {
+      alert(err.response?.data?.message || 'Failed to change password');
     }
   };
 
@@ -169,34 +202,104 @@ const Profile = () => {
             )}
           </div>
         ) : (
-          <form onSubmit={handleUpdate} className="mt-8 space-y-6">
-            <div>
-              <label className="block text-sm font-medium text-slate-300">Name</label>
-              <input
-                type="text"
-                value={formData.name}
-                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                className="mt-2 w-full rounded-lg border border-slate-700 bg-slate-950/60 px-4 py-2 text-slate-100"
-                required
-              />
-            </div>
+          <div className="mt-8 space-y-6">
+            <form onSubmit={handleUpdate} className="space-y-6">
+              <div>
+                <label className="block text-sm font-medium text-slate-300">Name</label>
+                <input
+                  type="text"
+                  value={formData.name}
+                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                  className="mt-2 w-full rounded-lg border border-slate-700 bg-slate-950/60 px-4 py-2 text-slate-100"
+                  required
+                />
+              </div>
 
-            <div className="flex gap-3">
-              <button
-                type="submit"
-                className="flex-1 rounded-full bg-brand-primary px-6 py-2 text-sm font-semibold text-white shadow shadow-brand-primary/40 transition hover:bg-brand-secondary"
-              >
-                Save Changes
-              </button>
+              <div className="flex gap-3">
+                <button
+                  type="submit"
+                  className="flex-1 rounded-full bg-brand-primary px-6 py-2 text-sm font-semibold text-white shadow shadow-brand-primary/40 transition hover:bg-brand-secondary"
+                >
+                  Save Changes
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setIsEditing(false)}
+                  className="flex-1 rounded-full border border-slate-600 px-6 py-2 text-sm font-semibold text-slate-200 transition hover:border-slate-400"
+                >
+                  Cancel
+                </button>
+              </div>
+            </form>
+
+            {/* Password Change Section */}
+            <div className="border-t border-slate-800 pt-6">
               <button
                 type="button"
-                onClick={() => setIsEditing(false)}
-                className="flex-1 rounded-full border border-slate-600 px-6 py-2 text-sm font-semibold text-slate-200 transition hover:border-slate-400"
+                onClick={() => setShowPasswordChange(!showPasswordChange)}
+                className="mb-4 flex items-center gap-2 text-sm font-semibold text-slate-300 hover:text-white"
               >
-                Cancel
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  strokeWidth={1.5}
+                  stroke="currentColor"
+                  className="h-5 w-5"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z"
+                  />
+                </svg>
+                Change Password
               </button>
+
+              {showPasswordChange && (
+                <form onSubmit={handlePasswordChange} className="space-y-4">
+                  <div>
+                    <label className="block text-sm font-medium text-slate-300">Current Password</label>
+                    <input
+                      type="password"
+                      value={passwordData.currentPassword}
+                      onChange={(e) => setPasswordData({ ...passwordData, currentPassword: e.target.value })}
+                      className="mt-2 w-full rounded-lg border border-slate-700 bg-slate-950/60 px-4 py-2 text-slate-100"
+                      required
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-slate-300">New Password</label>
+                    <input
+                      type="password"
+                      value={passwordData.newPassword}
+                      onChange={(e) => setPasswordData({ ...passwordData, newPassword: e.target.value })}
+                      className="mt-2 w-full rounded-lg border border-slate-700 bg-slate-950/60 px-4 py-2 text-slate-100"
+                      required
+                      minLength={6}
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-slate-300">Confirm New Password</label>
+                    <input
+                      type="password"
+                      value={passwordData.confirmPassword}
+                      onChange={(e) => setPasswordData({ ...passwordData, confirmPassword: e.target.value })}
+                      className="mt-2 w-full rounded-lg border border-slate-700 bg-slate-950/60 px-4 py-2 text-slate-100"
+                      required
+                      minLength={6}
+                    />
+                  </div>
+                  <button
+                    type="submit"
+                    className="w-full rounded-full bg-green-600 px-6 py-2 text-sm font-semibold text-white transition hover:bg-green-700"
+                  >
+                    Update Password
+                  </button>
+                </form>
+              )}
             </div>
-          </form>
+          </div>
         )}
       </div>
     </main>

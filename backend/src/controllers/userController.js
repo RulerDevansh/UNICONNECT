@@ -28,6 +28,38 @@ const updateProfile = async (req, res, next) => {
 };
 
 /**
+ * @route PUT /api/users/me/password
+ */
+const changePassword = async (req, res, next) => {
+  try {
+    const { currentPassword, newPassword } = req.body;
+    
+    if (!currentPassword || !newPassword) {
+      return res.status(400).json({ message: 'Current password and new password are required' });
+    }
+
+    const user = await User.findById(req.user.id);
+    if (!user) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+
+    // Verify current password
+    const isMatch = await user.comparePassword(currentPassword);
+    if (!isMatch) {
+      return res.status(401).json({ message: 'Current password is incorrect' });
+    }
+
+    // Update password
+    user.password = newPassword;
+    await user.save();
+
+    res.json({ message: 'Password changed successfully' });
+  } catch (err) {
+    next(err);
+  }
+};
+
+/**
  * @route GET /api/users (admin)
  */
 const listUsers = async (_req, res, next) => {
@@ -187,4 +219,4 @@ const getUserHistory = async (req, res, next) => {
   }
 };
 
-module.exports = { getProfile, updateProfile, listUsers, lookupUsers, getUserHistory };
+module.exports = { getProfile, updateProfile, changePassword, listUsers, lookupUsers, getUserHistory };

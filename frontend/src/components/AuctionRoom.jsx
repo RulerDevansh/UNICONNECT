@@ -30,12 +30,33 @@ const AuctionRoom = ({ listing }) => {
   const [myHighestBid, setMyHighestBid] = useState(0);
   const [timeRemaining, setTimeRemaining] = useState('');
   const [auctionStatus, setAuctionStatus] = useState(listing.auction?.status || 'active');
-  const [winner, setWinner] = useState(null);
+  const [winner, setWinner] = useState(listing.auction?.winner || null);
   const [error, setError] = useState('');
 
-  const isSeller = user?.id === listing.seller._id || user?.id === listing.seller;
-  const isWinner = winner?._id === user?.id || winner === user?.id;
+  // Properly check if user is seller
+  const sellerId = listing.seller?._id || listing.seller;
+  const isSeller = user?.id === sellerId;
+  
   const hasEnded = auctionStatus === 'ended' || new Date(listing.auction.endTime) <= new Date();
+  
+  // Check if current user is the winner - only true if auction ended AND user is highest bidder
+  const winnerId = winner?._id || winner;
+  const currentBidderId = currentBidder?._id || currentBidder;
+  
+  console.log('AuctionRoom Debug:', {
+    userId: user?.id,
+    sellerId,
+    isSeller,
+    hasEnded,
+    winnerId,
+    currentBidderId,
+    currentBid
+  });
+  
+  const isWinner = !isSeller && hasEnded && currentBid > 0 && (
+    (winnerId && winnerId === user?.id) ||
+    (currentBidderId && currentBidderId === user?.id)
+  );
 
   useEffect(() => {
     if (!socket || !listing._id) return;
@@ -69,8 +90,12 @@ const AuctionRoom = ({ listing }) => {
 
     const handleAuctionEnd = (data) => {
       setAuctionStatus('ended');
-      setWinner(data.winner);
+      setWinner(data.winner || data.winnerDetails);
       setCurrentBid(data.finalBid);
+      // Set currentBidder to winner so isWinner check works
+      if (data.winner || data.winnerDetails) {
+        setCurrentBidder(data.winnerDetails || data.winner);
+      }
     };
 
     const handleBidError = (data) => {
