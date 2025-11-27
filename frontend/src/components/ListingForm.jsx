@@ -97,7 +97,8 @@ const ListingForm = ({ onCreated, onSuccess, initialData, mode = 'create' }) => 
           .filter(Boolean),
       };
 
-      if (form.listingType === 'auction') {
+      // Include auction/bidding data when either type selected
+      if (form.listingType === 'auction' || form.listingType === 'bidding') {
         payload.auction = {
           ...form.auction,
           startBid: Number(form.auction.startBid),
@@ -135,7 +136,16 @@ const ListingForm = ({ onCreated, onSuccess, initialData, mode = 'create' }) => 
       onCreated?.(response?.data);
     } catch (err) {
       const fallback = mode === 'edit' ? 'Failed to update listing' : 'Failed to create listing';
-      setError(err.response?.data?.message || fallback);
+      const validationErrors = err.response?.data?.errors;
+      if (Array.isArray(validationErrors) && validationErrors.length) {
+        const combinedMessage = validationErrors
+          .map((issue) => issue?.msg || issue?.message || issue?.param)
+          .filter(Boolean)
+          .join('. ');
+        setError(combinedMessage || fallback);
+      } else {
+        setError(err.response?.data?.message || fallback);
+      }
     } finally {
       setSubmitting(false);
     }
@@ -151,6 +161,7 @@ const ListingForm = ({ onCreated, onSuccess, initialData, mode = 'create' }) => 
           value={form.title}
           onChange={handleChange}
           className="mt-1 w-full rounded border border-slate-700 bg-slate-950/60 px-3 py-2 text-slate-100"
+          minLength={3}
           required
         />
       </div>
@@ -214,10 +225,11 @@ const ListingForm = ({ onCreated, onSuccess, initialData, mode = 'create' }) => 
           >
             <option value="buy-now">Buy Now</option>
             <option value="auction">Auction</option>
+            <option value="bidding">Bidding</option>
           </select>
         </div>
       </div>
-      {form.listingType === 'auction' && (
+      {(form.listingType === 'auction' || form.listingType === 'bidding') && (
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 rounded border border-purple-500/30 bg-purple-500/10 p-4">
           <div>
             <label className="text-sm font-medium text-purple-300">Starting Bid (₹)</label>
@@ -228,11 +240,11 @@ const ListingForm = ({ onCreated, onSuccess, initialData, mode = 'create' }) => 
               value={form.auction.startBid}
               onChange={handleAuctionChange}
               className="mt-1 w-full rounded border border-purple-700 bg-purple-950/60 px-3 py-2 text-slate-100"
-              required={form.listingType === 'auction'}
+              required={form.listingType === 'auction' || form.listingType === 'bidding'}
             />
           </div>
           <div>
-            <label className="text-sm font-medium text-purple-300">Auction End Time</label>
+            <label className="text-sm font-medium text-purple-300">End Time</label>
             <input
               name="endTime"
               type="datetime-local"
@@ -240,7 +252,7 @@ const ListingForm = ({ onCreated, onSuccess, initialData, mode = 'create' }) => 
               onChange={handleAuctionChange}
               min={new Date(Date.now() + 60 * 60 * 1000).toISOString().slice(0, 16)}
               className="mt-1 w-full rounded border border-purple-700 bg-purple-950/60 px-3 py-2 text-slate-100"
-              required={form.listingType === 'auction'}
+              required={form.listingType === 'auction' || form.listingType === 'bidding'}
             />
           </div>
         </div>
