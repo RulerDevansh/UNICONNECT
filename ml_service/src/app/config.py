@@ -24,7 +24,7 @@ class Settings(BaseSettings):
         alias='RECOMMENDER_DATA_PATH',
     )
     alcohol_model_path: str = Field(
-        default='src/AlchoholDetector.h5',
+        default='src/best_model_finetuned.keras',
         alias='ALCOHOL_MODEL_PATH',
     )
     alcohol_threshold: float = Field(

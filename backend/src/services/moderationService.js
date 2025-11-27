@@ -41,27 +41,37 @@ const checkAlcoholImage = async (imageUrl) => {
     const data = await withRetry(() =>
       axios
         .post(
-          `${process.env.ML_SERVICE_URL}/predict/alcohol-image`,
+          `${process.env.ML_SERVICE_URL}/predict/url`,
           { image_url: imageUrl },
           { timeout: 8000 }
         )
         .then((res) => res.data)
     );
 
-    const predictedLabel = data?.predicted_label || '';
-    const confidence = Number(data?.confidence ?? 0);
-    const isBeer = Boolean(data?.is_beer);
+    const predictedClass = data?.predicted_class || '';
+    const probability = Number(data?.probability ?? 0);
+    const blocked = Boolean(data?.blocked);
+
+    console.info('[ML] alcohol prediction', {
+      filename: data?.filename,
+      predicted_class: predictedClass,
+      probability,
+      threshold: data?.threshold,
+      blocked,
+    });
 
     return {
-      blocked: isBeer,
-      reason: isBeer ? BEER_BLOCK_REASON : 'clear',
-      predicted_label: predictedLabel,
-      confidence,
-      flagged: Boolean(data?.flagged),
-      is_beer: isBeer,
-      scores: data?.scores || {},
+      blocked,
+      reason: blocked ? BEER_BLOCK_REASON : 'clear',
+      predicted_label: predictedClass,
+      confidence: probability,
+      flagged: blocked,
+      is_beer: blocked,
+      scores: {},
+      probability,
+      filename: data?.filename,
       recommendation: BEER_BLOCK_MESSAGE,
-      needs_review: !isBeer && Boolean(data?.flagged),
+      needs_review: false,
     };
   } catch (err) {
     console.error('Alcohol detection call failed', err.message);

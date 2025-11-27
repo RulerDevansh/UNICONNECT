@@ -64,18 +64,23 @@ def moderate(payload: ModerationRequest):
     return score_listing(base_text, '')
 
 
-@app.post('/predict/alcohol-image', response_model=AlcoholDetectionResponse)
-def detect_alcohol(payload: AlcoholDetectionRequest):
+def _predict_safety(image_url: str) -> AlcoholDetectionResponse:
     if alcohol_detector is None:
         return {
-            'predicted_label': 'Unknown',
-            'confidence': 0.0,
-            'scores': {},
-            'flagged': False,
-            'is_beer': False,
+            'filename': image_url,
+            'predicted_class': 'negative',
+            'probability': 0.0,
+            'threshold': settings.alcohol_threshold,
+            'blocked': False,
         }
+    return alcohol_detector.predict_from_url(image_url)
 
-    result = alcohol_detector.predict_from_url(payload.image_url)
-    # Policy: beer bottles (above threshold) must be blocked immediately, so `flagged` mirrors `is_beer`.
-    result['flagged'] = bool(result.get('is_beer', False))
-    return result
+
+@app.post('/predict/alcohol-image', response_model=AlcoholDetectionResponse)
+def detect_alcohol(payload: AlcoholDetectionRequest):
+    return _predict_safety(payload.image_url)
+
+
+@app.post('/predict/url', response_model=AlcoholDetectionResponse)
+def detect_alcohol_from_url(payload: AlcoholDetectionRequest):
+    return _predict_safety(payload.image_url)
