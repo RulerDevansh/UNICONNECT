@@ -4,6 +4,7 @@ import ListingCard from '../components/ListingCard';
 import { useSocket } from '../context/SocketContext';
 import api from '../services/api';
 import { formatCurrency } from '../utils/currency';
+import logo from '../assets/logo.svg';
 
 const SharePreview = ({ share }) => {
   // Filter out cancelled members
@@ -293,7 +294,14 @@ const Home = () => {
     <main className="mx-auto max-w-6xl px-4 py-10 text-slate-100">
       <div className="flex flex-col gap-8 text-center">
         <div>
-          <p className="text-sm uppercase tracking-[0.2em] text-brand-secondary">UniConnect</p>
+          <div className="flex items-center justify-center gap-3">
+            <img 
+              src={logo} 
+              alt="UniConnect Logo" 
+              className="h-6 w-6 sm:h-8 sm:w-8" 
+            />
+            <p className="text-sm uppercase tracking-[0.2em] text-brand-secondary">UniConnect</p>
+          </div>
           <h1 className="mt-1 text-4xl font-semibold text-white">Marketplace + Sharing hub</h1>
           <p className="mt-2 text-base text-slate-400">Everything classmates are selling and splitting, side by side.</p>
         </div>

@@ -3,6 +3,7 @@ import { Link, NavLink, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useSocket } from '../context/SocketContext';
 import { useNotifications } from '../context/NotificationContext';
+import logo from '../assets/logo.svg';
 
 const navItems = [
   { to: '/', label: 'Home', private: false },
@@ -30,8 +31,13 @@ const Navbar = () => {
   return (
     <header className="sticky top-0 z-20 border-b border-white/5 bg-slate-900/60 backdrop-blur-xl">
       <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-3">
-        <Link to="/" className="text-xl font-semibold text-white">
-          UniConnect
+        <Link to="/" className="flex items-center gap-3 text-xl font-semibold text-white transition-opacity hover:opacity-80">
+          <img 
+            src={logo} 
+            alt="UniConnect Logo" 
+            className="h-8 w-8 sm:h-10 sm:w-10" 
+          />
+          <span>UniConnect</span>
         </Link>
         <nav className="flex items-center gap-4 text-sm font-medium text-slate-300">
           {navItems
