@@ -135,7 +135,16 @@ const ListingForm = ({ onCreated, onSuccess, initialData, mode = 'create' }) => 
       onCreated?.(response?.data);
     } catch (err) {
       const fallback = mode === 'edit' ? 'Failed to update listing' : 'Failed to create listing';
-      setError(err.response?.data?.message || fallback);
+      const validationErrors = err.response?.data?.errors;
+      if (Array.isArray(validationErrors) && validationErrors.length) {
+        const combinedMessage = validationErrors
+          .map((issue) => issue?.msg || issue?.message || issue?.param)
+          .filter(Boolean)
+          .join('. ');
+        setError(combinedMessage || fallback);
+      } else {
+        setError(err.response?.data?.message || fallback);
+      }
     } finally {
       setSubmitting(false);
     }
@@ -151,6 +160,7 @@ const ListingForm = ({ onCreated, onSuccess, initialData, mode = 'create' }) => 
           value={form.title}
           onChange={handleChange}
           className="mt-1 w-full rounded border border-slate-700 bg-slate-950/60 px-3 py-2 text-slate-100"
+          minLength={3}
           required
         />
       </div>
