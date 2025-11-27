@@ -12,9 +12,16 @@ const loginValidationRules = () => [
 ];
 
 const listingValidationRules = () => [
-  body('title').isLength({ min: 3 }),
-  body('price').isFloat({ min: 0 }),
-  body('category').isIn(['physical', 'digital', 'ticket', 'merch']),
+  body('title')
+    .trim()
+    .isLength({ min: 3 })
+    .withMessage('Title must be at least 3 characters long'),
+  body('price')
+    .isFloat({ min: 0 })
+    .withMessage('Price must be a number greater than or equal to 0'),
+  body('category')
+    .isIn(['physical', 'digital', 'ticket', 'merch'])
+    .withMessage('Category must be physical, digital, ticket or merch'),
 ];
 
 const validateListingFilters = (query) => ({
