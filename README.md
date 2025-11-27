@@ -28,6 +28,13 @@ Full-stack campus marketplace featuring:
    scripts/run_ml_service.sh --reload     # starts FastAPI on port 8001
    ```
 
+   On Windows (PowerShell):
+   ```powershell
+   cd ml_service
+   powershell -NoProfile -ExecutionPolicy Bypass -File scripts/setup_ml_env.ps1
+   powershell -NoProfile -ExecutionPolicy Bypass -File scripts/run_ml_service.ps1 --reload
+   ```
+
 Ensure `backend/.env` sets `ML_SERVICE_URL=http://localhost:8001` so listings and moderation flows reach the service.
 
 ## Testing
