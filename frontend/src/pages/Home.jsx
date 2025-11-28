@@ -327,7 +327,7 @@ const Home = () => {
             ) : listingError ? (
               <p className="text-center text-sm text-slate-500">{listingError}</p>
             ) : listings.length ? (
-              listings.map((listing) => <ListingCard key={listing._id} listing={listing} />)
+              listings.map((listing) => <ListingCard key={listing._id} listing={listing} hideBuyNowBadge compactButtons />)
             ) : (
               <p className="text-center text-sm text-slate-500">No listings posted yet.</p>
             )}

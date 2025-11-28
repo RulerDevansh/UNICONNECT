@@ -158,6 +158,11 @@ const MyListings = () => {
     }
   };
 
+  // Badge counts: exclude cancelled, rejected, completed, withdrawn
+  const isActiveTx = (s) => !['cancelled', 'rejected', 'completed', 'withdrawn'].includes(s);
+  const buyActiveCount = buyRequests.filter((r) => isActiveTx(r.status)).length;
+  const myActiveCount = myRequests.filter((r) => isActiveTx(r.status)).length;
+
   return (
     <main className="mx-auto max-w-full px-4 py-8">
       <h1 className="mb-6 text-3xl font-bold text-white">My Listings</h1>
@@ -197,7 +202,7 @@ const MyListings = () => {
               {listings.length > 0 ? (
                 listings.map((listing) => (
                   <div key={listing._id} className="space-y-3 rounded-2xl border border-slate-800 bg-slate-900/50 p-4 shadow shadow-black/40">
-                    <ListingCard listing={listing} />
+                    <ListingCard listing={listing} hideBuyNowBadge />
                     <div className="flex flex-wrap gap-3">
                       <button
                         type="button"
@@ -246,7 +251,9 @@ const MyListings = () => {
                     : 'text-slate-400 hover:text-slate-200'
                 }`}
               >
-                Buy Requests {buyRequests.length > 0 && <span className="ml-1 rounded-full bg-brand-primary px-2 py-0.5 text-xs text-white">{buyRequests.length}</span>}
+                Buy Requests {buyActiveCount > 0 && (
+                  <span className="ml-1 rounded-full bg-brand-primary px-2 py-0.5 text-xs text-white">{buyActiveCount}</span>
+                )}
               </button>
               <button
                 onClick={() => setActiveTab('myRequests')}
@@ -256,7 +263,9 @@ const MyListings = () => {
                     : 'text-slate-400 hover:text-slate-200'
                 }`}
               >
-                My Requests
+                My Requests {myActiveCount > 0 && (
+                  <span className="ml-1 rounded-full bg-brand-primary px-2 py-0.5 text-xs text-white">{myActiveCount}</span>
+                )}
               </button>
             </div>
 
@@ -284,12 +293,12 @@ const MyListings = () => {
                         <div key={request._id} className="rounded-2xl border border-slate-800 bg-slate-900/60 p-5 transition hover:border-slate-700">
                           <div className="flex gap-4">
                             <img
-                              src={request.listing?.images?.[0]?.url || 'https://placehold.co/100x100'}
-                              alt={request.listing?.title}
+                              src={request.listing?.images?.[0]?.url || request.listingSnapshot?.images?.[0]?.url || 'https://placehold.co/100x100'}
+                              alt={request.listing?.title || request.listingSnapshot?.title}
                               className="h-24 w-24 rounded-lg border border-slate-800 object-cover"
                             />
                             <div className="flex-1">
-                              <h3 className="text-lg font-semibold text-white">{request.listing?.title}</h3>
+                              <h3 className="text-lg font-semibold text-white">{request.listing?.title || request.listingSnapshot?.title}</h3>
                               <p className="mt-1 text-xl font-bold text-brand-primary">{formatCurrency(request.amount)}</p>
                               <p className="mt-2 text-sm text-slate-400">
                                 Buyer: <span className="font-medium text-slate-200">{request.buyer?.name}</span> ({request.buyer?.email})
@@ -411,12 +420,12 @@ const MyListings = () => {
                         <div key={request._id} className="rounded-2xl border border-slate-800 bg-slate-900/60 p-5 transition hover:border-slate-700">
                           <div className="flex gap-4">
                             <img
-                              src={request.listing?.images?.[0]?.url || 'https://placehold.co/100x100'}
-                              alt={request.listing?.title}
+                              src={request.listing?.images?.[0]?.url || request.listingSnapshot?.images?.[0]?.url || 'https://placehold.co/100x100'}
+                              alt={request.listing?.title || request.listingSnapshot?.title}
                               className="h-24 w-24 rounded-lg border border-slate-800 object-cover"
                             />
                             <div className="flex-1">
-                              <h3 className="text-lg font-semibold text-white">{request.listing?.title}</h3>
+                              <h3 className="text-lg font-semibold text-white">{request.listing?.title || request.listingSnapshot?.title}</h3>
                               <p className="mt-1 text-sm text-slate-400">
                                 Seller: <span className="text-slate-300">{request.seller?.name}</span>
                               </p>
@@ -424,7 +433,7 @@ const MyListings = () => {
                                 Requested: <span className="text-slate-300">{new Date(request.createdAt).toLocaleString()}</span>
                               </p>
                               <div className="mt-2 flex items-center gap-3">
-                                <p className="text-xl font-bold text-emerald-400">{formatCurrency(request.listing?.price)}</p>
+                                <p className="text-xl font-bold text-emerald-400">{formatCurrency(request.amount ?? request.listing?.price)}</p>
                                 <span className={`rounded-full px-3 py-1 text-xs font-semibold uppercase ${statusConfig.color}`}>
                                   {statusConfig.label}
                                 </span>
@@ -488,7 +497,7 @@ const MyListings = () => {
                                 Mark as Paid
                               </button>
                             )}
-                            {(request.status === 'pending' || request.status === 'approved') && (
+                            {(request.status === 'pending' || request.status === 'approved') && request.listing?.listingType !== 'bidding' && request.transactionType !== 'auction' && (
                               <button
                                 onClick={() => handleWithdraw(request._id)}
                                 disabled={updatingId === request._id}

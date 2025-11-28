@@ -23,8 +23,8 @@ const Listing = require('../models/Listing');
  * 3. Access share history for 30 days after completion
  */
 const startCleanupService = () => {
-  // Run every 5 minutes to check for completed shares and cleanup
-  cron.schedule('*/5 * * * *', async () => {
+  // Run every 30 seconds to check for completed shares and cleanup (especially for instant bidding/auction end)
+  cron.schedule('*/30 * * * * *', async () => {
     try {
       const now = new Date();
       const thirtyDaysAgo = new Date(now.getTime() - (30 * 24 * 60 * 60 * 1000));
@@ -378,6 +378,7 @@ const startCleanupService = () => {
           await Notification.create({
             user: winnerId,
             type: 'auction_won',
+            title: 'Auction Won',
             message: `🎉 Congratulations! You won the auction for "${listing.title}" with a bid of ₹${finalBid}`,
             link: `/listings/${listing._id}`,
           });
@@ -386,6 +387,7 @@ const startCleanupService = () => {
           await Notification.create({
             user: listing.seller._id,
             type: 'auction_ended',
+            title: 'Auction Ended',
             message: `Your auction "${listing.title}" has ended. Winner: ${winner.name || winner.email} with bid ₹${finalBid}`,
             link: `/listings/${listing._id}`,
           });
@@ -441,11 +443,125 @@ const startCleanupService = () => {
           await Notification.create({
             user: listing.seller._id,
             type: 'auction_no_bids',
+            title: 'Auction Ended - No Bids',
             message: `Your auction "${listing.title}" ended with no bids.`,
             link: `/my-listings`,
           });
 
           console.log(`Auction removed (no bids): "${listing.title}"`);
+        }
+      }
+
+      // Bidding cleanup logic (independent from auction)
+      const expiredBidding = await Listing.find({
+        listingType: 'bidding',
+        'auction.status': { $in: [null, 'active'] },
+        'auction.endTime': { $lte: now },
+      })
+        .populate('seller', 'name email')
+        .populate('auction.currentBid.bidder', 'name email');
+
+      for (const listing of expiredBidding) {
+        const hasBids = Array.isArray(listing.auction?.bidders) && listing.auction.bidders.length > 0;
+
+        if (hasBids) {
+          listing.auction.status = 'ended';
+          const winnerDoc = listing.auction.currentBid?.bidder;
+          const winnerId = winnerDoc?._id || winnerDoc;
+          const finalBid = listing.auction.currentBid?.amount || 0;
+          listing.auction.winner = winnerId;
+          // Keep listing visible until seller completes the transaction
+          await listing.save();
+
+          const { getIO } = require('./socketService');
+          const io = getIO();
+          if (io) {
+            // Notify room that bidding ended (no winner details broadcast)
+            io.to(`bidding:${listing._id}`).emit('bidding:end', {
+              listingId: listing._id,
+            });
+            // Winner-only message
+            io.to(`user:${winnerId}`).emit('bidding:won', {
+              listingId: listing._id,
+              finalBid,
+              title: listing.title,
+            });
+            // Seller-only winner details
+            io.to(`user:${listing.seller._id}`).emit('bidding:winner', {
+              listingId: listing._id,
+              finalBid,
+              winner: {
+                _id: winnerId,
+                name: winnerDoc?.name,
+                email: winnerDoc?.email,
+              },
+              title: listing.title,
+            });
+          }
+
+          const winnerNotif = await Notification.create({
+            user: winnerId,
+            type: 'bidding_won',
+            title: 'Bidding Won',
+            message: `You won the bidding for "${listing.title}" with ₹${finalBid}`,
+            link: `/listings/${listing._id}`,
+          });
+          if (io && winnerNotif) {
+            io.to(`user:${winnerId}`).emit('notification', winnerNotif);
+          }
+
+          const sellerNotif = await Notification.create({
+            user: listing.seller._id,
+            type: 'bidding_ended',
+            title: 'Bidding Ended',
+            message: `Your bidding listing "${listing.title}" ended. Winner bid: ₹${finalBid}`,
+            link: `/listings/${listing._id}`,
+          });
+          if (io && sellerNotif) {
+            io.to(`user:${listing.seller._id}`).emit('notification', sellerNotif);
+          }
+
+          await Transaction.create({
+            listing: listing._id,
+            buyer: winnerId,
+            seller: listing.seller._id,
+            amount: finalBid,
+            // Reuse 'auction' transaction flow so seller completes later
+            transactionType: 'auction',
+            status: 'approved',
+            paymentStatus: 'not_paid',
+            listingSnapshot: {
+              title: listing.title,
+              price: listing.price,
+              images: listing.images || [],
+              category: listing.category,
+              description: listing.description,
+            },
+          });
+          // Do not auto-archive; seller will complete to remove from marketplace
+        } else {
+          await Listing.findByIdAndUpdate(listing._id, {
+            status: 'archived',
+            'auction.status': 'ended',
+          });
+
+          const { getIO } = require('./socketService');
+          const io = getIO();
+          if (io) {
+            io.to(`bidding:${listing._id}`).emit('bidding:end', {
+              winner: null,
+              finalBid: 0,
+              listingId: listing._id,
+            });
+          }
+
+          await Notification.create({
+            user: listing.seller._id,
+            type: 'bidding_no_bids',
+            title: 'Bidding Ended - No Bids',
+            message: `Your bidding listing "${listing.title}" ended with no bids.`,
+            link: `/my-listings`,
+          });
         }
       }
 

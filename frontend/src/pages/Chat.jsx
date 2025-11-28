@@ -13,7 +13,8 @@ const Chat = () => {
   const [messages, setMessages] = useState([]);
   const [typingUsers, setTypingUsers] = useState([]);
   const [searchTerm, setSearchTerm] = useState('');
-  const [results, setResults] = useState([]);
+  // Removed external user lookup results; we only filter existing chats
+  const [results, setResults] = useState([]); // legacy state kept minimal to avoid refactor cost
   const [searchParams, setSearchParams] = useSearchParams();
   const activeIdRef = useRef(null);
 
@@ -113,15 +114,8 @@ const Chat = () => {
     updateChatParam(chatId);
   };
 
-  const startChat = async (userId) => {
-    const { data } = await api.post('/chats', { userId });
-    setSearchTerm('');
-    setResults([]);
-    await loadChats();
-    setActiveId(data._id);
-    loadMessages(data._id);
-    updateChatParam(data._id);
-  };
+  // Deprecated: starting arbitrary chat by userId disabled for privacy
+  const startChat = async () => {};
 
   useEffect(() => {
     loadChats();
@@ -175,15 +169,6 @@ const Chat = () => {
     socket?.emit('typing', activeId);
   };
 
-  const searchUsers = async () => {
-    if (!searchTerm.trim()) {
-      setResults([]);
-      return;
-    }
-    const { data } = await api.get('/users/lookup', { params: { q: searchTerm } });
-    setResults(data);
-  };
-
   const getChatLabel = (chat) => {
     if (chat.isGroup) {
       // Use trip name from shareRef if available
@@ -208,6 +193,18 @@ const Chat = () => {
     return other?.name || 'Direct Chat';
   };
 
+  // Local chat filter instead of remote user lookup
+  const filteredChats = useMemo(() => {
+    const term = searchTerm.trim().toLowerCase();
+    if (!term) return chats;
+    return chats.filter((chat) => {
+      const label = getChatLabel(chat).toLowerCase();
+      if (label.includes(term)) return true;
+      // Also match participant names
+      return (chat.participants || []).some(p => (p.name || '').toLowerCase().includes(term));
+    });
+  }, [searchTerm, chats, getChatLabel]);
+
   return (
     <main className="mx-auto max-w-6xl px-4 py-10 text-slate-100">
       <div className="grid gap-4 md:grid-cols-3">
@@ -216,34 +213,23 @@ const Chat = () => {
             <input
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter') {
-                  e.preventDefault();
-                  searchUsers();
-                }
-              }}
-              placeholder="Find by email"
+              placeholder="Search chats"
               className="flex-1 rounded border border-slate-700 bg-slate-950/60 px-3 py-2 text-sm text-slate-100 placeholder:text-slate-500"
             />
-            <button type="button" className="rounded bg-brand-primary px-3 py-2 text-white text-sm shadow shadow-brand-primary/40" onClick={searchUsers}>
-              Search
-            </button>
-          </div>
-          <div className="mt-2 space-y-2 text-sm text-slate-300">
-            {results.map((result) => (
+            {searchTerm && (
               <button
-                key={result._id}
                 type="button"
-                onClick={() => startChat(result._id)}
-                className="w-full rounded border border-slate-700 bg-slate-950/30 px-2 py-1 text-left"
+                onClick={() => setSearchTerm('')}
+                className="rounded border border-slate-600 px-3 py-2 text-white text-sm"
               >
-                {result.name} <span className="text-xs text-slate-500">{result.email}</span>
+                Clear
               </button>
-            ))}
+            )}
           </div>
+          {/* Removed direct user search results for privacy */}
           <hr className="my-4" />
           <ul className="space-y-2 text-sm text-slate-300">
-            {chats.map((chat) => (
+            {filteredChats.map((chat) => (
               <li key={chat._id}>
                 <button
                   type="button"

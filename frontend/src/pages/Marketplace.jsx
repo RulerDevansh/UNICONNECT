@@ -80,11 +80,11 @@ const Marketplace = () => {
       </section>
       <section className="mt-10">
         {error && <p className="rounded border border-red-500/30 bg-red-500/10 p-3 text-sm text-red-200">{error}</p>}
-        <div className="mt-6 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+        <div className="mt-6 grid gap-6 grid-cols-1 sm:grid-cols-2">
           {loading ? (
             <p className="col-span-full text-center text-slate-400">Loading listings…</p>
           ) : listings.length ? (
-            listings.map((listing) => <ListingCard key={listing._id} listing={listing} />)
+            listings.map((listing) => <ListingCard key={listing._id} listing={listing} wideImage hideBuyNowBadge />)
           ) : (
             <p className="col-span-full text-center text-slate-500">No listings match those filters.</p>
           )}

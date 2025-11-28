@@ -67,11 +67,30 @@ const ListingForm = ({ onCreated, onSuccess, initialData, mode = 'create' }) => 
 
   const handleAuctionChange = (e) => {
     const { name, value } = e.target;
-    setForm((prev) => ({
-      ...prev,
-      auction: { ...prev.auction, [name]: value },
-    }));
+    setForm((prev) => {
+      const next = {
+        ...prev,
+        auction: { ...prev.auction, [name]: value },
+      };
+      // For bidding type, derive price from startBid
+      if (prev.listingType === 'bidding' && name === 'startBid') {
+        const n = Number(value) || 0;
+        if (next.price !== n) next.price = n;
+      }
+      return next;
+    });
   };
+
+  // Keep price synced to startBid for bidding type
+  useEffect(() => {
+    if (form.listingType === 'bidding') {
+      const n = Number(form.auction.startBid) || 0;
+      if (form.price !== n) {
+        setForm((prev) => ({ ...prev, price: n }));
+      }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [form.listingType, form.auction.startBid]);
 
   const uploadImage = async (listingId) => {
     if (!image) return null;
@@ -104,6 +123,10 @@ const ListingForm = ({ onCreated, onSuccess, initialData, mode = 'create' }) => 
           startBid: Number(form.auction.startBid),
           endTime: form.auction.endTime ? new Date(form.auction.endTime).toISOString() : undefined,
         };
+        if (form.listingType === 'bidding') {
+          // Derive price from startBid for bidding listings
+          payload.price = Number(form.auction.startBid) || 0;
+        }
       }
 
       let response;
@@ -177,18 +200,30 @@ const ListingForm = ({ onCreated, onSuccess, initialData, mode = 'create' }) => 
         />
       </div>
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-        <div>
-          <label className="text-sm font-medium text-slate-300">Price</label>
-          <input
-            name="price"
-            type="number"
-            min="0"
-            value={form.price}
-            onChange={handleChange}
-            className="mt-1 w-full rounded border border-slate-700 bg-slate-950/60 px-3 py-2 text-slate-100"
-            required
-          />
-        </div>
+        {form.listingType !== 'bidding' ? (
+          <div>
+            <label className="text-sm font-medium text-slate-300">Price</label>
+            <input
+              name="price"
+              type="number"
+              min="0"
+              value={form.price}
+              onChange={handleChange}
+              className="mt-1 w-full rounded border border-slate-700 bg-slate-950/60 px-3 py-2 text-slate-100"
+              required
+            />
+          </div>
+        ) : (
+          <div>
+            <label className="text-sm font-medium text-slate-300">Price (derived from Starting Bid)</label>
+            <input
+              type="number"
+              value={Number(form.auction.startBid) || 0}
+              disabled
+              className="mt-1 w-full rounded border border-slate-700 bg-slate-900/40 px-3 py-2 text-slate-400"
+            />
+          </div>
+        )}
         <div>
           <label className="text-sm font-medium text-slate-300">Category</label>
           <select name="category" value={form.category} onChange={handleChange} className="mt-1 w-full rounded border border-slate-700 bg-slate-950/60 px-3 py-2 text-slate-100">

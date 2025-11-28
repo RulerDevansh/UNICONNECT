@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import api from '../services/api';
 import OfferModal from '../components/OfferModal';
-import AuctionRoom from '../components/AuctionRoom';
+import BiddingBox from '../components/BiddingBox';
 import { useAuth } from '../context/AuthContext';
 import { useSocket } from '../context/SocketContext';
 import useChatLauncher from '../hooks/useChatLauncher';
@@ -15,14 +15,28 @@ const ListingDetail = () => {
   const { socket } = useSocket();
   const startChat = useChatLauncher();
   const [listing, setListing] = useState(null);
+  const [headerPrice, setHeaderPrice] = useState(null);
   const [offers, setOffers] = useState([]);
   const [showOffer, setShowOffer] = useState(false);
   const [recommended, setRecommended] = useState([]);
+  const [showRecommendations, setShowRecommendations] = useState(false); // temporary hide
   const [hasPendingRequest, setHasPendingRequest] = useState(false);
+  const [biddingEndInfo, setBiddingEndInfo] = useState(null);
+
+  // Compute sellerId/isSeller early so hooks below can safely depend on them
+  const sellerId = listing?.seller?._id || listing?.seller?.id;
+  const isSeller = !!(user && sellerId && (sellerId === user.id || sellerId === user._id));
 
   const loadListing = async () => {
     const { data } = await api.get(`/listings/${id}`);
     setListing(data);
+    // Initialize header price: for bidding, prefer currentBid > startBid, else listing price
+    if (data.listingType === 'bidding') {
+      const init = data?.auction?.currentBid?.amount ?? data?.auction?.startBid ?? data.price;
+      setHeaderPrice(init ?? 0);
+    } else {
+      setHeaderPrice(data.price);
+    }
     if (user && data.seller?._id === user.id) {
       const offerRes = await api.get(`/offers/listing/${id}`);
       setOffers(offerRes.data);
@@ -72,27 +86,52 @@ const ListingDetail = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
 
+  // Live update header price for bidding via socket
   useEffect(() => {
-    const fetchRecommendations = async () => {
-      try {
-        const { data } = await api.post('/ml/recommendations', {
-          userId: user?.id,
-          recent_item_ids: [id],
-          limit: 4,
-        });
-        setRecommended(data);
-      } catch (err) {
-        // silent fail when ML service offline
+    if (!socket || !listing || listing.listingType !== 'bidding') return;
+    const listingId = listing._id;
+    try {
+      socket.emit('bidding:join', { listingId });
+    } catch {}
+    const onUpdate = (payload) => {
+      if (payload.listingId !== listingId) return;
+      if (payload.currentBid?.amount != null) {
+        setHeaderPrice(payload.currentBid.amount);
       }
     };
-    fetchRecommendations();
-  }, [id, user]);
+    const onSellerWinner = (payload) => {
+      if (!isSeller) return;
+      if (payload.listingId !== listingId) return;
+      setBiddingEndInfo({ finalBid: payload.finalBid, winner: payload.winner });
+    };
+    socket.on('bidding:update', onUpdate);
+    socket.on('bidding:winner', onSellerWinner);
+    return () => {
+      socket.off('bidding:update', onUpdate);
+      socket.off('bidding:winner', onSellerWinner);
+    };
+  }, [socket, listing, isSeller]);
+
+  // Temporarily disabled recommendations fetch/display
+  // useEffect(() => {
+  //   const fetchRecommendations = async () => {
+  //     try {
+  //       const { data } = await api.post('/ml/recommendations', {
+  //         recent_item_ids: [id],
+  //         limit: 4,
+  //       });
+  //       setRecommended(data);
+  //     } catch (err) {
+  //       // silent fail when ML service offline
+  //     }
+  //   };
+  //   fetchRecommendations();
+  // }, [id, user]);
 
   if (!listing) {
     return <p className="p-8 text-center text-slate-500">Loading listing…</p>;
   }
 
-  const sellerId = listing.seller?._id || listing.seller?.id;
   const canChat = user && sellerId && sellerId !== user.id;
 
   return (
@@ -108,7 +147,7 @@ const ListingDetail = () => {
             <p className="text-sm uppercase tracking-[0.3em] text-slate-400">{listing.category}</p>
             <h1 className="mt-1 text-4xl font-semibold text-white">{listing.title}</h1>
             <p className="mt-3 text-lg text-slate-300">{listing.description}</p>
-            <p className="mt-5 text-3xl font-bold text-white">{formatCurrency(listing.price)}</p>
+            <p className="mt-5 text-3xl font-bold text-white">{formatCurrency(headerPrice ?? listing.price)}</p>
             <div className="mt-4">
               <span className="inline-block rounded-full bg-slate-800 px-4 py-1.5 text-sm font-medium capitalize text-slate-200">
                 Condition: {listing.condition}
@@ -162,8 +201,40 @@ const ListingDetail = () => {
         {listing.listingType === 'auction' && listing.auction?.isAuction && (
           <AuctionRoom listing={listing} />
         )}
+        {listing.listingType === 'bidding' && listing.auction?.isAuction && user &&
+          sellerId && user && sellerId !== user.id && sellerId !== user._id && (
+          <BiddingBox listing={listing} user={user} />
+        )}
+        {listing.listingType === 'bidding' && isSeller && listing.auction?.status === 'ended' && (
+          <div className="mt-6 rounded-2xl border border-slate-700 bg-slate-900/50 p-6">
+            <h3 className="text-lg font-semibold text-white mb-2">Bidding Result</h3>
+            {listing.auction?.winner ? (
+              <div className="text-slate-200">
+                <p>Winner: <span className="font-medium">{listing.auction.winner?.name || listing.auction.winner?.email || 'User'}</span></p>
+                <p className="mt-1">Final Bid: <span className="font-medium">{formatCurrency(listing.auction?.currentBid?.amount || 0)}</span></p>
+                {biddingEndInfo && (
+                  <p className="mt-2 text-sm text-slate-400">Updated just now.</p>
+                )}
+                <div className="mt-4">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const buyerId = listing.auction?.winner?._id || listing.auction?.winner;
+                      if (buyerId) startChat(buyerId, { listingId: listing._id });
+                    }}
+                    className="rounded-full border border-slate-600 px-4 py-2 text-sm font-semibold text-slate-200 transition hover:border-slate-400"
+                  >
+                    Chat with Buyer
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <p className="text-slate-300">No bids were placed.</p>
+            )}
+          </div>
+        )}
       </div>
-      {recommended.length > 0 && (
+      {showRecommendations && recommended.length > 0 && (
         <section className="mt-8">
           <h3 className="text-lg font-semibold text-white">Recommended IDs</h3>
           <p className="text-sm text-slate-400">Hook into actual listing fetch for production.</p>

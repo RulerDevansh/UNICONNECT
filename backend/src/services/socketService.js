@@ -194,6 +194,7 @@ const initSocket = (io) => {
         await Notification.create({
           user: listing.seller._id,
           type: 'auction_bid',
+          title: 'New Auction Bid',
           message: `New bid of ₹${amount} placed on your auction: ${listing.title}`,
           link: `/listings/${listing._id}`,
         });
@@ -201,6 +202,82 @@ const initSocket = (io) => {
       } catch (err) {
         console.error('auction:bid error:', err);
         socket.emit('auction:error', { message: 'Failed to place bid' });
+      }
+    });
+
+    // Bidding handlers (independent from auction)
+    socket.on('bidding:join', async ({ listingId }) => {
+      socket.join(`bidding:${listingId}`);
+      try {
+        const listing = await Listing.findById(listingId).populate('seller', 'name');
+        if (!listing || listing.listingType !== 'bidding') return;
+        const highestMap = listing.auction?.highestBidPerUser;
+        let highestObj = {};
+        if (highestMap && typeof highestMap.forEach === 'function') {
+          highestMap.forEach((val, key) => { highestObj[key] = val; });
+        }
+        socket.emit('bidding:update', {
+          listingId,
+          currentBid: listing.auction?.currentBid || null,
+          highestBidPerUser: highestObj,
+        });
+      } catch (err) {
+        console.error('bidding:join error:', err);
+      }
+    });
+
+    socket.on('bidding:bid', async ({ listingId, amount }) => {
+      try {
+        const listing = await Listing.findById(listingId).exec();
+        if (!listing || listing.listingType !== 'bidding') {
+          socket.emit('bidding:error', { message: 'Bidding not available' });
+          return;
+        }
+
+        const sellerId = listing.seller?.toString();
+        if (sellerId === socket.user.id) {
+          socket.emit('bidding:error', { message: 'Seller cannot bid on own listing' });
+          return;
+        }
+
+        const endTime = listing.auction?.endTime ? new Date(listing.auction.endTime) : null;
+        if (!endTime || endTime <= new Date()) {
+          socket.emit('bidding:error', { message: 'Bidding period ended' });
+          return;
+        }
+
+        const minAcceptable = Math.max(
+          Number(listing.auction?.startBid || 0),
+          Number(listing.auction?.currentBid?.amount || 0) + 1
+        );
+        if (amount < minAcceptable) {
+          socket.emit('bidding:error', { message: `Value must be greater than or equal to ${minAcceptable}.` });
+          return;
+        }
+
+        listing.auction = listing.auction || {};
+        listing.auction.currentBid = { amount, bidder: socket.user.id, timestamp: new Date() };
+        listing.auction.bidders = listing.auction.bidders || [];
+        listing.auction.bidders.push({ user: socket.user.id, amount, timestamp: new Date() });
+        listing.auction.highestBidPerUser = listing.auction.highestBidPerUser || new Map();
+        const prev = listing.auction.highestBidPerUser.get(socket.user.id) || 0;
+        if (amount > prev) listing.auction.highestBidPerUser.set(socket.user.id, amount);
+
+        await listing.save();
+
+        const highestMap = listing.auction.highestBidPerUser;
+        let highestObj = {};
+        if (highestMap && typeof highestMap.forEach === 'function') {
+          highestMap.forEach((val, key) => { highestObj[key] = val; });
+        }
+        io.to(`bidding:${listingId}`).emit('bidding:update', {
+          listingId,
+          currentBid: listing.auction.currentBid,
+          highestBidPerUser: highestObj,
+        });
+      } catch (err) {
+        console.error('bidding:bid error:', err);
+        socket.emit('bidding:error', { message: 'Failed to place bid' });
       }
     });
   });

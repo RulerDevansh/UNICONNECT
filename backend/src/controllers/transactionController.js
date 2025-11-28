@@ -69,6 +69,13 @@ const createTransaction = async (req, res, next) => {
       transactionType: req.body.transactionType || 'buy_request',
       status: 'pending',
       paymentStatus: 'not_paid',
+      listingSnapshot: {
+        title: listing.title,
+        price: listing.price,
+        images: listing.images || [],
+        category: listing.category,
+        description: listing.description,
+      },
     });
 
     await transaction.populate('buyer', 'name email');
@@ -201,11 +208,14 @@ const updateTransactionStatus = async (req, res, next) => {
         transactionId: transaction._id,
       });
       
-      // Hide the listing from marketplace
-      const listing = await Listing.findById(transaction.listing._id);
-      if (listing) {
-        listing.status = 'sold';
-        await listing.save();
+      // For auctions/bidding, keep listing visible until completion.
+      // For buy-now/offer-based, hide after payment received.
+      if (transaction.transactionType !== 'auction') {
+        const listing = await Listing.findById(transaction.listing._id);
+        if (listing) {
+          listing.status = 'sold';
+          await listing.save();
+        }
       }
       
       // Cancel all other pending/approved/payment_sent transactions for the same listing

@@ -18,7 +18,11 @@ const ChatBox = ({ chat, messages, onSend, typingUsers, onTyping, currentUserId 
     </p>;
   }
 
-  const otherParticipants = chat.participants?.filter((participant) => participant._id !== currentUserId);
+  const otherParticipants = chat.participants?.filter((participant) => {
+    const participantId = String(participant._id || participant.id || participant);
+    const userId = String(currentUserId);
+    return participantId !== userId;
+  });
   const title = chat.isGroup 
     ? (chat.shareRef?.name || chat.name || 'Group Chat') 
     : (otherParticipants?.[0]?.name || 'Direct Chat');
@@ -39,26 +43,32 @@ const ChatBox = ({ chat, messages, onSend, typingUsers, onTyping, currentUserId 
         )}
       </div>
       <div className="flex-1 space-y-3 overflow-y-auto p-4">
-        {messages.map((message) => (
-          <div
-            key={message._id}
-            className={`flex flex-col ${message.sender?._id === currentUserId ? 'items-end text-right' : ''}`}
-          >
-            <span className="text-xs text-slate-400">
-              {message.sender?._id === currentUserId ? 'You' : message.sender?.name || 'Classmate'} •{' '}
-              {new Date(message.createdAt).toLocaleTimeString()}
-            </span>
-            <span
-              className={`inline-block max-w-lg rounded px-3 py-2 text-sm ${
-                message.sender?._id === currentUserId
-                  ? 'bg-brand-primary text-white shadow-lg shadow-brand-primary/30'
-                  : 'bg-slate-800/80 text-slate-100'
-              }`}
+        {messages.map((message) => {
+          const senderId = String(message.sender?._id || message.sender?.id || message.sender);
+          const userId = String(currentUserId);
+          const isMine = senderId === userId;
+          
+          return (
+            <div
+              key={message._id}
+              className={`flex flex-col ${isMine ? 'items-end text-right' : ''}`}
             >
-              {message.content}
-            </span>
-          </div>
-        ))}
+              <span className="text-xs text-slate-400">
+                {isMine ? 'You' : message.sender?.name || 'Classmate'} •{' '}
+                {new Date(message.createdAt).toLocaleTimeString()}
+              </span>
+              <span
+                className={`inline-block max-w-lg rounded px-3 py-2 text-sm ${
+                  isMine
+                    ? 'bg-brand-primary text-white shadow-lg shadow-brand-primary/30'
+                    : 'bg-slate-800/80 text-slate-100'
+                }`}
+              >
+                {message.content}
+              </span>
+            </div>
+          );
+        })}
         <div ref={bottomRef} />
       </div>
       <form onSubmit={handleSubmit} className="border-t border-slate-800 p-4">

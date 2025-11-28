@@ -22,10 +22,11 @@ const listingSchema = new mongoose.Schema(
     },
     listingType: {
       type: String,
-      enum: ['buy-now', 'offer', 'auction'],
+      enum: ['buy-now', 'offer', 'auction', 'bidding'],
       default: 'buy-now',
     },
     auction: {
+      // Used for both 'auction' and 'bidding' types
       isAuction: { type: Boolean, default: false },
       startBid: { type: Number, min: 0 },
       endTime: { type: Date },

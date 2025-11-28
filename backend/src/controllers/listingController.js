@@ -123,7 +123,8 @@ const listListings = async (req, res, next) => {
 const getListing = async (req, res, next) => {
   try {
     const listing = await Listing.findById(req.params.id)
-      .populate('seller', 'name email');
+      .populate('seller', 'name email')
+      .populate('auction.winner', 'name email');
     if (!listing) return res.status(404).json({ message: 'Listing not found' });
     
     res.json(listing);
@@ -154,8 +155,8 @@ const createListing = async (req, res, next) => {
       listingType: req.body.listingType || 'buy-now',
     };
 
-    // Handle auction data
-    if (req.body.listingType === 'auction' && req.body.auction) {
+    // Handle auction/bidding data
+    if ((req.body.listingType === 'auction' || req.body.listingType === 'bidding') && req.body.auction) {
       listingData.auction = {
         isAuction: true,
         startBid: Number(req.body.auction.startBid),
@@ -165,9 +166,9 @@ const createListing = async (req, res, next) => {
         highestBidPerUser: new Map(),
       };
 
-      // Validate auction dates
+      // Validate auction/bidding dates
       if (listingData.auction.endTime <= new Date()) {
-        return res.status(422).json({ message: 'Auction end time must be in the future' });
+        return res.status(422).json({ message: 'End auction time must be in the future' });
       }
     }
 
