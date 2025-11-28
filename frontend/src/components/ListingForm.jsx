@@ -72,8 +72,8 @@ const ListingForm = ({ onCreated, onSuccess, initialData, mode = 'create' }) => 
         ...prev,
         auction: { ...prev.auction, [name]: value },
       };
-      // For bidding type, derive price from startBid
-      if (prev.listingType === 'bidding' && name === 'startBid') {
+      // For auction type, derive price from startBid
+      if (prev.listingType === 'auction' && name === 'startBid') {
         const n = Number(value) || 0;
         if (next.price !== n) next.price = n;
       }
@@ -81,9 +81,9 @@ const ListingForm = ({ onCreated, onSuccess, initialData, mode = 'create' }) => 
     });
   };
 
-  // Keep price synced to startBid for bidding type
+  // Keep price synced to startBid for auction type
   useEffect(() => {
-    if (form.listingType === 'bidding') {
+    if (form.listingType === 'auction') {
       const n = Number(form.auction.startBid) || 0;
       if (form.price !== n) {
         setForm((prev) => ({ ...prev, price: n }));
@@ -116,17 +116,15 @@ const ListingForm = ({ onCreated, onSuccess, initialData, mode = 'create' }) => 
           .filter(Boolean),
       };
 
-      // Include auction/bidding data when either type selected
-      if (form.listingType === 'auction' || form.listingType === 'bidding') {
+      // Include auction data when auction type selected
+      if (form.listingType === 'auction') {
         payload.auction = {
           ...form.auction,
           startBid: Number(form.auction.startBid),
           endTime: form.auction.endTime ? new Date(form.auction.endTime).toISOString() : undefined,
         };
-        if (form.listingType === 'bidding') {
-          // Derive price from startBid for bidding listings
-          payload.price = Number(form.auction.startBid) || 0;
-        }
+        // Derive price from startBid for auction listings
+        payload.price = Number(form.auction.startBid) || 0;
       }
 
       let response;
@@ -200,7 +198,7 @@ const ListingForm = ({ onCreated, onSuccess, initialData, mode = 'create' }) => 
         />
       </div>
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-        {form.listingType !== 'bidding' ? (
+        {form.listingType !== 'auction' ? (
           <div>
             <label className="text-sm font-medium text-slate-300">Price</label>
             <input
@@ -260,34 +258,33 @@ const ListingForm = ({ onCreated, onSuccess, initialData, mode = 'create' }) => 
           >
             <option value="buy-now">Buy Now</option>
             <option value="auction">Auction</option>
-            <option value="bidding">Bidding</option>
           </select>
         </div>
       </div>
-      {(form.listingType === 'auction' || form.listingType === 'bidding') && (
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 rounded border border-purple-500/30 bg-purple-500/10 p-4">
+      {form.listingType === 'auction' && (
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 rounded border border-slate-700 bg-slate-800/40 p-4">
           <div>
-            <label className="text-sm font-medium text-purple-300">Starting Bid (₹)</label>
+            <label className="text-sm font-medium text-slate-300">Starting Bid (₹)</label>
             <input
               name="startBid"
               type="number"
               min="0"
               value={form.auction.startBid}
               onChange={handleAuctionChange}
-              className="mt-1 w-full rounded border border-purple-700 bg-purple-950/60 px-3 py-2 text-slate-100"
-              required={form.listingType === 'auction' || form.listingType === 'bidding'}
+              className="mt-1 w-full rounded border border-slate-700 bg-slate-950/60 px-3 py-2 text-slate-100"
+              required={form.listingType === 'auction'}
             />
           </div>
           <div>
-            <label className="text-sm font-medium text-purple-300">End Time</label>
+            <label className="text-sm font-medium text-slate-300">End Time</label>
             <input
               name="endTime"
               type="datetime-local"
               value={form.auction.endTime}
               onChange={handleAuctionChange}
               min={new Date(Date.now() + 60 * 60 * 1000).toISOString().slice(0, 16)}
-              className="mt-1 w-full rounded border border-purple-700 bg-purple-950/60 px-3 py-2 text-slate-100"
-              required={form.listingType === 'auction' || form.listingType === 'bidding'}
+              className="mt-1 w-full rounded border border-slate-700 bg-slate-950/60 px-3 py-2 text-slate-100"
+              required={form.listingType === 'auction'}
             />
           </div>
         </div>

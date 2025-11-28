@@ -44,7 +44,7 @@ const UserHistory = () => {
                 <div className="flex items-center gap-2">
                   <h4 className="font-semibold text-white">{transaction.listing?.title}</h4>
                   {transaction.transactionType === 'auction' && (
-                    <span className="rounded-full bg-purple-500/20 px-2 py-0.5 text-xs font-semibold text-purple-300">
+                    <span className="rounded-full bg-cyan-500/20 px-2 py-0.5 text-xs font-semibold text-cyan-300">
                       🎉 AUCTION
                     </span>
                   )}
@@ -85,7 +85,7 @@ const UserHistory = () => {
                 <div className="flex items-center gap-2">
                   <h4 className="font-semibold text-white">{transaction.listing?.title}</h4>
                   {transaction.transactionType === 'auction' && (
-                    <span className="rounded-full bg-purple-500/20 px-2 py-0.5 text-xs font-semibold text-purple-300">
+                    <span className="rounded-full bg-cyan-500/20 px-2 py-0.5 text-xs font-semibold text-cyan-300">
                       🎉 AUCTION
                     </span>
                   )}
@@ -283,7 +283,7 @@ const UserHistory = () => {
                     {share.category && (
                       <div className="flex items-center gap-2 text-slate-300">
                         <span className="font-medium text-white">📋 Category:</span>
-                        <span className="rounded-full bg-purple-500/20 px-2 py-1 text-xs font-semibold text-purple-400">{share.category}</span>
+                        <span className="rounded-full bg-slate-500/20 px-2 py-1 text-xs font-semibold text-slate-400">{share.category}</span>
                       </div>
                     )}
                     {share.otherDeadline && (
@@ -526,7 +526,7 @@ const UserHistory = () => {
                       {share.category && (
                         <div className="flex items-center gap-2 text-slate-300">
                           <span className="font-medium text-white">📋 Category:</span>
-                          <span className="rounded-full bg-purple-500/20 px-3 py-1 text-xs font-semibold text-purple-400">{share.category}</span>
+                          <span className="rounded-full bg-slate-500/20 px-3 py-1 text-xs font-semibold text-slate-400">{share.category}</span>
                         </div>
                       )}
                       {share.otherDeadline && (

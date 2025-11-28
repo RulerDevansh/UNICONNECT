@@ -497,7 +497,7 @@ const MyListings = () => {
                                 Mark as Paid
                               </button>
                             )}
-                            {(request.status === 'pending' || request.status === 'approved') && request.listing?.listingType !== 'bidding' && request.transactionType !== 'auction' && (
+                            {(request.status === 'pending' || request.status === 'approved') && request.listing?.listingType !== 'auction' && request.transactionType !== 'auction' && (
                               <button
                                 onClick={() => handleWithdraw(request._id)}
                                 disabled={updatingId === request._id}

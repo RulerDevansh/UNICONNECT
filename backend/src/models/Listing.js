@@ -22,7 +22,7 @@ const listingSchema = new mongoose.Schema(
     },
     listingType: {
       type: String,
-      enum: ['buy-now', 'offer', 'auction', 'bidding'],
+      enum: ['buy-now', 'offer', 'auction'],
       default: 'buy-now',
     },
     auction: {

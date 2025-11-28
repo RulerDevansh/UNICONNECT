@@ -30,57 +30,54 @@ const ListingCard = ({ listing, wideImage = false, hideBuyNowBadge = false, comp
   const status = listing.status || 'active';
     const isOwnListing = sellerId && currentUserId && String(sellerId) === String(currentUserId);
   const showBuyCta = listing.listingType === 'buy-now' && !isOwnListing && sellerId && status === 'active';
-  const [timeRemaining, setTimeRemaining] = useState('');
   const isAuction = listing.listingType === 'auction';
-  const isBidding = listing.listingType === 'bidding';
-  const [biddingTimeRemaining, setBiddingTimeRemaining] = useState('');
+  const [auctionTimeRemaining, setAuctionTimeRemaining] = useState('');
   const [displayPrice, setDisplayPrice] = useState(() => {
-    if (isBidding) {
-      return (
-        listing?.auction?.currentBid?.amount ??
-        listing?.auction?.startBid ??
-        listing.price
-      );
+    if (isAuction && listing?.auction) {
+      // For auction: show current bid if exists, otherwise show starting bid
+      const currentBid = listing.auction.currentBid?.amount;
+      const startBid = listing.auction.startBid;
+      
+      // Check currentBid first (including 0)
+      if (typeof currentBid === 'number') {
+        return currentBid;
+      }
+      // Then check startBid (including 0)
+      if (typeof startBid === 'number') {
+        return startBid;
+      }
+      // Fallback to listing.price
+      if (typeof listing.price === 'number') {
+        return listing.price;
+      }
     }
-    return listing.price;
+    return listing.price || 0;
   });
 
   useEffect(() => {
     if (isAuction && listing.auction?.endTime) {
       const timer = setInterval(() => {
-        setTimeRemaining(formatTimeRemaining(listing.auction.endTime));
-      }, 60000); // Update every minute
-
-      setTimeRemaining(formatTimeRemaining(listing.auction.endTime));
-
+        setAuctionTimeRemaining(formatTimeRemaining(listing.auction.endTime));
+      }, 60000);
+      setAuctionTimeRemaining(formatTimeRemaining(listing.auction.endTime));
       return () => clearInterval(timer);
     }
   }, [isAuction, listing.auction?.endTime]);
 
+  // Live price updates for auction via socket
   useEffect(() => {
-    if (isBidding && listing.auction?.endTime) {
-      const timer = setInterval(() => {
-        setBiddingTimeRemaining(formatTimeRemaining(listing.auction.endTime));
-      }, 60000);
-      setBiddingTimeRemaining(formatTimeRemaining(listing.auction.endTime));
-      return () => clearInterval(timer);
-    }
-  }, [isBidding, listing.auction?.endTime]);
-
-  // Live price updates for bidding via socket
-  useEffect(() => {
-    if (!socket || !isBidding) return;
+    if (!socket || !isAuction) return;
     const listingId = listing._id;
-    try { socket.emit('bidding:join', { listingId }); } catch {}
+    try { socket.emit('auction:join', { listingId }); } catch {}
     const onUpdate = (payload) => {
       if (payload.listingId !== listingId) return;
       if (payload.currentBid?.amount != null) {
         setDisplayPrice(payload.currentBid.amount);
       }
     };
-    socket.on('bidding:update', onUpdate);
-    return () => { socket.off('bidding:update', onUpdate); };
-  }, [socket, isBidding, listing._id]);
+    socket.on('auction:update', onUpdate);
+    return () => { socket.off('auction:update', onUpdate); };
+  }, [socket, isAuction, listing._id]);
 
   const handleBuyNow = async () => {
     try {
@@ -138,26 +135,19 @@ const ListingCard = ({ listing, wideImage = false, hideBuyNowBadge = false, comp
                 className={classNames('rounded-full px-3 py-0.5 text-xs font-semibold uppercase tracking-wide', {
                   'bg-emerald-500/20 text-emerald-300': listing.listingType === 'buy-now',
                   'bg-amber-500/20 text-amber-200': listing.listingType === 'offer',
-                  'bg-purple-500/20 text-purple-200': listing.listingType === 'auction',
-                  'bg-cyan-500/20 text-cyan-200': listing.listingType === 'bidding',
+                  'bg-cyan-500/20 text-cyan-200': listing.listingType === 'auction',
                 })}
               >
                 {listing.listingType}
               </span>
             )}
-            {isAuction && listing.auction?.endTime && (
-              <div className="flex items-center gap-2 rounded-lg bg-purple-500/10 px-2 py-1">
-                <span className="text-xs text-purple-300">⏱</span>
-                <span className="text-xs font-semibold text-purple-200">{timeRemaining}</span>
-              </div>
-            )}
-            {isBidding && listing.auction?.endTime && listing.auction?.status !== 'ended' && (
+            {isAuction && listing.auction?.endTime && listing.auction?.status !== 'ended' && (
               <div className="flex items-center gap-2 rounded-lg bg-slate-700/60 px-2 py-1">
                 <span className="text-xs text-slate-300">⏱</span>
-                <span className="text-xs font-semibold text-slate-200">{biddingTimeRemaining}</span>
+                <span className="text-xs font-semibold text-slate-200">{auctionTimeRemaining}</span>
               </div>
             )}
-            {isBidding && listing.auction?.status === 'ended' && (
+            {isAuction && listing.auction?.status === 'ended' && (
               <div className="flex items-center gap-2 rounded-lg bg-slate-700/60 px-2 py-1">
                 <span className="text-xs font-semibold text-slate-200">Ended</span>
               </div>

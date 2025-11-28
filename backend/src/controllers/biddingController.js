@@ -1,7 +1,7 @@
 const Listing = require('../models/Listing');
 const { getIO } = require('../services/socketService');
 
-// Place a bid on a bidding-type listing
+// Place a bid on an auction-type listing
 // POST /api/bidding/:listingId/bids
 async function placeBid(req, res) {
   try {
@@ -21,13 +21,13 @@ async function placeBid(req, res) {
       return res.status(403).json({ message: 'Sellers cannot bid on their own listings' });
     }
 
-    if (listing.listingType !== 'bidding') {
-      return res.status(400).json({ message: 'Listing is not a bidding type' });
+    if (listing.listingType !== 'auction') {
+      return res.status(400).json({ message: 'Listing is not an auction type' });
     }
 
     const endTime = listing.auction?.endTime ? new Date(listing.auction.endTime) : null;
     if (!endTime || endTime <= new Date()) {
-      return res.status(400).json({ message: 'Bidding period has ended' });
+      return res.status(400).json({ message: 'Auction period has ended' });
     }
 
     const minAcceptable = Math.max(
@@ -59,7 +59,7 @@ async function placeBid(req, res) {
       if (highestMap && typeof highestMap.forEach === 'function') {
         highestMap.forEach((val, key) => { highestObj[key] = val; });
       }
-      io.to(`bidding:${listingId}`).emit('bidding:update', {
+      io.to(`auction:${listingId}`).emit('auction:update', {
         listingId,
         currentBid: listing.auction.currentBid,
         highestBidPerUser: highestObj,
@@ -73,15 +73,15 @@ async function placeBid(req, res) {
   }
 }
 
-// Get bidding status
+// Get auction status
 // GET /api/bidding/:listingId
 async function getBiddingStatus(req, res) {
   try {
     const { listingId } = req.params;
     const listing = await Listing.findById(listingId).exec();
     if (!listing) return res.status(404).json({ message: 'Listing not found' });
-    if (listing.listingType !== 'bidding') {
-      return res.status(400).json({ message: 'Listing is not a bidding type' });
+    if (listing.listingType !== 'auction') {
+      return res.status(400).json({ message: 'Listing is not an auction type' });
     }
     const yourHighestBid = listing.auction?.highestBidPerUser?.get?.(req.user.id) || 0;
     // Determine if caller is the winner after end, and whether the transaction is still open

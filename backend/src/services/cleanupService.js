@@ -332,136 +332,15 @@ const startCleanupService = () => {
 
       // Auction cleanup logic
       const Notification = require('../models/Notification');
-      
-      // Find expired auctions
       const expiredAuctions = await Listing.find({
         listingType: 'auction',
-        'auction.isAuction': true,
-        'auction.status': 'active',
-        'auction.endTime': { $lte: now },
-      }).populate('seller', 'name email')
-        .populate('auction.currentBid.bidder', 'name email');
-
-      for (const listing of expiredAuctions) {
-        const hasBids = listing.auction.bidders && listing.auction.bidders.length > 0;
-
-        if (hasBids) {
-          // Auction has bids - mark as ended, notify winner and seller
-          listing.auction.status = 'ended';
-          listing.auction.winner = listing.auction.currentBid.bidder._id || listing.auction.currentBid.bidder;
-          listing.status = 'sold';
-          await listing.save();
-
-          const winner = listing.auction.currentBid.bidder;
-          const finalBid = listing.auction.currentBid.amount;
-          const winnerId = winner._id || winner;
-
-          // Emit socket event to auction room
-          const { getIO } = require('./socketService');
-          const io = getIO();
-          if (io) {
-            // Emit to entire auction room with winner details
-            // Frontend will check if current user is the winner
-            io.to(`auction:${listing._id}`).emit('auction:end', {
-              winner: winnerId,
-              winnerDetails: {
-                _id: winnerId,
-                name: winner.name,
-                email: winner.email
-              },
-              finalBid: finalBid,
-              listingId: listing._id
-            });
-          }
-
-          // Notify winner
-          await Notification.create({
-            user: winnerId,
-            type: 'auction_won',
-            title: 'Auction Won',
-            message: `🎉 Congratulations! You won the auction for "${listing.title}" with a bid of ₹${finalBid}`,
-            link: `/listings/${listing._id}`,
-          });
-
-          // Notify seller
-          await Notification.create({
-            user: listing.seller._id,
-            type: 'auction_ended',
-            title: 'Auction Ended',
-            message: `Your auction "${listing.title}" has ended. Winner: ${winner.name || winner.email} with bid ₹${finalBid}`,
-            link: `/listings/${listing._id}`,
-          });
-
-          // Create transaction record with listing snapshot
-          await Transaction.create({
-            listing: listing._id,
-            buyer: winnerId,
-            seller: listing.seller._id,
-            amount: finalBid,
-            transactionType: 'auction',
-            status: 'completed',
-            paymentStatus: 'not_paid',
-            listingSnapshot: {
-              title: listing.title,
-              price: listing.price,
-              images: listing.images || [],
-              category: listing.category,
-              description: listing.description,
-            },
-          });
-
-          console.log(`Auction ended: "${listing.title}" - Winner: ${winner.name}, Bid: ₹${finalBid}`);
-
-          // Schedule removal after 5 minutes
-          setTimeout(async () => {
-            try {
-              await Listing.findByIdAndUpdate(listing._id, { status: 'archived' });
-              console.log(`Archived auction "${listing.title}" after 5 minutes`);
-            } catch (err) {
-              console.error('Error archiving auction:', err);
-            }
-          }, 5 * 60 * 1000);
-
-        } else {
-          // No bids - instant removal and notify seller
-          await Listing.findByIdAndUpdate(listing._id, { 
-            status: 'archived',
-            'auction.status': 'ended' 
-          });
-
-          // Emit socket event for no bids
-          const { getIO } = require('./socketService');
-          const io = getIO();
-          if (io) {
-            io.to(`auction:${listing._id}`).emit('auction:end', {
-              winner: null,
-              finalBid: 0,
-              listingId: listing._id
-            });
-          }
-
-          await Notification.create({
-            user: listing.seller._id,
-            type: 'auction_no_bids',
-            title: 'Auction Ended - No Bids',
-            message: `Your auction "${listing.title}" ended with no bids.`,
-            link: `/my-listings`,
-          });
-
-          console.log(`Auction removed (no bids): "${listing.title}"`);
-        }
-      }
-
-      // Bidding cleanup logic (independent from auction)
-      const expiredBidding = await Listing.find({
-        listingType: 'bidding',
         'auction.status': { $in: [null, 'active'] },
         'auction.endTime': { $lte: now },
       })
         .populate('seller', 'name email')
         .populate('auction.currentBid.bidder', 'name email');
 
-      for (const listing of expiredBidding) {
+      for (const listing of expiredAuctions) {
         const hasBids = Array.isArray(listing.auction?.bidders) && listing.auction.bidders.length > 0;
 
         if (hasBids) {
@@ -476,18 +355,18 @@ const startCleanupService = () => {
           const { getIO } = require('./socketService');
           const io = getIO();
           if (io) {
-            // Notify room that bidding ended (no winner details broadcast)
-            io.to(`bidding:${listing._id}`).emit('bidding:end', {
+            // Notify room that auction ended (no winner details broadcast)
+            io.to(`auction:${listing._id}`).emit('auction:end', {
               listingId: listing._id,
             });
             // Winner-only message
-            io.to(`user:${winnerId}`).emit('bidding:won', {
+            io.to(`user:${winnerId}`).emit('auction:won', {
               listingId: listing._id,
               finalBid,
               title: listing.title,
             });
             // Seller-only winner details
-            io.to(`user:${listing.seller._id}`).emit('bidding:winner', {
+            io.to(`user:${listing.seller._id}`).emit('auction:winner', {
               listingId: listing._id,
               finalBid,
               winner: {
@@ -501,9 +380,9 @@ const startCleanupService = () => {
 
           const winnerNotif = await Notification.create({
             user: winnerId,
-            type: 'bidding_won',
-            title: 'Bidding Won',
-            message: `You won the bidding for "${listing.title}" with ₹${finalBid}`,
+            type: 'auction_won',
+            title: 'Auction Won',
+            message: `You won the auction for "${listing.title}" with ₹${finalBid}`,
             link: `/listings/${listing._id}`,
           });
           if (io && winnerNotif) {
@@ -512,9 +391,9 @@ const startCleanupService = () => {
 
           const sellerNotif = await Notification.create({
             user: listing.seller._id,
-            type: 'bidding_ended',
-            title: 'Bidding Ended',
-            message: `Your bidding listing "${listing.title}" ended. Winner bid: ₹${finalBid}`,
+            type: 'auction_ended',
+            title: 'Auction Ended',
+            message: `Your auction listing "${listing.title}" ended. Winner bid: ₹${finalBid}`,
             link: `/listings/${listing._id}`,
           });
           if (io && sellerNotif) {
@@ -548,7 +427,7 @@ const startCleanupService = () => {
           const { getIO } = require('./socketService');
           const io = getIO();
           if (io) {
-            io.to(`bidding:${listing._id}`).emit('bidding:end', {
+            io.to(`auction:${listing._id}`).emit('auction:end', {
               winner: null,
               finalBid: 0,
               listingId: listing._id,
@@ -557,9 +436,9 @@ const startCleanupService = () => {
 
           await Notification.create({
             user: listing.seller._id,
-            type: 'bidding_no_bids',
-            title: 'Bidding Ended - No Bids',
-            message: `Your bidding listing "${listing.title}" ended with no bids.`,
+            type: 'auction_no_bids',
+            title: 'Auction Ended',
+            message: `Your auction listing "${listing.title}" ended with no bids.`,
             link: `/my-listings`,
           });
         }

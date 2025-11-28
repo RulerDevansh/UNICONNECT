@@ -155,8 +155,8 @@ const createListing = async (req, res, next) => {
       listingType: req.body.listingType || 'buy-now',
     };
 
-    // Handle auction/bidding data
-    if ((req.body.listingType === 'auction' || req.body.listingType === 'bidding') && req.body.auction) {
+    // Handle auction data
+    if (req.body.listingType === 'auction' && req.body.auction) {
       listingData.auction = {
         isAuction: true,
         startBid: Number(req.body.auction.startBid),
@@ -165,8 +165,11 @@ const createListing = async (req, res, next) => {
         bidders: [],
         highestBidPerUser: new Map(),
       };
+      
+      // For auction listings, set price to startBid
+      listingData.price = Number(req.body.auction.startBid);
 
-      // Validate auction/bidding dates
+      // Validate auction dates
       if (listingData.auction.endTime <= new Date()) {
         return res.status(422).json({ message: 'End auction time must be in the future' });
       }
@@ -236,6 +239,12 @@ const updateListing = async (req, res, next) => {
         ? updates.tags
         : updates.tags.split(',').map((tag) => tag.trim()).filter(Boolean);
     }
+    
+    // For auction listings, ensure price matches startBid
+    if (updates.listingType === 'auction' && updates.auction?.startBid) {
+      updates.price = Number(updates.auction.startBid);
+    }
+    
     Object.assign(listing, updates);
     listing.moderation = await callModeration({
       text: `${listing.title} ${listing.description}`,

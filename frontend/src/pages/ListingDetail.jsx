@@ -30,10 +30,19 @@ const ListingDetail = () => {
   const loadListing = async () => {
     const { data } = await api.get(`/listings/${id}`);
     setListing(data);
-    // Initialize header price: for bidding, prefer currentBid > startBid, else listing price
-    if (data.listingType === 'bidding') {
-      const init = data?.auction?.currentBid?.amount ?? data?.auction?.startBid ?? data.price;
-      setHeaderPrice(init ?? 0);
+    // Initialize header price: for auction, prefer currentBid > startBid, else listing price
+    if (data.listingType === 'auction' && data.auction) {
+      const currentBid = data.auction.currentBid?.amount;
+      const startBid = data.auction.startBid;
+      
+      // Check currentBid first (including 0)
+      if (typeof currentBid === 'number') {
+        setHeaderPrice(currentBid);
+      } else if (typeof startBid === 'number') {
+        setHeaderPrice(startBid);
+      } else {
+        setHeaderPrice(data.price || 0);
+      }
     } else {
       setHeaderPrice(data.price);
     }
@@ -86,12 +95,12 @@ const ListingDetail = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
 
-  // Live update header price for bidding via socket
+  // Live update header price for auction via socket
   useEffect(() => {
-    if (!socket || !listing || listing.listingType !== 'bidding') return;
+    if (!socket || !listing || listing.listingType !== 'auction') return;
     const listingId = listing._id;
     try {
-      socket.emit('bidding:join', { listingId });
+      socket.emit('auction:join', { listingId });
     } catch {}
     const onUpdate = (payload) => {
       if (payload.listingId !== listingId) return;
@@ -104,11 +113,11 @@ const ListingDetail = () => {
       if (payload.listingId !== listingId) return;
       setBiddingEndInfo({ finalBid: payload.finalBid, winner: payload.winner });
     };
-    socket.on('bidding:update', onUpdate);
-    socket.on('bidding:winner', onSellerWinner);
+    socket.on('auction:update', onUpdate);
+    socket.on('auction:winner', onSellerWinner);
     return () => {
-      socket.off('bidding:update', onUpdate);
-      socket.off('bidding:winner', onSellerWinner);
+      socket.off('auction:update', onUpdate);
+      socket.off('auction:winner', onSellerWinner);
     };
   }, [socket, listing, isSeller]);
 
@@ -198,16 +207,13 @@ const ListingDetail = () => {
           </div>
         </div>
 
-        {listing.listingType === 'auction' && listing.auction?.isAuction && (
-          <AuctionRoom listing={listing} />
-        )}
-        {listing.listingType === 'bidding' && listing.auction?.isAuction && user &&
+        {listing.listingType === 'auction' && listing.auction?.isAuction && user &&
           sellerId && user && sellerId !== user.id && sellerId !== user._id && (
           <BiddingBox listing={listing} user={user} />
         )}
-        {listing.listingType === 'bidding' && isSeller && listing.auction?.status === 'ended' && (
+        {listing.listingType === 'auction' && isSeller && listing.auction?.status === 'ended' && (
           <div className="mt-6 rounded-2xl border border-slate-700 bg-slate-900/50 p-6">
-            <h3 className="text-lg font-semibold text-white mb-2">Bidding Result</h3>
+            <h3 className="text-lg font-semibold text-white mb-2">Auction Result</h3>
             {listing.auction?.winner ? (
               <div className="text-slate-200">
                 <p>Winner: <span className="font-medium">{listing.auction.winner?.name || listing.auction.winner?.email || 'User'}</span></p>

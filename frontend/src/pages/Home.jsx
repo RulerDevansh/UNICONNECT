@@ -28,7 +28,7 @@ const SharePreview = ({ share }) => {
       case 'food':
         return { label: '🍔 Food', color: 'bg-orange-500/20 text-orange-300' };
       case 'other':
-        return { label: '📋 Other', color: 'bg-purple-500/20 text-purple-300' };
+        return { label: '📋 Other', color: 'bg-slate-500/20 text-slate-300' };
       default:
         return { label: '📋 Split', color: 'bg-slate-500/20 text-slate-300' };
     }
@@ -133,7 +133,7 @@ const SharePreview = ({ share }) => {
           {share.category && (
             <div className="flex items-center gap-1.5 text-slate-300">
               <span className="font-medium text-white">📋</span>
-              <span className="rounded-full bg-purple-500/20 px-2 py-0.5 text-[10px] font-semibold text-purple-300">{share.category}</span>
+              <span className="rounded-full bg-slate-500/20 px-2 py-0.5 text-[10px] font-semibold text-slate-300">{share.category}</span>
             </div>
           )}
           {share.otherDeadline && (
