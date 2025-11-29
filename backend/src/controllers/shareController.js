@@ -1,6 +1,28 @@
 const Share = require('../models/Share');
 const Chat = require('../models/Chat');
+const Notification = require('../models/Notification');
 const { calculateSplit } = require('../utils/splitCalculator');
+const { getIO } = require('../services/socketService');
+
+const sendNotification = async ({ userId, type, title, message, shareId }) => {
+  try {
+    const notification = await Notification.create({
+      user: userId,
+      type,
+      title,
+      message,
+      shareRef: shareId,
+    });
+    const io = getIO();
+    if (io) {
+      io.to(`user:${userId}`).emit('notification', notification);
+    }
+    return notification;
+  } catch (err) {
+    console.error('Failed to dispatch notification:', err.message || err);
+    return null;
+  }
+};
 
 /**
  * @route POST /api/shares
@@ -49,8 +71,16 @@ const createShare = async (req, res, next) => {
     if (req.body.shareType === 'cab') {
       const now = new Date();
       
+      // Required fields validation
+      if (!req.body.departureTime) {
+        return res.status(400).json({ message: 'Departure time is required for cab sharing' });
+      }
+      if (!req.body.bookingDeadline) {
+        return res.status(400).json({ message: 'Booking deadline is required for cab sharing' });
+      }
+      
       // Validate departure time is not in the past
-      if (req.body.departureTime && new Date(req.body.departureTime) < now) {
+      if (new Date(req.body.departureTime) < now) {
         return res.status(400).json({ message: 'Departure time cannot be in the past' });
       }
       
@@ -60,12 +90,12 @@ const createShare = async (req, res, next) => {
       }
       
       // Validate booking deadline is not in the past
-      if (req.body.bookingDeadline && new Date(req.body.bookingDeadline) < now) {
+      if (new Date(req.body.bookingDeadline) < now) {
         return res.status(400).json({ message: 'Booking deadline cannot be in the past' });
       }
       
       // Validate arrival time is after departure time
-      if (req.body.departureTime && req.body.arrivalTime) {
+      if (req.body.arrivalTime) {
         if (new Date(req.body.arrivalTime) <= new Date(req.body.departureTime)) {
           return res.status(400).json({ message: 'Arrival time must be after departure time' });
         }
@@ -76,8 +106,13 @@ const createShare = async (req, res, next) => {
     if (req.body.shareType === 'food') {
       const now = new Date();
       
+      // Required field validation
+      if (!req.body.deadlineTime) {
+        return res.status(400).json({ message: 'Delivery time is required for food sharing' });
+      }
+      
       // Validate deadline time is not in the past
-      if (req.body.deadlineTime && new Date(req.body.deadlineTime) < now) {
+      if (new Date(req.body.deadlineTime) < now) {
         return res.status(400).json({ message: 'Deadline time cannot be in the past' });
       }
     }
@@ -86,8 +121,13 @@ const createShare = async (req, res, next) => {
     if (req.body.shareType === 'other') {
       const now = new Date();
       
+      // Required field validation
+      if (!req.body.otherDeadline) {
+        return res.status(400).json({ message: 'Deadline is required for other sharing' });
+      }
+      
       // Validate deadline time is not in the past
-      if (req.body.otherDeadline && new Date(req.body.otherDeadline) < now) {
+      if (new Date(req.body.otherDeadline) < now) {
         return res.status(400).json({ message: 'Deadline time cannot be in the past' });
       }
     }
@@ -179,6 +219,33 @@ const requestJoin = async (req, res, next) => {
     
     share.pendingRequests.push(req.user.id);
     await share.save();
+    
+    // Fetch requester's name for notification
+    const User = require('../models/User');
+    const requester = await User.findById(req.user.id).select('name');
+    
+    // Notify host about new join request
+    const shareTypeName = share.shareType === 'cab' ? 'Cab Share' : 
+                         share.shareType === 'food' ? 'Food Share' : 
+                         share.shareType === 'other' ? 'Share' : 'Share';
+    await sendNotification({
+      userId: share.host.toString(),
+      type: 'share_join_request',
+      title: `New Join Request`,
+      message: `${requester?.name || 'Someone'} wants to join your ${shareTypeName}: ${share.name}`,
+      shareId: share._id,
+    });
+    
+    // Emit real-time socket event for share update
+    const { getIO } = require('../services/socketService');
+    const io = getIO();
+    if (io) {
+      io.to(`user:${share.host.toString()}`).emit('share:request', {
+        shareId: share._id,
+        type: 'join_request'
+      });
+    }
+    
     res.json({ message: 'Request submitted' });
   } catch (err) {
     next(err);
@@ -250,6 +317,64 @@ const cancelRequest = async (req, res, next) => {
     
     await share.save();
     
+    // Fetch canceller's name for notification
+    const User = require('../models/User');
+    const canceller = await User.findById(req.user.id).select('name');
+    
+    // Notify host and other members about cancellation
+    const shareTypeName = share.shareType === 'cab' ? 'Cab Share' : 
+                         share.shareType === 'food' ? 'Food Share' : 
+                         share.shareType === 'other' ? 'Share' : 'Share';
+    
+    // Notify host (only if host is not the one cancelling)
+    if (share.host.toString() !== req.user.id) {
+      await sendNotification({
+        userId: share.host.toString(),
+        type: 'share_member_cancelled',
+        title: `Member Cancelled`,
+        message: `${canceller?.name || 'A member'} cancelled their booking for ${shareTypeName}: ${share.name}`,
+        shareId: share._id,
+      });
+    }
+    
+    // Notify other active members (excluding host and the canceller)
+    const otherMembers = share.members
+      .filter(m => 
+        m.status === 'joined' && 
+        m.user.toString() !== req.user.id && 
+        m.user.toString() !== share.host.toString()
+      )
+      .map(m => m.user.toString());
+    
+    for (const memberId of otherMembers) {
+      await sendNotification({
+        userId: memberId,
+        type: 'share_member_cancelled',
+        title: `Member Cancelled`,
+        message: `${canceller?.name || 'A member'} cancelled their booking for ${shareTypeName}: ${share.name}`,
+        shareId: share._id,
+      });
+    }
+    
+    // Emit real-time socket events
+    const { getIO } = require('../services/socketService');
+    const io = getIO();
+    if (io) {
+      // Notify host
+      io.to(`user:${share.host.toString()}`).emit('share:cancelled', {
+        shareId: share._id,
+        type: 'member_cancelled'
+      });
+      
+      // Notify other members
+      for (const memberId of otherMembers) {
+        io.to(`user:${memberId}`).emit('share:cancelled', {
+          shareId: share._id,
+          type: 'member_cancelled'
+        });
+      }
+    }
+    
     // Note: Cancelled members remain visible until departure time passes
     // Share and chat data deletion is handled by cleanup service after departure time
     // This allows users to view their cancelled booking history until the trip departs
@@ -306,6 +431,18 @@ const approveMember = async (req, res, next) => {
           rejectedAt: new Date()
         }));
         share.rejectedRequests.push(...rejectedUsers);
+        
+        // Notify auto-rejected users
+        for (const rejUserId of share.pendingRequests) {
+          await sendNotification({
+            userId: rejUserId.toString(),
+            type: 'share_request_rejected',
+            title: `Request Rejected`,
+            message: `Your request to join Cab Share "${share.name}" was rejected - Trip fully occupied`,
+            shareId: share._id,
+          });
+        }
+        
         share.pendingRequests = [];
       }
     }
@@ -323,6 +460,18 @@ const approveMember = async (req, res, next) => {
           rejectedAt: new Date()
         }));
         share.rejectedRequests.push(...rejectedUsers);
+        
+        // Notify auto-rejected users
+        for (const rejUserId of share.pendingRequests) {
+          await sendNotification({
+            userId: rejUserId.toString(),
+            type: 'share_request_rejected',
+            title: `Request Rejected`,
+            message: `Your request to join Food Share "${share.name}" was rejected - Order fully occupied`,
+            shareId: share._id,
+          });
+        }
+        
         share.pendingRequests = [];
       }
     }
@@ -340,6 +489,18 @@ const approveMember = async (req, res, next) => {
           rejectedAt: new Date()
         }));
         share.rejectedRequests.push(...rejectedUsers);
+        
+        // Notify auto-rejected users
+        for (const rejUserId of share.pendingRequests) {
+          await sendNotification({
+            userId: rejUserId.toString(),
+            type: 'share_request_rejected',
+            title: `Request Rejected`,
+            message: `Your request to join Share "${share.name}" was rejected - Share fully occupied`,
+            shareId: share._id,
+          });
+        }
+        
         share.pendingRequests = [];
       }
     }
@@ -350,6 +511,59 @@ const approveMember = async (req, res, next) => {
       { $addToSet: { participants: userId } },
       { upsert: true }
     );
+    
+    // Notify approved user
+    const shareTypeName = share.shareType === 'cab' ? 'Cab Share' : 
+                         share.shareType === 'food' ? 'Food Share' : 
+                         share.shareType === 'other' ? 'Share' : 'Share';
+    await sendNotification({
+      userId: userId,
+      type: 'share_request_approved',
+      title: `Request Approved!`,
+      message: `Your request to join ${shareTypeName} "${share.name}" has been approved`,
+      shareId: share._id,
+    });
+    
+    // Notify other members about new member joining
+    const otherMembers = share.members
+      .filter(m => m.status === 'joined' && m.user.toString() !== userId)
+      .map(m => m.user.toString());
+    
+    const approvedUser = await require('../models/User').findById(userId).select('name');
+    for (const memberId of otherMembers) {
+      await sendNotification({
+        userId: memberId,
+        type: 'share_member_joined',
+        title: `New Member Joined`,
+        message: `${approvedUser.name} joined your ${shareTypeName}: ${share.name}`,
+        shareId: share._id,
+      });
+    }
+    
+    // Emit real-time socket events
+    const { getIO } = require('../services/socketService');
+    const io = getIO();
+    if (io) {
+      // Notify host (request approver)
+      io.to(`user:${req.user.id}`).emit('share:approved', {
+        shareId: share._id,
+        type: 'member_approved'
+      });
+      
+      // Notify approved user
+      io.to(`user:${userId}`).emit('share:approved', {
+        shareId: share._id,
+        type: 'request_approved'
+      });
+      
+      // Notify other members
+      for (const memberId of otherMembers) {
+        io.to(`user:${memberId}`).emit('share:updated', {
+          shareId: share._id,
+          type: 'member_joined'
+        });
+      }
+    }
     
     // Populate and return updated share
     const updatedShare = await Share.findById(share._id)
@@ -387,6 +601,35 @@ const rejectMember = async (req, res, next) => {
     });
     
     await share.save();
+    
+    // Notify rejected user
+    const shareTypeName = share.shareType === 'cab' ? 'Cab Share' : 
+                         share.shareType === 'food' ? 'Food Share' : 
+                         share.shareType === 'other' ? 'Share' : 'Share';
+    await sendNotification({
+      userId: userId,
+      type: 'share_request_rejected',
+      title: `Request Rejected`,
+      message: `Your request to join ${shareTypeName} "${share.name}" was rejected`,
+      shareId: share._id,
+    });
+    
+    // Emit real-time socket events
+    const { getIO } = require('../services/socketService');
+    const io = getIO();
+    if (io) {
+      // Notify host (request rejector)
+      io.to(`user:${req.user.id}`).emit('share:rejected', {
+        shareId: share._id,
+        type: 'member_rejected'
+      });
+      
+      // Notify rejected user
+      io.to(`user:${userId}`).emit('share:rejected', {
+        shareId: share._id,
+        type: 'request_rejected'
+      });
+    }
     
     // Populate and return updated share
     const updatedShare = await Share.findById(share._id)
@@ -436,6 +679,29 @@ const finalizeShare = async (req, res, next) => {
   share.markModified('members');
     share.status = 'closed';
     await share.save();
+    
+    // Notify all members about share completion
+    const shareTypeName = share.shareType === 'cab' ? 'Cab Share' : 
+                         share.shareType === 'food' ? 'Food Share' : 
+                         share.shareType === 'other' ? 'Share' : 'Share';
+    
+    const allMembers = share.members
+      .filter(m => m.status === 'joined')
+      .map(m => m.user.toString());
+    
+    for (const memberId of allMembers) {
+      const member = share.members.find(m => m.user.toString() === memberId);
+      const shareAmount = member ? `₹${member.share.toFixed(2)}` : 'TBD';
+      
+      await sendNotification({
+        userId: memberId,
+        type: 'share_completed',
+        title: `${shareTypeName} Completed`,
+        message: `${share.name} has been finalized. Your share: ${shareAmount}`,
+        shareId: share._id,
+      });
+    }
+    
     res.json(share);
   } catch (err) {
     next(err);
@@ -462,9 +728,52 @@ const updateShare = async (req, res, next) => {
       }
     }
     
+    // Validate maxPersons for food sharing
+    if (share.shareType === 'food' && req.body.maxPersons !== undefined) {
+      const joinedMembersCount = share.members.filter(m => m.status === 'joined').length;
+      if (req.body.maxPersons < joinedMembersCount) {
+        return res.status(400).json({ 
+          message: `Cannot reduce max persons to ${req.body.maxPersons}. Currently ${joinedMembersCount} members have joined. Please remove members first or set max persons to at least ${joinedMembersCount}.`
+        });
+      }
+    }
+    
+    // Validate otherMaxPersons for other sharing
+    if (share.shareType === 'other' && req.body.otherMaxPersons !== undefined) {
+      const joinedMembersCount = share.members.filter(m => m.status === 'joined').length;
+      if (req.body.otherMaxPersons < joinedMembersCount) {
+        return res.status(400).json({ 
+          message: `Cannot reduce max persons to ${req.body.otherMaxPersons}. Currently ${joinedMembersCount} members have joined. Please remove members first or set max persons to at least ${joinedMembersCount}.`
+        });
+      }
+    }
+    
+    // Validate hostContribution for custom split
+    if (req.body.splitType === 'custom' || (share.splitType === 'custom' && req.body.hostContribution !== undefined)) {
+      const finalTotalAmount = req.body.totalAmount !== undefined ? req.body.totalAmount : share.totalAmount;
+      const finalHostContribution = req.body.hostContribution !== undefined ? req.body.hostContribution : share.hostContribution;
+      
+      if (finalHostContribution > finalTotalAmount) {
+        return res.status(400).json({ 
+          message: `Host contribution (₹${finalHostContribution}) cannot be more than total amount (₹${finalTotalAmount})`
+        });
+      }
+    }
+    
     // Validate time fields for cab sharing
     if (share.shareType === 'cab') {
       const now = new Date();
+      
+      // Check if required fields are being removed
+      const finalDepartureTime = req.body.departureTime !== undefined ? req.body.departureTime : share.departureTime;
+      const finalBookingDeadline = req.body.bookingDeadline !== undefined ? req.body.bookingDeadline : share.bookingDeadline;
+      
+      if (!finalDepartureTime) {
+        return res.status(400).json({ message: 'Departure time is required for cab sharing' });
+      }
+      if (!finalBookingDeadline) {
+        return res.status(400).json({ message: 'Booking deadline is required for cab sharing' });
+      }
       
       // Validate departure time is not in the past
       if (req.body.departureTime !== undefined && new Date(req.body.departureTime) < now) {
@@ -496,6 +805,12 @@ const updateShare = async (req, res, next) => {
     if (share.shareType === 'food') {
       const now = new Date();
       
+      // Check if required field is being removed
+      const finalDeadlineTime = req.body.deadlineTime !== undefined ? req.body.deadlineTime : share.deadlineTime;
+      if (!finalDeadlineTime) {
+        return res.status(400).json({ message: 'Delivery time is required for food sharing' });
+      }
+      
       // Validate deadline time is not in the past
       if (req.body.deadlineTime !== undefined && new Date(req.body.deadlineTime) < now) {
         return res.status(400).json({ message: 'Deadline time cannot be in the past' });
@@ -505,6 +820,12 @@ const updateShare = async (req, res, next) => {
     // Validate time fields for other sharing during update
     if (share.shareType === 'other') {
       const now = new Date();
+      
+      // Check if required field is being removed
+      const finalOtherDeadline = req.body.otherDeadline !== undefined ? req.body.otherDeadline : share.otherDeadline;
+      if (!finalOtherDeadline) {
+        return res.status(400).json({ message: 'Deadline is required for other sharing' });
+      }
       
       // Validate deadline time is not in the past
       if (req.body.otherDeadline !== undefined && new Date(req.body.otherDeadline) < now) {
@@ -533,6 +854,28 @@ const updateShare = async (req, res, next) => {
       .populate('pendingRequests', 'name email')
       .populate('rejectedRequests.user', 'name email')
       .populate('host', 'name email');
+    
+    // Send notifications to all joined members about the update
+    const joinedMembers = share.members.filter(m => m.status === 'joined');
+    const User = require('../models/User');
+    const hostData = await User.findById(req.user.id).select('name');
+    const hostName = hostData?.name || 'Host';
+    
+    for (const member of joinedMembers) {
+      await sendNotification({
+        userId: member.user,
+        type: 'share_updated',
+        title: 'Share Updated',
+        message: `${hostName} has updated the details of "${share.name}"`,
+        shareId: share._id,
+      });
+    }
+    
+    // Emit socket event to all members
+    const io = getIO();
+    if (io) {
+      io.to(`share:${share._id}`).emit('share:updated', updatedShare);
+    }
     
     res.json(updatedShare);
   } catch (err) {

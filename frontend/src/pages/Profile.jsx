@@ -10,10 +10,6 @@ const Profile = () => {
   const [showPasswordChange, setShowPasswordChange] = useState(false);
   const [formData, setFormData] = useState({
     name: '',
-    preferences: {
-      categories: [],
-      tags: [],
-    },
   });
   const [passwordData, setPasswordData] = useState({
     currentPassword: '',
@@ -28,7 +24,6 @@ const Profile = () => {
         setProfile(data);
         setFormData({
           name: data.name,
-          preferences: data.preferences || { categories: [], tags: [] },
         });
       } catch (err) {
         console.error('Failed to fetch profile:', err);
@@ -108,19 +103,6 @@ const Profile = () => {
           <div className="flex-1">
             <h1 className="text-4xl font-bold text-white">{profile.name}</h1>
             <p className="mt-2 text-lg text-slate-400">{profile.email}</p>
-            <div className="mt-3 flex flex-wrap gap-2">
-              <span className="rounded-full bg-slate-800 px-3 py-1 text-sm text-slate-300">
-                {profile.collegeDomain}
-              </span>
-              <span className="rounded-full bg-brand-primary/20 px-3 py-1 text-sm font-semibold text-brand-primary">
-                {profile.role}
-              </span>
-              {profile.verified && (
-                <span className="rounded-full bg-green-500/20 px-3 py-1 text-sm font-semibold text-green-300">
-                  Verified
-                </span>
-              )}
-            </div>
           </div>
 
           <button
@@ -147,14 +129,6 @@ const Profile = () => {
                   <span className="font-medium text-white">{profile.email}</span>
                 </div>
                 <div className="flex justify-between rounded-lg border border-slate-800 bg-slate-950/40 p-3">
-                  <span className="text-slate-400">College Domain</span>
-                  <span className="font-medium text-white">{profile.collegeDomain}</span>
-                </div>
-                <div className="flex justify-between rounded-lg border border-slate-800 bg-slate-950/40 p-3">
-                  <span className="text-slate-400">Role</span>
-                  <span className="font-medium capitalize text-white">{profile.role}</span>
-                </div>
-                <div className="flex justify-between rounded-lg border border-slate-800 bg-slate-950/40 p-3">
                   <span className="text-slate-400">Member Since</span>
                   <span className="font-medium text-white">
                     {new Date(profile.createdAt).toLocaleDateString()}
@@ -162,44 +136,6 @@ const Profile = () => {
                 </div>
               </div>
             </div>
-
-            {profile.preferences && (
-              <div>
-                <h3 className="text-sm font-semibold uppercase tracking-wide text-slate-500">Preferences</h3>
-                <div className="mt-3 rounded-lg border border-slate-800 bg-slate-950/40 p-4">
-                  {profile.preferences.categories?.length > 0 && (
-                    <div className="mb-3">
-                      <p className="mb-2 text-sm text-slate-400">Favorite Categories</p>
-                      <div className="flex flex-wrap gap-2">
-                        {profile.preferences.categories.map((cat) => (
-                          <span
-                            key={cat}
-                            className="rounded-full bg-brand-primary/20 px-3 py-1 text-sm text-brand-primary"
-                          >
-                            {cat}
-                          </span>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-                  {profile.preferences.tags?.length > 0 && (
-                    <div>
-                      <p className="mb-2 text-sm text-slate-400">Favorite Tags</p>
-                      <div className="flex flex-wrap gap-2">
-                        {profile.preferences.tags.map((tag) => (
-                          <span key={tag} className="rounded-full bg-slate-800 px-3 py-1 text-sm text-slate-300">
-                            {tag}
-                          </span>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-                  {(!profile.preferences.categories?.length && !profile.preferences.tags?.length) && (
-                    <p className="text-sm text-slate-500">No preferences set</p>
-                  )}
-                </div>
-              </div>
-            )}
           </div>
         ) : (
           <div className="mt-8 space-y-6">

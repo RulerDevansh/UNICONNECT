@@ -26,7 +26,7 @@ router.get('/', listListings);
 router.get('/me', auth(), listMyListings);
 router.get('/:id', getListing);
 router.post('/', auth(), listingValidationRules(), handleValidation, createListing);
-router.put('/:id', auth(), updateListing);
+router.put('/:id', auth(), upload.array('images', 5), updateListing);
 router.delete('/:id', auth(), deleteListing);
 router.post('/:id/images', auth(), upload.single('image'), uploadListingImage);
 

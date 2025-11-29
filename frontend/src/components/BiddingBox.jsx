@@ -37,7 +37,7 @@ const BiddingBox = ({ listing, user }) => {
 
   useEffect(() => {
     if (!socket) return;
-    socket.emit('bidding:join', { listingId: listing._id });
+    socket.emit('auction:join', { listingId: listing._id });
     const onUpdate = (payload) => {
       if (payload.listingId !== listing._id) return;
       setStatus((prev) => ({
@@ -56,15 +56,15 @@ const BiddingBox = ({ listing, user }) => {
       setWonMsg(`You won with ${formatCurrency(payload.finalBid)}!`);
     };
     const onError = (err) => setError(err?.message || 'Bidding error');
-    socket.on('bidding:update', onUpdate);
-    socket.on('bidding:end', onEnd);
-    socket.on('bidding:won', onWon);
-    socket.on('bidding:error', onError);
+    socket.on('auction:update', onUpdate);
+    socket.on('auction:end', onEnd);
+    socket.on('auction:won', onWon);
+    socket.on('auction:error', onError);
     return () => {
-      socket.off('bidding:update', onUpdate);
-      socket.off('bidding:end', onEnd);
-      socket.off('bidding:won', onWon);
-      socket.off('bidding:error', onError);
+      socket.off('auction:update', onUpdate);
+      socket.off('auction:end', onEnd);
+      socket.off('auction:won', onWon);
+      socket.off('auction:error', onError);
     };
   }, [socket, listing._id, user?.id]);
 
@@ -89,8 +89,13 @@ const BiddingBox = ({ listing, user }) => {
       return;
     }
     try {
-      await api.post(`/bidding/${listing._id}/bids`, { amount: bidValue });
-      await refreshStatus();
+      socket.emit('auction:bid', { listingId: listing._id, amount: bidValue });
+      // Optimistically update local state
+      setStatus((prev) => ({
+        ...prev,
+        currentBid: { amount: bidValue, bidder: user?.id, timestamp: new Date() },
+        yourHighestBid: bidValue,
+      }));
       setBid('');
     } catch (err) {
       const msg = err.response?.data?.message || 'Failed to place bid';

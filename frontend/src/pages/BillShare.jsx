@@ -308,29 +308,33 @@ const BillShare = () => {
   const handleUpdate = (shareId) => {
     const shareToUpdate = myShares.find(s => s._id === shareId);
     if (shareToUpdate) {
+      // Calculate current number of joined members
+      const currentJoinedMembers = shareToUpdate.members?.filter(m => m.status === 'approved').length || 0;
+      
       setForm({
         name: shareToUpdate.name || '',
         description: shareToUpdate.description || '',
         shareType: shareToUpdate.shareType || 'cab',
         fromCity: shareToUpdate.fromCity || '',
         toCity: shareToUpdate.toCity || '',
-        departureTime: shareToUpdate.departureTime ? new Date(shareToUpdate.departureTime).toISOString().slice(0, 16) : '',
-        arrivalTime: shareToUpdate.arrivalTime ? new Date(shareToUpdate.arrivalTime).toISOString().slice(0, 16) : '',
-        bookingDeadline: shareToUpdate.bookingDeadline ? new Date(shareToUpdate.bookingDeadline).toISOString().slice(0, 16) : '',
+        departureTime: shareToUpdate.departureTime ? new Date(new Date(shareToUpdate.departureTime).getTime() - new Date().getTimezoneOffset() * 60000).toISOString().slice(0, 16) : '',
+        arrivalTime: shareToUpdate.arrivalTime ? new Date(new Date(shareToUpdate.arrivalTime).getTime() - new Date().getTimezoneOffset() * 60000).toISOString().slice(0, 16) : '',
+        bookingDeadline: shareToUpdate.bookingDeadline ? new Date(new Date(shareToUpdate.bookingDeadline).getTime() - new Date().getTimezoneOffset() * 60000).toISOString().slice(0, 16) : '',
         maxPassengers: shareToUpdate.maxPassengers || 4,
         vehicleType: shareToUpdate.vehicleType || '',
         foodItems: shareToUpdate.foodItems || '',
         quantity: shareToUpdate.quantity || 1,
         minPersons: shareToUpdate.minPersons || 2,
         maxPersons: shareToUpdate.maxPersons || 10,
-        deadlineTime: shareToUpdate.deadlineTime ? new Date(shareToUpdate.deadlineTime).toISOString().slice(0, 16) : '',
+        deadlineTime: shareToUpdate.deadlineTime ? new Date(new Date(shareToUpdate.deadlineTime).getTime() - new Date().getTimezoneOffset() * 60000).toISOString().slice(0, 16) : '',
         category: shareToUpdate.category || '',
         otherMinPersons: shareToUpdate.otherMinPersons || 2,
         otherMaxPersons: shareToUpdate.otherMaxPersons || 10,
-        otherDeadline: shareToUpdate.otherDeadline ? new Date(shareToUpdate.otherDeadline).toISOString().slice(0, 16) : '',
+        otherDeadline: shareToUpdate.otherDeadline ? new Date(new Date(shareToUpdate.otherDeadline).getTime() - new Date().getTimezoneOffset() * 60000).toISOString().slice(0, 16) : '',
         totalAmount: shareToUpdate.totalAmount || 0,
         splitType: shareToUpdate.splitType || 'equal',
-        hostContribution: shareToUpdate.hostContribution || 0
+        hostContribution: shareToUpdate.hostContribution || 0,
+        currentJoinedMembers // Store for validation
       });
       setUpdateShareId(shareId);
       setShowUpdateForm(true);
@@ -663,6 +667,7 @@ const BillShare = () => {
                         value={form.bookingDeadline}
                         onChange={(e) => setForm((prev) => ({ ...prev, bookingDeadline: e.target.value }))}
                         className="w-full rounded border border-slate-700 bg-slate-950/60 px-3 py-2 text-slate-100"
+                        required
                       />
                     </div>
                     <div className="grid grid-cols-2 gap-3">
@@ -741,6 +746,7 @@ const BillShare = () => {
                         value={form.deadlineTime}
                         onChange={(e) => setForm((prev) => ({ ...prev, deadlineTime: e.target.value }))}
                         className="w-full rounded border border-slate-700 bg-slate-950/60 px-3 py-2 text-slate-100"
+                        required
                       />
                     </div>
                   </>
@@ -827,9 +833,20 @@ const BillShare = () => {
                       min="0"
                       max={form.totalAmount}
                       value={form.hostContribution}
-                      onChange={(e) => setForm((prev) => ({ ...prev, hostContribution: Number(e.target.value) }))}
+                      onChange={(e) => {
+                        const value = Number(e.target.value);
+                        if (value <= form.totalAmount) {
+                          setForm((prev) => ({ ...prev, hostContribution: value }));
+                        }
+                      }}
                       className="w-full rounded border border-slate-700 bg-slate-950/60 px-3 py-2 text-slate-100 placeholder:text-slate-500"
                     />
+                    {form.hostContribution > form.totalAmount && (
+                      <p className="mt-1 text-xs text-red-400">Host contribution cannot exceed total amount!</p>
+                    )}
+                    <p className="mt-1 text-xs text-slate-500">
+                      Remaining ₹{Math.max(0, form.totalAmount - form.hostContribution).toFixed(2)} will be split equally among others
+                    </p>
                   </div>
                 )}
                 <button type="submit" className="w-full rounded-full bg-brand-primary py-3 text-sm font-semibold text-white shadow shadow-brand-primary/40">
@@ -841,25 +858,29 @@ const BillShare = () => {
         </>
       )}
 
-      {/* Update Share Modal - Similar structure */}
+      {/* Update Share Modal - Complete form with all fields */}
       {showUpdateForm && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4">
-          <div className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-2xl border border-slate-800 bg-slate-900 p-6 shadow-2xl">
-            <div className="mb-4 flex items-center justify-between">
-              <h2 className="text-2xl font-semibold text-white">Update Share</h2>
-              <button
-                onClick={() => {
-                  setShowUpdateForm(false);
-                  setUpdateShareId(null);
-                  setError('');
-                }}
-                className="text-2xl text-slate-400 hover:text-white"
-              >
-                ×
-              </button>
-            </div>
+        <>
+          {error && (
+            <p className="fixed left-1/2 top-8 z-[9999] w-full max-w-lg -translate-x-1/2 rounded border border-red-500/30 bg-red-500/10 px-3 py-2 text-center text-sm text-red-300 shadow-lg">{error}</p>
+          )}
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4">
+            <div className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-2xl border border-slate-800 bg-slate-900 p-6 shadow-2xl">
+              <div className="mb-4 flex items-center justify-between">
+                <h2 className="text-2xl font-semibold text-white">Update Share</h2>
+                <button
+                  onClick={() => {
+                    setShowUpdateForm(false);
+                    setUpdateShareId(null);
+                    setError('');
+                  }}
+                  className="text-2xl text-slate-400 hover:text-white"
+                >
+                  ×
+                </button>
+              </div>
             <form onSubmit={updateShare} className="space-y-3">
-              {/* Same form structure as Create */}
+              {/* Type of Sharing */}
               <div>
                 <label className="mb-1 block text-sm text-slate-300">Type of Sharing</label>
                 <select
@@ -886,13 +907,268 @@ const BillShare = () => {
                 onChange={(e) => setForm((prev) => ({ ...prev, description: e.target.value }))}
                 className="w-full rounded border border-slate-700 bg-slate-950/60 px-3 py-2 text-slate-100 placeholder:text-slate-500"
               />
-              {/* Add all other form fields similar to Create form */}
+
+              {/* Cab Sharing Fields */}
+              {form.shareType === 'cab' && (
+                <>
+                  <div className="grid grid-cols-2 gap-3">
+                    <input
+                      placeholder="From City"
+                      value={form.fromCity}
+                      onChange={(e) => setForm((prev) => ({ ...prev, fromCity: e.target.value }))}
+                      className="w-full rounded border border-slate-700 bg-slate-950/60 px-3 py-2 text-slate-100 placeholder:text-slate-500"
+                      required
+                    />
+                    <input
+                      placeholder="To City"
+                      value={form.toCity}
+                      onChange={(e) => setForm((prev) => ({ ...prev, toCity: e.target.value }))}
+                      className="w-full rounded border border-slate-700 bg-slate-950/60 px-3 py-2 text-slate-100 placeholder:text-slate-500"
+                      required
+                    />
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="mb-1 block text-xs text-slate-400">Departure Time</label>
+                      <input
+                        type="datetime-local"
+                        value={form.departureTime}
+                        onChange={(e) => setForm((prev) => ({ ...prev, departureTime: e.target.value }))}
+                        min={form.bookingDeadline || new Date(new Date().getTime() - new Date().getTimezoneOffset() * 60000).toISOString().slice(0, 16)}
+                        className="w-full rounded border border-slate-700 bg-slate-950/60 px-3 py-2 text-slate-100"
+                        required
+                      />
+                    </div>
+                    <div>
+                      <label className="mb-1 block text-xs text-slate-400">Arrival Time</label>
+                      <input
+                        type="datetime-local"
+                        value={form.arrivalTime}
+                        onChange={(e) => setForm((prev) => ({ ...prev, arrivalTime: e.target.value }))}
+                        min={form.departureTime || new Date(new Date().getTime() - new Date().getTimezoneOffset() * 60000).toISOString().slice(0, 16)}
+                        className="w-full rounded border border-slate-700 bg-slate-950/60 px-3 py-2 text-slate-100"
+                      />
+                    </div>
+                  </div>
+                  <div>
+                    <label className="mb-1 block text-xs text-slate-400">Booking Deadline</label>
+                    <input
+                      type="datetime-local"
+                      value={form.bookingDeadline}
+                      onChange={(e) => setForm((prev) => ({ ...prev, bookingDeadline: e.target.value }))}
+                      min={new Date(new Date().getTime() - new Date().getTimezoneOffset() * 60000).toISOString().slice(0, 16)}
+                      className="w-full rounded border border-slate-700 bg-slate-950/60 px-3 py-2 text-slate-100"
+                      required
+                    />
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="mb-1 block text-xs text-slate-400">Max Passengers</label>
+                      <input
+                        type="number"
+                        min={form.currentJoinedMembers || 1}
+                        max="10"
+                        value={form.maxPassengers}
+                        onChange={(e) => setForm((prev) => ({ ...prev, maxPassengers: Number(e.target.value) }))}
+                        className="w-full rounded border border-slate-700 bg-slate-950/60 px-3 py-2 text-slate-100"
+                        required
+                      />
+                      {form.currentJoinedMembers > 0 && (
+                        <p className="mt-1 text-xs text-slate-400">Minimum: {form.currentJoinedMembers} (current members)</p>
+                      )}
+                    </div>
+                    <div>
+                      <label className="mb-1 block text-xs text-slate-400">Vehicle Type</label>
+                      <input
+                        placeholder="Vehicle Type"
+                        value={form.vehicleType}
+                        onChange={(e) => setForm((prev) => ({ ...prev, vehicleType: e.target.value }))}
+                        className="w-full rounded border border-slate-700 bg-slate-950/60 px-3 py-2 text-slate-100 placeholder:text-slate-500"
+                      />
+                    </div>
+                  </div>
+                </>
+              )}
+
+              {/* Food Sharing Fields */}
+              {form.shareType === 'food' && (
+                <>
+                  <input
+                    placeholder="Food Items"
+                    value={form.foodItems}
+                    onChange={(e) => setForm((prev) => ({ ...prev, foodItems: e.target.value }))}
+                    className="w-full rounded border border-slate-700 bg-slate-950/60 px-3 py-2 text-slate-100 placeholder:text-slate-500"
+                    required
+                  />
+                  <div className="grid grid-cols-3 gap-3">
+                    <div>
+                      <label className="mb-1 block text-xs text-slate-400">Min Persons</label>
+                      <input
+                        type="number"
+                        min="2"
+                        value={form.minPersons}
+                        onChange={(e) => setForm((prev) => ({ ...prev, minPersons: Number(e.target.value) }))}
+                        className="w-full rounded border border-slate-700 bg-slate-950/60 px-3 py-2 text-slate-100"
+                        required
+                      />
+                    </div>
+                    <div>
+                      <label className="mb-1 block text-xs text-slate-400">Max Persons</label>
+                      <input
+                        type="number"
+                        min={Math.max(form.minPersons || 2, form.currentJoinedMembers || 0)}
+                        value={form.maxPersons}
+                        onChange={(e) => setForm((prev) => ({ ...prev, maxPersons: Number(e.target.value) }))}
+                        className="w-full rounded border border-slate-700 bg-slate-950/60 px-3 py-2 text-slate-100"
+                        required
+                      />
+                      {form.currentJoinedMembers > 0 && (
+                        <p className="mt-1 text-xs text-slate-400">Minimum: {form.currentJoinedMembers} (current members)</p>
+                      )}
+                    </div>
+                    <div>
+                      <label className="mb-1 block text-xs text-slate-400">Quantity</label>
+                      <input
+                        type="number"
+                        min="1"
+                        value={form.quantity}
+                        onChange={(e) => setForm((prev) => ({ ...prev, quantity: Number(e.target.value) }))}
+                        className="w-full rounded border border-slate-700 bg-slate-950/60 px-3 py-2 text-slate-100"
+                        required
+                      />
+                    </div>
+                  </div>
+                  <div>
+                    <label className="mb-1 block text-xs text-slate-400">Delivery Time</label>
+                    <input
+                      type="datetime-local"
+                      value={form.deadlineTime}
+                      onChange={(e) => setForm((prev) => ({ ...prev, deadlineTime: e.target.value }))}
+                      min={new Date(new Date().getTime() - new Date().getTimezoneOffset() * 60000).toISOString().slice(0, 16)}
+                      className="w-full rounded border border-slate-700 bg-slate-950/60 px-3 py-2 text-slate-100"
+                      required
+                    />
+                  </div>
+                </>
+              )}
+
+              {/* Other Sharing Fields */}
+              {form.shareType === 'other' && (
+                <>
+                  <div>
+                    <label className="mb-1 block text-xs text-slate-400">Category</label>
+                    <select
+                      value={form.category}
+                      onChange={(e) => setForm((prev) => ({ ...prev, category: e.target.value }))}
+                      className="w-full rounded border border-slate-700 bg-slate-950/60 px-3 py-2 text-slate-100"
+                      required
+                    >
+                      <option value="">Select Category</option>
+                      <option value="Physical">Physical</option>
+                      <option value="Digital">Digital</option>
+                      <option value="Ticket">Ticket</option>
+                      <option value="Merch">Merch</option>
+                    </select>
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="mb-1 block text-xs text-slate-400">Min Persons</label>
+                      <input
+                        type="number"
+                        min="2"
+                        value={form.otherMinPersons}
+                        onChange={(e) => setForm((prev) => ({ ...prev, otherMinPersons: Number(e.target.value) }))}
+                        className="w-full rounded border border-slate-700 bg-slate-950/60 px-3 py-2 text-slate-100"
+                        required
+                      />
+                    </div>
+                    <div>
+                      <label className="mb-1 block text-xs text-slate-400">Max Persons</label>
+                      <input
+                        type="number"
+                        min={Math.max(2, form.currentJoinedMembers || 0)}
+                        value={form.otherMaxPersons}
+                        onChange={(e) => setForm((prev) => ({ ...prev, otherMaxPersons: Number(e.target.value) }))}
+                        className="w-full rounded border border-slate-700 bg-slate-950/60 px-3 py-2 text-slate-100"
+                        required
+                      />
+                      {form.currentJoinedMembers > 0 && (
+                        <p className="mt-1 text-xs text-slate-400">Minimum: {form.currentJoinedMembers} (current members)</p>
+                      )}
+                    </div>
+                  </div>
+                  <div>
+                    <label className="mb-1 block text-xs text-slate-400">Deadline</label>
+                    <input
+                      type="datetime-local"
+                      value={form.otherDeadline}
+                      onChange={(e) => setForm((prev) => ({ ...prev, otherDeadline: e.target.value }))}
+                      min={new Date(new Date().getTime() - new Date().getTimezoneOffset() * 60000).toISOString().slice(0, 16)}
+                      className="w-full rounded border border-slate-700 bg-slate-950/60 px-3 py-2 text-slate-100"
+                      required
+                    />
+                  </div>
+                </>
+              )}
+
+              {/* Total Amount */}
+              <div>
+                <label className="mb-1 block text-xs text-slate-400">Total Amount</label>
+                <input
+                  placeholder="Total Amount"
+                  type="number"
+                  min="1"
+                  value={form.totalAmount}
+                  onChange={(e) => setForm((prev) => ({ ...prev, totalAmount: Number(e.target.value) }))}
+                  className="w-full rounded border border-slate-700 bg-slate-950/60 px-3 py-2 text-slate-100 placeholder:text-slate-500"
+                  required
+                />
+              </div>
+
+              {/* Split Type */}
+              <select
+                value={form.splitType}
+                onChange={(e) => setForm((prev) => ({ ...prev, splitType: e.target.value }))}
+                className="w-full rounded border border-slate-700 bg-slate-950/60 px-3 py-2 text-slate-100"
+              >
+                <option value="equal">Equal</option>
+                <option value="custom">Custom</option>
+              </select>
+
+              {/* Host Contribution for Custom Split */}
+              {form.splitType === 'custom' && (
+                <div>
+                  <label className="mb-1 block text-xs text-slate-400">Host Willing to Pay</label>
+                  <input
+                    placeholder="Host Contribution"
+                    type="number"
+                    min="0"
+                    max={form.totalAmount}
+                    value={form.hostContribution}
+                    onChange={(e) => {
+                      const value = Number(e.target.value);
+                      if (value <= form.totalAmount) {
+                        setForm((prev) => ({ ...prev, hostContribution: value }));
+                      }
+                    }}
+                    className="w-full rounded border border-slate-700 bg-slate-950/60 px-3 py-2 text-slate-100 placeholder:text-slate-500"
+                  />
+                  {form.hostContribution > form.totalAmount && (
+                    <p className="mt-1 text-xs text-red-400">Host contribution cannot exceed total amount!</p>
+                  )}
+                  <p className="mt-1 text-xs text-slate-500">
+                    Remaining ₹{Math.max(0, form.totalAmount - form.hostContribution).toFixed(2)} will be split equally among others
+                  </p>
+                </div>
+              )}
+
               <button type="submit" className="w-full rounded-full bg-brand-primary py-3 text-sm font-semibold text-white shadow shadow-brand-primary/40">
                 Update Share
               </button>
             </form>
           </div>
         </div>
+        </>
       )}
     </main>
   );

@@ -118,8 +118,9 @@ const ListingForm = ({ onCreated, onSuccess, initialData, mode = 'create' }) => 
 
       // Include auction data when auction type selected
       if (form.listingType === 'auction') {
+        // Only send editable auction fields, not bid data
         payload.auction = {
-          ...form.auction,
+          isAuction: true,
           startBid: Number(form.auction.startBid),
           endTime: form.auction.endTime ? new Date(form.auction.endTime).toISOString() : undefined,
         };
@@ -130,19 +131,47 @@ const ListingForm = ({ onCreated, onSuccess, initialData, mode = 'create' }) => 
       let response;
       let listingId;
       if (mode === 'edit' && initialData?._id) {
-        response = await api.put(`/listings/${initialData._id}`, payload);
+        // For edit mode with new image, send as FormData
+        if (image) {
+          setUploading(true);
+          const formData = new FormData();
+          
+          // Append all form fields to FormData
+          Object.keys(payload).forEach(key => {
+            if (key === 'auction' && payload.auction) {
+              formData.append('auction', JSON.stringify(payload.auction));
+            } else if (key === 'tags' && Array.isArray(payload.tags)) {
+              formData.append('tags', payload.tags.join(','));
+            } else {
+              formData.append(key, payload[key]);
+            }
+          });
+          
+          // Append the image file
+          formData.append('images', image);
+          
+          response = await api.put(`/listings/${initialData._id}`, formData, {
+            headers: { 'Content-Type': 'multipart/form-data' },
+          });
+          setUploading(false);
+        } else {
+          // No new image, send JSON payload
+          response = await api.put(`/listings/${initialData._id}`, payload);
+        }
         listingId = initialData._id;
       } else {
+        // Create mode
         response = await api.post('/listings', payload);
         listingId = response.data._id;
-      }
-
-      if (image) {
-        setUploading(true);
-        try {
-          await uploadImage(listingId);
-        } finally {
-          setUploading(false);
+        
+        // Upload image after creation
+        if (image) {
+          setUploading(true);
+          try {
+            await uploadImage(listingId);
+          } finally {
+            setUploading(false);
+          }
         }
       }
 
@@ -151,6 +180,7 @@ const ListingForm = ({ onCreated, onSuccess, initialData, mode = 'create' }) => 
         setImage(null);
       } else if (response?.data) {
         setForm(mapListingToForm(response.data));
+        setImage(null);
       }
 
       onSuccess?.(response?.data);

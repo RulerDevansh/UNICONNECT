@@ -30,13 +30,13 @@ const ListingDetail = () => {
   const loadListing = async () => {
     const { data } = await api.get(`/listings/${id}`);
     setListing(data);
-    // Initialize header price: for auction, prefer currentBid > startBid, else listing price
+    // Initialize header price: for auction, prefer currentBid if > 0, else startBid, else listing price
     if (data.listingType === 'auction' && data.auction) {
       const currentBid = data.auction.currentBid?.amount;
       const startBid = data.auction.startBid;
       
-      // Check currentBid first (including 0)
-      if (typeof currentBid === 'number') {
+      // Check if there's an actual bid (currentBid > 0)
+      if (typeof currentBid === 'number' && currentBid > 0) {
         setHeaderPrice(currentBid);
       } else if (typeof startBid === 'number') {
         setHeaderPrice(startBid);
@@ -95,6 +95,21 @@ const ListingDetail = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
 
+  // Join listing room and listen for refresh events
+  useEffect(() => {
+    if (!socket || !listing) return;
+    const listingId = listing._id;
+    socket.emit('joinListing', { listingId });
+    const onRefresh = (payload) => {
+      if (payload.listingId !== listingId) return;
+      loadListing(); // Reload the listing data
+    };
+    socket.on('listing:refresh', onRefresh);
+    return () => {
+      socket.off('listing:refresh', onRefresh);
+    };
+  }, [socket, listing]);
+
   // Live update header price for auction via socket
   useEffect(() => {
     if (!socket || !listing || listing.listingType !== 'auction') return;
@@ -104,9 +119,25 @@ const ListingDetail = () => {
     } catch {}
     const onUpdate = (payload) => {
       if (payload.listingId !== listingId) return;
-      if (payload.currentBid?.amount != null) {
+      // Update header price: show currentBid if > 0, else show startBid
+      if (payload.currentBid?.amount != null && payload.currentBid.amount > 0) {
         setHeaderPrice(payload.currentBid.amount);
+      } else if (listing.auction?.startBid != null) {
+        setHeaderPrice(listing.auction.startBid);
       }
+      // Update listing state to ensure BiddingBox sees fresh data
+      setListing(prev => {
+        if (!prev) return prev;
+        return {
+          ...prev,
+          auction: {
+            ...prev.auction,
+            currentBid: payload.currentBid || prev.auction?.currentBid,
+            highestBidPerUser: payload.highestBidPerUser || prev.auction?.highestBidPerUser,
+            isAuction: prev.auction?.isAuction !== undefined ? prev.auction.isAuction : true,
+          }
+        };
+      });
     };
     const onSellerWinner = (payload) => {
       if (!isSeller) return;

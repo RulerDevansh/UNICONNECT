@@ -34,12 +34,12 @@ const ListingCard = ({ listing, wideImage = false, hideBuyNowBadge = false, comp
   const [auctionTimeRemaining, setAuctionTimeRemaining] = useState('');
   const [displayPrice, setDisplayPrice] = useState(() => {
     if (isAuction && listing?.auction) {
-      // For auction: show current bid if exists, otherwise show starting bid
+      // For auction: show current bid if exists and > 0, otherwise show starting bid
       const currentBid = listing.auction.currentBid?.amount;
       const startBid = listing.auction.startBid;
       
-      // Check currentBid first (including 0)
-      if (typeof currentBid === 'number') {
+      // Check if there's an actual bid (currentBid > 0)
+      if (typeof currentBid === 'number' && currentBid > 0) {
         return currentBid;
       }
       // Then check startBid (including 0)
@@ -71,13 +71,16 @@ const ListingCard = ({ listing, wideImage = false, hideBuyNowBadge = false, comp
     try { socket.emit('auction:join', { listingId }); } catch {}
     const onUpdate = (payload) => {
       if (payload.listingId !== listingId) return;
-      if (payload.currentBid?.amount != null) {
+      // Update price: show currentBid if > 0, else keep showing startBid
+      if (payload.currentBid?.amount != null && payload.currentBid.amount > 0) {
         setDisplayPrice(payload.currentBid.amount);
+      } else if (listing.auction?.startBid != null) {
+        setDisplayPrice(listing.auction.startBid);
       }
     };
     socket.on('auction:update', onUpdate);
     return () => { socket.off('auction:update', onUpdate); };
-  }, [socket, isAuction, listing._id]);
+  }, [socket, isAuction, listing._id, listing.auction?.startBid]);
 
   const handleBuyNow = async () => {
     try {

@@ -9,6 +9,7 @@ const { uploadImage, deleteImage } = require('../config/cloudinary');
 const { paginate } = require('../utils/pagination');
 const { validateListingFilters } = require('../utils/validators');
 const { callModeration, checkAlcoholImage } = require('../services/moderationService');
+const { getIO } = require('../services/socketService');
 
 const TEMP_DIR = path.join(__dirname, '../../tmp');
 if (!fs.existsSync(TEMP_DIR)) fs.mkdirSync(TEMP_DIR);
@@ -234,15 +235,179 @@ const updateListing = async (req, res, next) => {
     if (!listing) return res.status(404).json({ message: 'Listing not found' });
 
     const updates = { ...req.body };
+    
+    // Parse JSON strings from FormData (when image uploads are included)
+    if (updates.auction && typeof updates.auction === 'string') {
+      try {
+        updates.auction = JSON.parse(updates.auction);
+      } catch (err) {
+        return res.status(400).json({ message: 'Invalid auction data format' });
+      }
+    }
+    
     if (updates.tags) {
       updates.tags = Array.isArray(updates.tags)
         ? updates.tags
         : updates.tags.split(',').map((tag) => tag.trim()).filter(Boolean);
     }
     
-    // For auction listings, ensure price matches startBid
-    if (updates.listingType === 'auction' && updates.auction?.startBid) {
-      updates.price = Number(updates.auction.startBid);
+    // Handle new image uploads from req.files
+    if (req.files && req.files.length > 0) {
+      // Delete all old images from Cloudinary
+      for (const oldImage of listing.images) {
+        try {
+          await deleteImage(oldImage.publicId);
+        } catch (err) {
+          console.error('Failed to delete old image from Cloudinary:', oldImage.publicId, err);
+        }
+      }
+      
+      // Upload new images
+      const newImages = [];
+      for (const file of req.files) {
+        const tempPath = path.join(TEMP_DIR, `${Date.now()}-${file.originalname}`);
+        try {
+          await fs.promises.writeFile(tempPath, file.buffer);
+          const { url, publicId } = await uploadImage(tempPath, 'uniconnect/listings');
+          newImages.push({ url, publicId });
+        } finally {
+          try {
+            await fs.promises.unlink(tempPath);
+          } catch (err) {
+            console.error('Failed to delete temp file:', tempPath, err);
+          }
+        }
+      }
+      
+      // Check for alcohol in primary image (first image)
+      if (newImages.length > 0 && newImages[0]?.url) {
+        const alcoholResult = await applyAlcoholScan({
+          listing,
+          sellerId: req.user.id,
+          imageUrl: newImages[0].url,
+        });
+        
+        if (alcoholResult?.blocked) {
+          // Delete the newly uploaded images since they're blocked
+          for (const img of newImages) {
+            try {
+              await deleteImage(img.publicId);
+            } catch (err) {
+              console.error('Failed to delete blocked image:', img.publicId, err);
+            }
+          }
+          
+          return res.status(400).json({
+            message: BEER_BLOCK_MESSAGE,
+            reason: 'beer_bottle_detected',
+            details: {
+              predicted_label: alcoholResult.predicted_label,
+              confidence: alcoholResult.confidence,
+            },
+          });
+        }
+      }
+      
+      // Update listing images
+      listing.images = newImages;
+      delete updates.images; // Remove from updates to avoid overwriting
+    } else if (updates.images && Array.isArray(updates.images)) {
+      // Handle image updates from request body (URLs provided)
+      const oldPublicIds = listing.images
+        .filter(img => !updates.images.some(newImg => newImg.publicId === img.publicId))
+        .map(img => img.publicId);
+      
+      // Delete old images from Cloudinary
+      for (const publicId of oldPublicIds) {
+        try {
+          await deleteImage(publicId);
+        } catch (err) {
+          console.error('Failed to delete image from Cloudinary:', publicId, err);
+        }
+      }
+      
+      // Check for alcohol in primary image (first image)
+      if (updates.images.length > 0 && updates.images[0]?.url) {
+        const primaryImageUrl = updates.images[0].url;
+        const alcoholResult = await applyAlcoholScan({
+          listing,
+          sellerId: req.user.id,
+          imageUrl: primaryImageUrl,
+        });
+        
+        if (alcoholResult?.blocked) {
+          return res.status(400).json({
+            message: BEER_BLOCK_MESSAGE,
+            reason: 'beer_bottle_detected',
+            details: {
+              predicted_label: alcoholResult.predicted_label,
+              confidence: alcoholResult.confidence,
+            },
+          });
+        }
+      }
+    }
+    
+    // For auction listings, preserve existing bids and update only allowed fields
+    if (updates.listingType === 'auction' && updates.auction) {
+      const newStartBid = Number(updates.auction.startBid);
+      const newEndTime = updates.auction.endTime ? new Date(updates.auction.endTime) : null;
+      
+      // Update only the editable auction fields, preserve the rest
+      if (listing.auction) {
+        const currentBidAmount = listing.auction.currentBid?.amount || 0;
+        const hasBids = currentBidAmount > 0 || (listing.auction.bidders && listing.auction.bidders.length > 0);
+        
+        // If there are active bids, restrict what can be updated
+        if (hasBids) {
+          // Cannot change startBid if bids exist
+          if (newStartBid !== listing.auction.startBid) {
+            return res.status(422).json({ 
+              message: 'Cannot change starting bid after bids have been placed' 
+            });
+          }
+          
+          // Can only extend end time, not shorten it
+          if (newEndTime && newEndTime < listing.auction.endTime) {
+            return res.status(422).json({ 
+              message: 'Cannot shorten auction end time after bids have been placed. You can only extend it.' 
+            });
+          }
+        }
+        
+        // Validate: endTime cannot be in the past
+        if (newEndTime && newEndTime <= new Date()) {
+          return res.status(422).json({ 
+            message: 'End time must be in the future' 
+          });
+        }
+        
+        listing.auction.isAuction = true;
+        listing.auction.startBid = newStartBid;
+        if (newEndTime) {
+          listing.auction.endTime = newEndTime;
+        }
+        // Keep existing: currentBid, bidders, highestBidPerUser, winner, status
+      } else {
+        // New auction listing - validate endTime
+        if (newEndTime && newEndTime <= new Date()) {
+          return res.status(422).json({ 
+            message: 'End time must be in the future' 
+          });
+        }
+        
+        listing.auction = {
+          isAuction: true,
+          startBid: newStartBid,
+          endTime: newEndTime,
+          status: 'active',
+          bidders: [],
+          highestBidPerUser: new Map(),
+        };
+      }
+      updates.price = newStartBid;
+      // Remove auction from updates to avoid overwriting
+      delete updates.auction;
     }
     
     Object.assign(listing, updates);
@@ -268,6 +433,28 @@ const updateListing = async (req, res, next) => {
         await Chat.deleteMany({ _id: { $in: chatIds } });
       }
     }
+    
+    // Notify auction room of updates
+    if (listing.listingType === 'auction') {
+      const io = getIO();
+      if (io) {
+        const highestMap = listing.auction?.highestBidPerUser;
+        let highestObj = {};
+        if (highestMap && typeof highestMap.forEach === 'function') {
+          highestMap.forEach((val, key) => { highestObj[key] = val; });
+        }
+        io.to(`auction:${listing._id}`).emit('auction:update', {
+          listingId: listing._id.toString(),
+          currentBid: listing.auction?.currentBid || null,
+          highestBidPerUser: highestObj,
+        });
+        // Emit listing refresh event to all viewers
+        io.to(`listing:${listing._id}`).emit('listing:refresh', {
+          listingId: listing._id.toString(),
+        });
+      }
+    }
+    
     if (textBlocked) {
       return res.status(400).json({
         message: TEXT_BLOCK_MESSAGE,

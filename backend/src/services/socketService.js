@@ -85,6 +85,10 @@ const initSocket = (io) => {
       }
     });
 
+    socket.on('joinListing', ({ listingId }) => {
+      socket.join(`listing:${listingId}`);
+    });
+
     socket.on('joinShareRoom', (shareId) => {
       socket.join(`share:${shareId}`);
     });
