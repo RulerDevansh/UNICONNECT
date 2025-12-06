@@ -43,12 +43,3 @@ Ensure `backend/.env` sets `ML_SERVICE_URL=http://localhost:8001` so listings an
 - Frontend: `npm run test`
 - ML Service: `pytest`
 
-## Deployment Notes
-
-Treat each folder as an independent deployment unit. Containerization is recommended:
-
-- Backend: Node 18-alpine image, run `npm ci && npm run build && npm start`.
-- Frontend: Build with `npm run build`, serve `dist/` via static hosting (Vercel, Netlify, S3+CloudFront).
-- ML Service: Python 3.11 slim image with `pip install -r requirements.txt` and start via `uvicorn src.app.main:app --host 0.0.0.0 --port 8001`.
-
-CI/CD hooks can run each folder's tests in parallel for faster feedback.
