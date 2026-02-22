@@ -10,6 +10,10 @@ const userSchema = new mongoose.Schema(
     role: { type: String, enum: ['user', 'admin'], default: 'user' },
     avatar: { type: String },
     verified: { type: Boolean, default: false },
+    emailVerificationCode: { type: String },
+    emailVerificationExpires: { type: Date },
+    passwordResetCode: { type: String },
+    passwordResetExpires: { type: Date },
     refreshTokens: [{ token: String, createdAt: Date }],
     preferences: {
       categories: [String],

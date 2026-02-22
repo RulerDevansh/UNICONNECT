@@ -35,13 +35,11 @@ export const AuthProvider = ({ children }) => {
     return data.user;
   }, []);
 
-  const register = useCallback(
-    async (payload) => {
-      await registerApi(payload);
-      await login({ email: payload.email, password: payload.password });
-    },
-    [login]
-  );
+  const register = useCallback(async (payload) => {
+    const { data } = await registerApi(payload);
+    // Email verification is required before login; do NOT auto-login here.
+    return data;
+  }, []);
 
   const logout = useCallback(async () => {
     try {
