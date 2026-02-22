@@ -1,7 +1,6 @@
 import { useEffect, useState } from 'react';
 import ListingCard from '../components/ListingCard';
 import CategorySelect from '../components/CategorySelect';
-import { useSocket } from '../context/SocketContext';
 import api from '../services/api';
 
 const Marketplace = () => {
@@ -10,7 +9,6 @@ const Marketplace = () => {
   const [category, setCategory] = useState('');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  const { socket } = useSocket();
 
   const loadListings = async (q = '', cat = '') => {
     setLoading(true);
@@ -22,8 +20,7 @@ const Marketplace = () => {
       
       const { data } = await api.get('/listings', { params });
       setListings(data.data);
-    } catch (err) {
-      console.error('Failed to load listings:', err);
+    } catch (_err) {
       setError('Unable to load listings right now.');
     } finally {
       setLoading(false);

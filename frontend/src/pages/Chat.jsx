@@ -13,8 +13,7 @@ const Chat = () => {
   const [messages, setMessages] = useState([]);
   const [typingUsers, setTypingUsers] = useState([]);
   const [searchTerm, setSearchTerm] = useState('');
-  // Removed external user lookup results; we only filter existing chats
-  const [results, setResults] = useState([]); // legacy state kept minimal to avoid refactor cost
+  const [unreadChatIds, setUnreadChatIds] = useState(new Set());
   const [searchParams, setSearchParams] = useSearchParams();
   const activeIdRef = useRef(null);
 
@@ -112,10 +111,13 @@ const Chat = () => {
     loadMessages(chatId);
     setTypingUsers([]);
     updateChatParam(chatId);
+    setUnreadChatIds((prev) => {
+      if (!prev.has(chatId)) return prev;
+      const next = new Set(prev);
+      next.delete(chatId);
+      return next;
+    });
   };
-
-  // Deprecated: starting arbitrary chat by userId disabled for privacy
-  const startChat = async () => {};
 
   useEffect(() => {
     loadChats();
@@ -136,6 +138,10 @@ const Chat = () => {
         socket.emit('message:read', { chatId: activeId, messageId: message._id });
         clearNewMessage();
       } else {
+        setUnreadChatIds((prev) => {
+          if (prev.has(messageChatId)) return prev;
+          return new Set(prev).add(messageChatId);
+        });
         loadChats();
       }
     };
@@ -149,13 +155,25 @@ const Chat = () => {
     const handleRead = ({ userId, messageId }) => {
       setMessages((prev) => prev.map((msg) => (msg._id === messageId ? { ...msg, readBy: [...(msg.readBy || []), userId] } : msg)));
     };
+    const handleUnread = ({ chatId: unreadChatId }) => {
+      if (unreadChatId && unreadChatId !== activeId) {
+        setUnreadChatIds((prev) => {
+          if (prev.has(unreadChatId)) return prev;
+          return new Set(prev).add(unreadChatId);
+        });
+        loadChats();
+      }
+    };
     socket.on('message', handleMessage);
     socket.on('typing', handleTyping);
     socket.on('message:read', handleRead);
+    socket.on('chat:unread', handleUnread);
     return () => {
+      socket.emit('leaveChat', activeId);
       socket.off('message', handleMessage);
       socket.off('typing', handleTyping);
       socket.off('message:read', handleRead);
+      socket.off('chat:unread', handleUnread);
     };
   }, [socket, activeId, loadChats, clearNewMessage]);
 
@@ -169,9 +187,8 @@ const Chat = () => {
     socket?.emit('typing', activeId);
   };
 
-  const getChatLabel = (chat) => {
+  const getChatLabel = useCallback((chat) => {
     if (chat.isGroup) {
-      // Use trip name from shareRef if available
       if (chat.shareRef?.name) {
         return chat.shareRef.name;
       }
@@ -183,7 +200,6 @@ const Chat = () => {
       return pid !== currentUserId;
     });
     
-    // If there's a listing reference, show product name with other user's name
     if (chat.listingRef) {
       const productName = chat.listingRef?.title || 'Product';
       const otherName = other?.name || 'User';
@@ -191,7 +207,7 @@ const Chat = () => {
     }
     
     return other?.name || 'Direct Chat';
-  };
+  }, [user?.id, user?._id]);
 
   // Local chat filter instead of remote user lookup
   const filteredChats = useMemo(() => {
@@ -234,9 +250,14 @@ const Chat = () => {
                 <button
                   type="button"
                   onClick={() => selectChat(chat._id)}
-                  className={`w-full rounded px-3 py-2 text-left ${activeId === chat._id ? 'bg-brand-primary/20 text-white' : 'text-slate-400'}`}
+                  className={`relative w-full rounded px-3 py-2 text-left ${activeId === chat._id ? 'bg-brand-primary/20 text-white' : 'text-slate-400'}`}
                 >
-                  <span className="block text-sm font-semibold">{getChatLabel(chat)}</span>
+                  <span className="block text-sm font-semibold">
+                    {getChatLabel(chat)}
+                    {unreadChatIds.has(chat._id) && (
+                      <span className="ml-2 inline-block h-2.5 w-2.5 rounded-full bg-blue-500" />
+                    )}
+                  </span>
                   <span className="text-xs text-slate-500">
                     {new Date(chat.updatedAt).toLocaleDateString()} at {new Date(chat.updatedAt).toLocaleTimeString()}
                   </span>

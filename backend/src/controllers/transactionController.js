@@ -23,8 +23,7 @@ const sendNotification = async ({ userId, type, title, message, listingId, trans
       io.to(`user:${userId}`).emit('notification', notification);
     }
     return notification;
-  } catch (err) {
-    console.error('Failed to dispatch notification:', err.message || err);
+  } catch (_err) {
     return null;
   }
 };
@@ -138,16 +137,14 @@ const updateTransactionStatus = async (req, res, next) => {
       transaction.status = 'rejected';
       // Delete related chat/messages for this listing and buyer
       try {
-        const Chat = require('../models/Chat');
-        const Message = require('../models/Message');
         const chats = await Chat.find({ listingRef: transaction.listing._id, participants: transaction.buyer }, '_id');
         if (chats.length) {
           const chatIds = chats.map((chat) => chat._id);
           await Message.deleteMany({ chat: { $in: chatIds } });
           await Chat.deleteMany({ _id: { $in: chatIds } });
         }
-      } catch (err) {
-        console.error('Error during chat cleanup for rejected request:', err);
+      } catch (_err) {
+        // chat cleanup is best-effort
       }
       await sendNotification({
         userId: buyerId,
@@ -163,16 +160,14 @@ const updateTransactionStatus = async (req, res, next) => {
       transaction.status = 'withdrawn';
       // Delete related chat/messages for this listing and buyer
       try {
-        const Chat = require('../models/Chat');
-        const Message = require('../models/Message');
         const chats = await Chat.find({ listingRef: transaction.listing._id, participants: transaction.buyer }, '_id');
         if (chats.length) {
           const chatIds = chats.map((chat) => chat._id);
           await Message.deleteMany({ chat: { $in: chatIds } });
           await Chat.deleteMany({ _id: { $in: chatIds } });
         }
-      } catch (err) {
-        console.error('Error during chat cleanup for withdrawn request:', err);
+      } catch (_err) {
+        // chat cleanup is best-effort
       }
       await sendNotification({
         userId: sellerId,
@@ -263,20 +258,16 @@ const updateTransactionStatus = async (req, res, next) => {
         // Delete chats associated with this listing
         try {
           const chats = await Chat.find({ listingRef: transaction.listing._id });
-          let deletedChats = 0, deletedMessages = 0;
           for (const chat of chats) {
             try {
-              const msgResult = await Message.deleteMany({ chat: chat._id });
-              deletedMessages += msgResult.deletedCount || 0;
+              await Message.deleteMany({ chat: chat._id });
               await Chat.findByIdAndDelete(chat._id);
-              deletedChats++;
-            } catch (err) {
-              console.error(`Error deleting chat/messages for chat ${chat._id}:`, err);
+            } catch (_err) {
+              // chat cleanup is best-effort
             }
           }
-          console.log(`Cleanup: Deleted ${deletedChats} chats and ${deletedMessages} messages for completed listing ${transaction.listing._id}`);
-        } catch (err) {
-          console.error('Error during chat cleanup for completed listing:', err);
+        } catch (_err) {
+          // chat cleanup is best-effort
         }
         // Delete the listing from database
         await Listing.findByIdAndDelete(transaction.listing._id);

@@ -19,23 +19,14 @@ const adminRoutes = require('./routes/adminRoutes');
 const mlProxyRoutes = require('./routes/mlProxyRoutes');
 const notificationRoutes = require('./routes/notificationRoutes');
 const { errorHandler } = require('./middlewares/errorMiddleware');
-const { rateLimiter } = require('./middlewares/rateLimiter');
 const { xssClean } = require('./middlewares/xssMiddleware');
+const { corsOriginCallback } = require('./config/cors');
 
 const app = express();
 
-const defaultCorsOrigins = ['http://localhost:5173', 'http://localhost:5174', 'http://localhost:5175'];
-const envOrigins = process.env.FRONTEND_URL ? process.env.FRONTEND_URL.split(',').map((origin) => origin.trim()) : [];
-const allowedOrigins = [...new Set([...defaultCorsOrigins, ...envOrigins].filter(Boolean))];
-
 app.use(helmet());
 app.use(cors({
-  origin: (origin, callback) => {
-    if (!origin || allowedOrigins.includes(origin)) {
-      return callback(null, true);
-    }
-    return callback(new Error('Not allowed by CORS'));
-  },
+  origin: corsOriginCallback,
   credentials: true,
 }));
 app.use(express.json({ limit: '2mb' }));
@@ -47,7 +38,6 @@ app.use(rateLimit({
   windowMs: Number(process.env.RATE_LIMIT_WINDOW_MS) || 60 * 1000,
   max: Number(process.env.RATE_LIMIT_MAX) || 120,
 }));
-app.use(rateLimiter);
 
 app.get('/api/health', (_req, res) => {
   res.json({ status: 'ok', timestamp: Date.now() });

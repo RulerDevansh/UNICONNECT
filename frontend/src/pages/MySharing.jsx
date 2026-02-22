@@ -89,8 +89,8 @@ const MySharing = () => {
         return isHost;
       });
       setMyShares(hostShares);
-    } catch (err) {
-      console.error('Failed to load shares:', err);
+    } catch (_err) {
+      // handled by error state
     }
   };
 
@@ -104,9 +104,7 @@ const MySharing = () => {
   useEffect(() => {
     if (!socket || !user) return;
 
-    const handleShareUpdate = (data) => {
-      console.log('Share update received:', data);
-      // Reload shares when there's an update
+    const handleShareUpdate = () => {
       loadMyShares();
     };
 

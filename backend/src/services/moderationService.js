@@ -14,7 +14,6 @@ const withRetry = async (fn, attempts = 3) => {
 };
 
 const BEER_BLOCK_REASON = 'beer_bottle_detected';
-const BEER_BLOCK_MESSAGE = 'Beer bottles are not allowed to be listed. Contact admin if this is incorrect.';
 
 const callModeration = async (payload) => {
   if (!process.env.ML_SERVICE_URL) return { flagged: false, score: 0 };
@@ -24,9 +23,9 @@ const callModeration = async (payload) => {
         .post(`${process.env.ML_SERVICE_URL}/predict/moderation`, payload, { timeout: 5000 })
         .then((res) => res.data)
     );
+    console.info('[ML] moderation result', data);
     return data;
-  } catch (err) {
-    console.error('Moderation call failed', err.message);
+  } catch (_err) {
     return { flagged: false, score: 0, reason: 'ml_unreachable' };
   }
 };
@@ -36,7 +35,6 @@ const checkAlcoholImage = async (imageUrl) => {
     return { blocked: false, reason: 'ml_disabled' };
   }
 
-  // Recommended behavior: block immediately and show a friendly error to the seller.
   try {
     const data = await withRetry(() =>
       axios
@@ -53,7 +51,6 @@ const checkAlcoholImage = async (imageUrl) => {
     const blocked = Boolean(data?.blocked);
 
     console.info('[ML] alcohol prediction', {
-      filename: data?.filename,
       predicted_class: predictedClass,
       probability,
       threshold: data?.threshold,
@@ -66,20 +63,13 @@ const checkAlcoholImage = async (imageUrl) => {
       predicted_label: predictedClass,
       confidence: probability,
       flagged: blocked,
-      is_beer: blocked,
-      scores: {},
-      probability,
-      filename: data?.filename,
-      recommendation: BEER_BLOCK_MESSAGE,
       needs_review: false,
     };
-  } catch (err) {
-    console.error('Alcohol detection call failed', err.message);
+  } catch (_err) {
     return {
       blocked: false,
       needs_review: true,
       error: 'ml_unreachable',
-      recommendation: BEER_BLOCK_MESSAGE,
     };
   }
 };

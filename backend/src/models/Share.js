@@ -21,9 +21,8 @@ const shareSchema = new mongoose.Schema(
     collegeDomain: { type: String, required: true },
     totalAmount: { type: Number, required: true },
     splitType: { type: String, enum: ['equal', 'custom', 'percentage'], default: 'equal' },
-    hostContribution: { type: Number, default: 0 }, // Amount host is willing to pay
+    hostContribution: { type: Number, default: 0 },
     
-    // Sharing type
     shareType: { type: String, enum: ['cab', 'food', 'product', 'other'], default: 'other' },
     
     // Cab sharing fields

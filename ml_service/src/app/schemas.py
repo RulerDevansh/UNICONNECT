@@ -1,10 +1,9 @@
 from pydantic import AnyHttpUrl, BaseModel, Field
-from typing import List, Optional
 
 
 class RecommendationRequest(BaseModel):
-    userId: Optional[str] = Field(default=None, description="User identifier if available")
-    recent_item_ids: List[str] = Field(default_factory=list, description="Recent listing identifiers")
+    userId: str | None = Field(default=None, description="User identifier if available")
+    recent_item_ids: list[str] = Field(default_factory=list, description="Recent listing identifiers")
     limit: int = Field(default=5, ge=1, le=20)
 
 
@@ -16,10 +15,10 @@ class RecommendationResponseItem(BaseModel):
 
 
 class ModerationRequest(BaseModel):
-    title: Optional[str] = None
-    description: Optional[str] = None
-    text: Optional[str] = None
-    category: Optional[str] = None
+    title: str | None = None
+    description: str | None = None
+    text: str | None = None
+    category: str | None = None
 
 
 class ModerationResponse(BaseModel):

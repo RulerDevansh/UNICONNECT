@@ -1,7 +1,6 @@
 import { useState } from 'react';
 import { Link, NavLink, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { useSocket } from '../context/SocketContext';
 import { useNotifications } from '../context/NotificationContext';
 import logo from '../assets/logo.svg';
 
@@ -16,7 +15,6 @@ const navItems = [
 
 const Navbar = () => {
   const { user, logout } = useAuth();
-  const { hasNewMessage } = useSocket();
   const { unreadCount } = useNotifications();
   const [showProfileDropdown, setShowProfileDropdown] = useState(false);
   const navigate = useNavigate();
@@ -54,16 +52,7 @@ const Navbar = () => {
                   `rounded px-2 py-1 transition ${isActive ? 'bg-white/10 text-white shadow-sm' : 'text-slate-400 hover:text-white'}`
                 }
               >
-                <span className="inline-flex items-center gap-1">
-                  {item.label}
-                  {item.to === '/chat' && hasNewMessage && (
-                    <span className="relative inline-flex h-2 w-2">
-                      <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-brand-primary opacity-60" />
-                      <span className="relative inline-flex h-2 w-2 rounded-full bg-brand-primary" />
-                      <span className="sr-only">New messages</span>
-                    </span>
-                  )}
-                </span>
+                {item.label}
               </NavLink>
             ))}
           {!user ? (

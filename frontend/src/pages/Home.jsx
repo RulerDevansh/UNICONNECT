@@ -1,7 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import ListingCard from '../components/ListingCard';
-import { useSocket } from '../context/SocketContext';
 import api from '../services/api';
 import { formatCurrency } from '../utils/currency';
 import logo from '../assets/logo.svg';
@@ -191,7 +190,6 @@ const Home = () => {
   const [shares, setShares] = useState([]);
   const [sharesLoading, setSharesLoading] = useState(true);
   const [shareError, setShareError] = useState('');
-  const { socket } = useSocket();
 
   const loadListings = async () => {
     setListingsLoading(true);

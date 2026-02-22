@@ -1,9 +1,8 @@
 const Listing = require('../models/Listing');
+const Transaction = require('../models/Transaction');
 const { getIO } = require('../services/socketService');
 
-// Place a bid on an auction-type listing
-// POST /api/bidding/:listingId/bids
-async function placeBid(req, res) {
+async function placeBid(req, res, next) {
   try {
     const { listingId } = req.params;
     const userId = req.user.id;
@@ -68,14 +67,11 @@ async function placeBid(req, res) {
 
     return res.status(200).json({ message: 'Bid placed', currentBid: listing.auction.currentBid });
   } catch (err) {
-    console.error('placeBid error:', err);
-    return res.status(500).json({ message: 'Internal server error' });
+    next(err);
   }
 }
 
-// Get auction status
-// GET /api/bidding/:listingId
-async function getBiddingStatus(req, res) {
+async function getBiddingStatus(req, res, next) {
   try {
     const { listingId } = req.params;
     const listing = await Listing.findById(listingId).exec();
@@ -93,13 +89,11 @@ async function getBiddingStatus(req, res) {
       if (winnerId && winnerId === String(req.user.id)) {
         isWinner = true;
         try {
-          const Transaction = require('../models/Transaction');
           const tx = await Transaction.findOne({
             listing: listing._id,
             buyer: req.user.id,
             transactionType: 'auction',
           }).sort({ createdAt: -1 }).lean();
-          // Winner banner remains until seller marks completed
           winnerOpen = !!(tx && tx.status !== 'completed');
           if (tx?.amount != null) finalBid = tx.amount;
         } catch (_) {
@@ -119,8 +113,7 @@ async function getBiddingStatus(req, res) {
       winnerOpen,
     });
   } catch (err) {
-    console.error('getBiddingStatus error:', err);
-    return res.status(500).json({ message: 'Internal server error' });
+    next(err);
   }
 }
 

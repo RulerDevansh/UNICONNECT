@@ -18,8 +18,6 @@ const ListingDetail = () => {
   const [headerPrice, setHeaderPrice] = useState(null);
   const [offers, setOffers] = useState([]);
   const [showOffer, setShowOffer] = useState(false);
-  const [recommended, setRecommended] = useState([]);
-  const [showRecommendations, setShowRecommendations] = useState(false); // temporary hide
   const [hasPendingRequest, setHasPendingRequest] = useState(false);
   const [biddingEndInfo, setBiddingEndInfo] = useState(null);
 
@@ -60,8 +58,8 @@ const ListingDetail = () => {
             ['pending', 'approved', 'payment_sent'].includes(t.status)
         );
         setHasPendingRequest(pendingForThisListing);
-      } catch (err) {
-        console.error('Failed to check pending requests:', err);
+      } catch (_err) {
+        // silent
       }
     }
   };
@@ -76,17 +74,6 @@ const ListingDetail = () => {
       setHasPendingRequest(true);
     } catch (err) {
       alert(err.response?.data?.message || 'Failed to send buy request');
-    }
-  };
-
-  const handleMarkAsSold = async () => {
-    if (!confirm('Are you sure you want to mark this item as sold? This will remove it from the marketplace.')) return;
-    try {
-      await api.delete(`/listings/${id}`);
-      navigate('/marketplace');
-    } catch (err) {
-      console.error(err);
-      alert('Failed to mark as sold');
     }
   };
 
@@ -152,21 +139,6 @@ const ListingDetail = () => {
     };
   }, [socket, listing, isSeller]);
 
-  // Temporarily disabled recommendations fetch/display
-  // useEffect(() => {
-  //   const fetchRecommendations = async () => {
-  //     try {
-  //       const { data } = await api.post('/ml/recommendations', {
-  //         recent_item_ids: [id],
-  //         limit: 4,
-  //       });
-  //       setRecommended(data);
-  //     } catch (err) {
-  //       // silent fail when ML service offline
-  //     }
-  //   };
-  //   fetchRecommendations();
-  // }, [id, user]);
 
   if (!listing) {
     return <p className="p-8 text-center text-slate-500">Loading listing…</p>;
@@ -271,19 +243,6 @@ const ListingDetail = () => {
           </div>
         )}
       </div>
-      {showRecommendations && recommended.length > 0 && (
-        <section className="mt-8">
-          <h3 className="text-lg font-semibold text-white">Recommended IDs</h3>
-          <p className="text-sm text-slate-400">Hook into actual listing fetch for production.</p>
-          <div className="mt-2 flex flex-wrap gap-2 text-xs text-slate-300">
-            {recommended.map((rec) => (
-              <span key={rec.id} className="rounded bg-slate-800 px-3 py-1">
-                {rec.id} ({rec.score.toFixed(2)})
-              </span>
-            ))}
-          </div>
-        </section>
-      )}
       {showOffer && (
         <OfferModal listingId={listing._id} onClose={() => setShowOffer(false)} onSubmitted={loadListing} />
       )}

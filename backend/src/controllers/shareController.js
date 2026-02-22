@@ -1,6 +1,7 @@
 const Share = require('../models/Share');
 const Chat = require('../models/Chat');
 const Notification = require('../models/Notification');
+const User = require('../models/User');
 const { calculateSplit } = require('../utils/splitCalculator');
 const { getIO } = require('../services/socketService');
 
@@ -18,16 +19,15 @@ const sendNotification = async ({ userId, type, title, message, shareId }) => {
       io.to(`user:${userId}`).emit('notification', notification);
     }
     return notification;
-  } catch (err) {
-    console.error('Failed to dispatch notification:', err.message || err);
+  } catch (_err) {
     return null;
   }
 };
 
-/**
- * @route POST /api/shares
- * @body { name, description, totalAmount, splitType }
- */
+const shareTypeName = (shareType) =>
+  shareType === 'cab' ? 'Cab Share' :
+  shareType === 'food' ? 'Food Share' : 'Share';
+
 /**
  * @route GET /api/shares
  */
@@ -220,24 +220,17 @@ const requestJoin = async (req, res, next) => {
     share.pendingRequests.push(req.user.id);
     await share.save();
     
-    // Fetch requester's name for notification
-    const User = require('../models/User');
     const requester = await User.findById(req.user.id).select('name');
     
-    // Notify host about new join request
-    const shareTypeName = share.shareType === 'cab' ? 'Cab Share' : 
-                         share.shareType === 'food' ? 'Food Share' : 
-                         share.shareType === 'other' ? 'Share' : 'Share';
+    const typeName = shareTypeName(share.shareType);
     await sendNotification({
       userId: share.host.toString(),
       type: 'share_join_request',
       title: `New Join Request`,
-      message: `${requester?.name || 'Someone'} wants to join your ${shareTypeName}: ${share.name}`,
+      message: `${requester?.name || 'Someone'} wants to join your ${typeName}: ${share.name}`,
       shareId: share._id,
     });
     
-    // Emit real-time socket event for share update
-    const { getIO } = require('../services/socketService');
     const io = getIO();
     if (io) {
       io.to(`user:${share.host.toString()}`).emit('share:request', {
@@ -317,14 +310,9 @@ const cancelRequest = async (req, res, next) => {
     
     await share.save();
     
-    // Fetch canceller's name for notification
-    const User = require('../models/User');
     const canceller = await User.findById(req.user.id).select('name');
     
-    // Notify host and other members about cancellation
-    const shareTypeName = share.shareType === 'cab' ? 'Cab Share' : 
-                         share.shareType === 'food' ? 'Food Share' : 
-                         share.shareType === 'other' ? 'Share' : 'Share';
+    const typeName = shareTypeName(share.shareType);
     
     // Notify host (only if host is not the one cancelling)
     if (share.host.toString() !== req.user.id) {
@@ -332,7 +320,7 @@ const cancelRequest = async (req, res, next) => {
         userId: share.host.toString(),
         type: 'share_member_cancelled',
         title: `Member Cancelled`,
-        message: `${canceller?.name || 'A member'} cancelled their booking for ${shareTypeName}: ${share.name}`,
+        message: `${canceller?.name || 'A member'} cancelled their booking for ${typeName}: ${share.name}`,
         shareId: share._id,
       });
     }
@@ -351,13 +339,11 @@ const cancelRequest = async (req, res, next) => {
         userId: memberId,
         type: 'share_member_cancelled',
         title: `Member Cancelled`,
-        message: `${canceller?.name || 'A member'} cancelled their booking for ${shareTypeName}: ${share.name}`,
+        message: `${canceller?.name || 'A member'} cancelled their booking for ${typeName}: ${share.name}`,
         shareId: share._id,
       });
     }
     
-    // Emit real-time socket events
-    const { getIO } = require('../services/socketService');
     const io = getIO();
     if (io) {
       // Notify host
@@ -512,15 +498,12 @@ const approveMember = async (req, res, next) => {
       { upsert: true }
     );
     
-    // Notify approved user
-    const shareTypeName = share.shareType === 'cab' ? 'Cab Share' : 
-                         share.shareType === 'food' ? 'Food Share' : 
-                         share.shareType === 'other' ? 'Share' : 'Share';
+    const typeName = shareTypeName(share.shareType);
     await sendNotification({
       userId: userId,
       type: 'share_request_approved',
       title: `Request Approved!`,
-      message: `Your request to join ${shareTypeName} "${share.name}" has been approved`,
+      message: `Your request to join ${typeName} "${share.name}" has been approved`,
       shareId: share._id,
     });
     
@@ -529,19 +512,17 @@ const approveMember = async (req, res, next) => {
       .filter(m => m.status === 'joined' && m.user.toString() !== userId)
       .map(m => m.user.toString());
     
-    const approvedUser = await require('../models/User').findById(userId).select('name');
+    const approvedUser = await User.findById(userId).select('name');
     for (const memberId of otherMembers) {
       await sendNotification({
         userId: memberId,
         type: 'share_member_joined',
         title: `New Member Joined`,
-        message: `${approvedUser.name} joined your ${shareTypeName}: ${share.name}`,
+        message: `${approvedUser.name} joined your ${typeName}: ${share.name}`,
         shareId: share._id,
       });
     }
     
-    // Emit real-time socket events
-    const { getIO } = require('../services/socketService');
     const io = getIO();
     if (io) {
       // Notify host (request approver)
@@ -602,20 +583,15 @@ const rejectMember = async (req, res, next) => {
     
     await share.save();
     
-    // Notify rejected user
-    const shareTypeName = share.shareType === 'cab' ? 'Cab Share' : 
-                         share.shareType === 'food' ? 'Food Share' : 
-                         share.shareType === 'other' ? 'Share' : 'Share';
+    const typeName = shareTypeName(share.shareType);
     await sendNotification({
       userId: userId,
       type: 'share_request_rejected',
       title: `Request Rejected`,
-      message: `Your request to join ${shareTypeName} "${share.name}" was rejected`,
+      message: `Your request to join ${typeName} "${share.name}" was rejected`,
       shareId: share._id,
     });
     
-    // Emit real-time socket events
-    const { getIO } = require('../services/socketService');
     const io = getIO();
     if (io) {
       // Notify host (request rejector)
@@ -680,10 +656,7 @@ const finalizeShare = async (req, res, next) => {
     share.status = 'closed';
     await share.save();
     
-    // Notify all members about share completion
-    const shareTypeName = share.shareType === 'cab' ? 'Cab Share' : 
-                         share.shareType === 'food' ? 'Food Share' : 
-                         share.shareType === 'other' ? 'Share' : 'Share';
+    const typeName = shareTypeName(share.shareType);
     
     const allMembers = share.members
       .filter(m => m.status === 'joined')
@@ -696,7 +669,7 @@ const finalizeShare = async (req, res, next) => {
       await sendNotification({
         userId: memberId,
         type: 'share_completed',
-        title: `${shareTypeName} Completed`,
+        title: `${typeName} Completed`,
         message: `${share.name} has been finalized. Your share: ${shareAmount}`,
         shareId: share._id,
       });
@@ -857,7 +830,6 @@ const updateShare = async (req, res, next) => {
     
     // Send notifications to all joined members about the update
     const joinedMembers = share.members.filter(m => m.status === 'joined');
-    const User = require('../models/User');
     const hostData = await User.findById(req.user.id).select('name');
     const hostName = hostData?.name || 'Host';
     

@@ -77,10 +77,6 @@ def _predict_safety(image_url: str) -> AlcoholDetectionResponse:
 
 
 @app.post('/predict/alcohol-image', response_model=AlcoholDetectionResponse)
-def detect_alcohol(payload: AlcoholDetectionRequest):
-    return _predict_safety(payload.image_url)
-
-
 @app.post('/predict/url', response_model=AlcoholDetectionResponse)
-def detect_alcohol_from_url(payload: AlcoholDetectionRequest):
+def detect_alcohol(payload: AlcoholDetectionRequest):
     return _predict_safety(payload.image_url)

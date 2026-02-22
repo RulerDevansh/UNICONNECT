@@ -3,6 +3,9 @@
   "version": "1.0.0",
   "description": "UniConnect backend API with Express, MongoDB, Socket.IO, and moderation integrations.",
   "main": "src/server.js",
+  "engines": {
+    "node": ">=18"
+  },
   "scripts": {
     "dev": "nodemon src/server.js",
     "start": "node src/server.js",
@@ -16,7 +19,6 @@
     "cloudinary": "^2.8.0",
     "cookie-parser": "^1.4.6",
     "cors": "^2.8.5",
-    "cron": "^4.3.4",
     "dotenv": "^16.4.5",
     "express": "^4.19.2",
     "express-mongo-sanitize": "^2.2.0",
@@ -26,7 +28,6 @@
     "jsonwebtoken": "^9.0.2",
     "mongoose": "^8.5.3",
     "multer": "^2.0.0",
-    "node": "^25.2.1",
     "node-cron": "^4.2.1",
     "nodemailer": "^7.0.10",
     "socket.io": "^4.7.5",
@@ -53,5 +54,8 @@
     "testMatch": [
       "**/src/tests/**/*.test.js"
     ]
+  },
+  "overrides": {
+    "minimatch": "^10.2.1"
   }
 }

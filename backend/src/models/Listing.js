@@ -26,7 +26,6 @@ const listingSchema = new mongoose.Schema(
       default: 'buy-now',
     },
     auction: {
-      // Used for both 'auction' and 'bidding' types
       isAuction: { type: Boolean, default: false },
       startBid: { type: Number, min: 0 },
       endTime: { type: Date },

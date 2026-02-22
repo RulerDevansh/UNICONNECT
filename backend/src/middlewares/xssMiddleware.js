@@ -1,12 +1,14 @@
 const xss = require('xss');
 
+const xssOptions = {
+  whiteList: {},
+  stripIgnoreTag: true,
+  stripIgnoreTagBody: ['script'],
+};
+
 const sanitizeValue = (value) => {
   if (typeof value === 'string') {
-    return xss(value, {
-      whiteList: {},
-      stripIgnoreTag: true,
-      stripIgnoreTagBody: ['script'],
-    });
+    return xss(value, xssOptions);
   }
   if (Array.isArray(value)) {
     return value.map(sanitizeValue);
