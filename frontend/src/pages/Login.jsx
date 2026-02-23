@@ -25,9 +25,9 @@ const Login = () => {
   };
 
   return (
-    <main className="mx-auto max-w-md px-4 py-16">
-      <div className="rounded-3xl border border-slate-800 bg-slate-900/70 p-8 shadow-2xl shadow-black/40">
-        <h1 className="text-3xl font-semibold text-white">Welcome back</h1>
+    <main className="mx-auto max-w-md px-4 py-8 sm:py-16">
+      <div className="rounded-2xl sm:rounded-3xl border border-slate-800 bg-slate-900/70 p-6 sm:p-8 shadow-2xl shadow-black/40">
+        <h1 className="text-2xl sm:text-3xl font-semibold text-white">Welcome back</h1>
         <p className="mt-2 text-sm text-slate-400">Sign in with the email you used during registration.</p>
         {error && <p className="mt-4 rounded border border-red-500/30 bg-red-500/10 p-3 text-sm text-red-200">{error}</p>}
         <form onSubmit={handleSubmit} className="mt-6 space-y-4">

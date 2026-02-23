@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+﻿import { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import api from '../services/api';
 import BillShareCard from '../components/BillShareCard';
@@ -409,8 +409,8 @@ const BillShare = () => {
   };
 
   return (
-    <main className="mx-auto max-w-full px-4 py-8">
-      <h1 className="mb-6 text-3xl font-bold text-white">Sharing</h1>
+    <main className="mx-auto max-w-full px-4 py-4 sm:py-8">
+      <h1 className="mb-4 sm:mb-6 text-2xl sm:text-3xl font-bold text-white">Sharing</h1>
       
       {/* Messages */}
       {(joinError || successMessage || error) && (
@@ -422,7 +422,7 @@ const BillShare = () => {
       )}
       
       {/* Two Column Layout - Equal Half Split */}
-      <div className="grid grid-cols-1 gap-8 lg:grid-cols-2">
+      <div className="grid grid-cols-1 gap-4 sm:gap-8 lg:grid-cols-2">
         {/* Left Column - My Sharing */}
         <div>
           <section className="space-y-4">
@@ -464,10 +464,10 @@ const BillShare = () => {
             <h2 className="text-2xl font-semibold text-white">Browse Shares</h2>
 
             {/* Tab Navigation */}
-            <div className="flex gap-2 border-b border-slate-700">
+            <div className="flex gap-2 overflow-x-auto border-b border-slate-700 -mx-1 px-1">
               <button
                 onClick={() => setActiveTab('available')}
-                className={`px-4 py-2 font-medium transition-colors ${
+                className={`whitespace-nowrap px-3 sm:px-4 py-2 text-sm sm:text-base font-medium transition-colors ${
                   activeTab === 'available'
                     ? 'border-b-2 border-brand-primary text-brand-primary'
                     : 'text-slate-400 hover:text-slate-200'
@@ -477,7 +477,7 @@ const BillShare = () => {
               </button>
               <button
                 onClick={() => setActiveTab('myRequests')}
-                className={`px-4 py-2 font-medium transition-colors ${
+                className={`whitespace-nowrap px-3 sm:px-4 py-2 text-sm sm:text-base font-medium transition-colors ${
                   activeTab === 'myRequests'
                     ? 'border-b-2 border-brand-primary text-brand-primary'
                     : 'text-slate-400 hover:text-slate-200'
@@ -491,7 +491,7 @@ const BillShare = () => {
               </button>
               <button
                 onClick={() => setActiveTab('receivedRequests')}
-                className={`px-4 py-2 font-medium transition-colors ${
+                className={`whitespace-nowrap px-3 sm:px-4 py-2 text-sm sm:text-base font-medium transition-colors ${
                   activeTab === 'receivedRequests'
                     ? 'border-b-2 border-brand-primary text-brand-primary'
                     : 'text-slate-400 hover:text-slate-200'
@@ -589,7 +589,7 @@ const BillShare = () => {
                   }}
                   className="text-2xl text-slate-400 hover:text-white"
                 >
-                  ×
+                  Ã—
                 </button>
               </div>
               <form onSubmit={createShare} className="space-y-3">
@@ -623,7 +623,7 @@ const BillShare = () => {
                 {/* Rest of form fields will be added similarly */}
                 {form.shareType === 'cab' && (
                   <>
-                    <div className="grid grid-cols-2 gap-3">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                       <input
                         placeholder="From City"
                         value={form.fromCity}
@@ -639,7 +639,7 @@ const BillShare = () => {
                         required
                       />
                     </div>
-                    <div className="grid grid-cols-2 gap-3">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                       <div>
                         <label className="mb-1 block text-xs text-slate-400">Departure Time</label>
                         <input
@@ -670,7 +670,7 @@ const BillShare = () => {
                         required
                       />
                     </div>
-                    <div className="grid grid-cols-2 gap-3">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                       <div>
                         <label className="mb-1 block text-xs text-slate-400">Max Passengers</label>
                         <input
@@ -768,7 +768,7 @@ const BillShare = () => {
                         <option value="Merch">Merch</option>
                       </select>
                     </div>
-                    <div className="grid grid-cols-2 gap-3">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                       <div>
                         <label className="mb-1 block text-xs text-slate-400">Min Persons</label>
                         <input
@@ -845,7 +845,7 @@ const BillShare = () => {
                       <p className="mt-1 text-xs text-red-400">Host contribution cannot exceed total amount!</p>
                     )}
                     <p className="mt-1 text-xs text-slate-500">
-                      Remaining ₹{Math.max(0, form.totalAmount - form.hostContribution).toFixed(2)} will be split equally among others
+                      Remaining â‚¹{Math.max(0, form.totalAmount - form.hostContribution).toFixed(2)} will be split equally among others
                     </p>
                   </div>
                 )}
@@ -876,7 +876,7 @@ const BillShare = () => {
                   }}
                   className="text-2xl text-slate-400 hover:text-white"
                 >
-                  ×
+                  Ã—
                 </button>
               </div>
             <form onSubmit={updateShare} className="space-y-3">
@@ -911,7 +911,7 @@ const BillShare = () => {
               {/* Cab Sharing Fields */}
               {form.shareType === 'cab' && (
                 <>
-                  <div className="grid grid-cols-2 gap-3">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <input
                       placeholder="From City"
                       value={form.fromCity}
@@ -927,7 +927,7 @@ const BillShare = () => {
                       required
                     />
                   </div>
-                  <div className="grid grid-cols-2 gap-3">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <div>
                       <label className="mb-1 block text-xs text-slate-400">Departure Time</label>
                       <input
@@ -961,7 +961,7 @@ const BillShare = () => {
                       required
                     />
                   </div>
-                  <div className="grid grid-cols-2 gap-3">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <div>
                       <label className="mb-1 block text-xs text-slate-400">Max Passengers</label>
                       <input
@@ -1070,7 +1070,7 @@ const BillShare = () => {
                       <option value="Merch">Merch</option>
                     </select>
                   </div>
-                  <div className="grid grid-cols-2 gap-3">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <div>
                       <label className="mb-1 block text-xs text-slate-400">Min Persons</label>
                       <input
@@ -1157,7 +1157,7 @@ const BillShare = () => {
                     <p className="mt-1 text-xs text-red-400">Host contribution cannot exceed total amount!</p>
                   )}
                   <p className="mt-1 text-xs text-slate-500">
-                    Remaining ₹{Math.max(0, form.totalAmount - form.hostContribution).toFixed(2)} will be split equally among others
+                    Remaining â‚¹{Math.max(0, form.totalAmount - form.hostContribution).toFixed(2)} will be split equally among others
                   </p>
                 </div>
               )}

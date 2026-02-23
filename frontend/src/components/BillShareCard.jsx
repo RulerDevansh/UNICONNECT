@@ -74,11 +74,11 @@ const BillShareCard = ({ share, onJoin, onCancel, onApprove, onReject, onUpdate,
               : 'Request to Join';
 
   return (
-    <div className="rounded-2xl border border-slate-800 bg-slate-900/60 p-5 shadow shadow-black/30">
-      <div className="flex items-center justify-between gap-4">
+    <div className="rounded-2xl border border-slate-800 bg-slate-900/60 p-3 sm:p-5 shadow shadow-black/30">
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
         <div className="flex-1">
-          <div className="flex items-center gap-2">
-            <h3 className="text-lg font-semibold text-white">{share.name}</h3>
+          <div className="flex items-center gap-2 flex-wrap">
+            <h3 className="text-base sm:text-lg font-semibold text-white">{share.name}</h3>
             {share.shareType && (
               <span className="rounded-full bg-slate-800 px-2 py-0.5 text-xs font-medium text-slate-300">
                 {share.shareType === 'cab' && '🚗 Cab'}

@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+﻿import { useEffect, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import ListingCard from '../components/ListingCard';
 import api from '../services/api';
@@ -164,8 +164,8 @@ const MyListings = () => {
   const myActiveCount = myRequests.filter((r) => isActiveTx(r.status)).length;
 
   return (
-    <main className="mx-auto max-w-full px-4 py-8">
-      <h1 className="mb-6 text-3xl font-bold text-white">My Listings</h1>
+    <main className="mx-auto max-w-full px-4 py-4 sm:py-8">
+      <h1 className="mb-4 sm:mb-6 text-2xl sm:text-3xl font-bold text-white">My Listings</h1>
       
       {/* Messages */}
       {(error || toast) && (
@@ -183,7 +183,7 @@ const MyListings = () => {
       )}
       
       {/* Two Column Layout - Equal Half Split */}
-      <div className="grid grid-cols-1 gap-8 lg:grid-cols-2">
+      <div className="grid grid-cols-1 gap-4 sm:gap-8 lg:grid-cols-2">
         {/* Left Column - My Listings */}
         <div>
           <section className="space-y-4">
@@ -242,10 +242,10 @@ const MyListings = () => {
             <h2 className="text-2xl font-semibold text-white">Requests</h2>
 
             {/* Tab Navigation */}
-            <div className="flex gap-2 border-b border-slate-700">
+            <div className="flex gap-2 overflow-x-auto border-b border-slate-700">
               <button
                 onClick={() => setActiveTab('buyRequests')}
-                className={`px-4 py-2 font-medium transition-colors ${
+                className={`whitespace-nowrap px-3 sm:px-4 py-2 text-sm sm:text-base font-medium transition-colors ${
                   activeTab === 'buyRequests'
                     ? 'border-b-2 border-brand-primary text-brand-primary'
                     : 'text-slate-400 hover:text-slate-200'
@@ -257,7 +257,7 @@ const MyListings = () => {
               </button>
               <button
                 onClick={() => setActiveTab('myRequests')}
-                className={`px-4 py-2 font-medium transition-colors ${
+                className={`whitespace-nowrap px-3 sm:px-4 py-2 text-sm sm:text-base font-medium transition-colors ${
                   activeTab === 'myRequests'
                     ? 'border-b-2 border-brand-primary text-brand-primary'
                     : 'text-slate-400 hover:text-slate-200'
@@ -295,7 +295,7 @@ const MyListings = () => {
                             <img
                               src={request.listing?.images?.[0]?.url || request.listingSnapshot?.images?.[0]?.url || 'https://placehold.co/100x100'}
                               alt={request.listing?.title || request.listingSnapshot?.title}
-                              className="h-24 w-24 rounded-lg border border-slate-800 object-cover"
+                              className="h-16 w-16 sm:h-24 sm:w-24 rounded-lg border border-slate-800 object-cover"
                             />
                             <div className="flex-1">
                               <h3 className="text-lg font-semibold text-white">{request.listing?.title || request.listingSnapshot?.title}</h3>
@@ -336,7 +336,7 @@ const MyListings = () => {
 
                           {request.status === 'payment_sent' && (
                             <div className="mt-4 rounded-lg border border-blue-500/30 bg-blue-500/10 p-3">
-                              <p className="mb-3 text-sm text-blue-200">💳 Buyer has marked payment as sent. Confirm if you received it.</p>
+                              <p className="mb-3 text-sm text-blue-200">ðŸ’³ Buyer has marked payment as sent. Confirm if you received it.</p>
                               <button
                                 type="button"
                                 onClick={() => handleConfirmPayment(request._id)}
@@ -350,7 +350,7 @@ const MyListings = () => {
 
                           {request.status === 'payment_received' && (
                             <div className="mt-4 rounded-lg border border-green-500/30 bg-green-500/10 p-3">
-                              <p className="mb-3 text-sm text-green-200">✅ Payment confirmed. Deliver the product and mark as completed.</p>
+                              <p className="mb-3 text-sm text-green-200">âœ… Payment confirmed. Deliver the product and mark as completed.</p>
                               <button
                                 type="button"
                                 onClick={() => handleComplete(request._id)}
@@ -364,7 +364,7 @@ const MyListings = () => {
 
                           {request.status === 'completed' && (
                             <div className="mt-4 rounded-lg border border-emerald-500/30 bg-emerald-500/10 p-3">
-                              <p className="text-sm font-semibold text-emerald-200">🎉 Transaction completed successfully!</p>
+                              <p className="text-sm font-semibold text-emerald-200">ðŸŽ‰ Transaction completed successfully!</p>
                               <p className="mt-2 text-sm text-emerald-300">
                                 Sold <span className="font-semibold">{request.listing?.title}</span> to {request.buyer?.name} for {formatCurrency(request.amount)}
                               </p>
@@ -422,7 +422,7 @@ const MyListings = () => {
                             <img
                               src={request.listing?.images?.[0]?.url || request.listingSnapshot?.images?.[0]?.url || 'https://placehold.co/100x100'}
                               alt={request.listing?.title || request.listingSnapshot?.title}
-                              className="h-24 w-24 rounded-lg border border-slate-800 object-cover"
+                              className="h-16 w-16 sm:h-24 sm:w-24 rounded-lg border border-slate-800 object-cover"
                             />
                             <div className="flex-1">
                               <h3 className="text-lg font-semibold text-white">{request.listing?.title || request.listingSnapshot?.title}</h3>
@@ -444,27 +444,27 @@ const MyListings = () => {
                           {/* Status-specific messages */}
                           {request.status === 'pending' && (
                             <div className="mt-4 rounded-lg border border-blue-500/30 bg-blue-500/10 p-3">
-                              <p className="text-sm text-blue-200">⏳ Waiting for seller approval...</p>
+                              <p className="text-sm text-blue-200">â³ Waiting for seller approval...</p>
                             </div>
                           )}
                           {request.status === 'approved' && (
                             <div className="mt-4 rounded-lg border border-green-500/30 bg-green-500/10 p-3">
-                              <p className="text-sm text-green-200">✅ Request approved! Please complete the payment to proceed.</p>
+                              <p className="text-sm text-green-200">âœ… Request approved! Please complete the payment to proceed.</p>
                             </div>
                           )}
                           {request.status === 'payment_sent' && (
                             <div className="mt-4 rounded-lg border border-blue-500/30 bg-blue-500/10 p-3">
-                              <p className="text-sm text-blue-200">💳 Payment sent! Waiting for seller confirmation...</p>
+                              <p className="text-sm text-blue-200">ðŸ’³ Payment sent! Waiting for seller confirmation...</p>
                             </div>
                           )}
                           {request.status === 'payment_received' && (
                             <div className="mt-4 rounded-lg border border-blue-500/30 bg-blue-500/10 p-3">
-                              <p className="text-sm text-blue-200">✅ Payment confirmed! Waiting for seller to deliver and complete the transaction.</p>
+                              <p className="text-sm text-blue-200">âœ… Payment confirmed! Waiting for seller to deliver and complete the transaction.</p>
                             </div>
                           )}
                           {request.status === 'completed' && (
                             <div className="mt-4 rounded-lg border border-emerald-500/30 bg-emerald-500/10 p-3">
-                              <p className="text-sm font-semibold text-emerald-200">🎉 Transaction completed successfully!</p>
+                              <p className="text-sm font-semibold text-emerald-200">ðŸŽ‰ Transaction completed successfully!</p>
                               <p className="mt-2 text-sm text-emerald-300">
                                 You purchased <span className="font-semibold">{request.listing?.title}</span> for {formatCurrency(request.amount)}
                               </p>
@@ -472,17 +472,17 @@ const MyListings = () => {
                           )}
                           {request.status === 'rejected' && (
                             <div className="mt-4 rounded-lg border border-red-500/30 bg-red-500/10 p-3">
-                              <p className="text-sm text-red-200">❌ Request was rejected by the seller.</p>
+                              <p className="text-sm text-red-200">âŒ Request was rejected by the seller.</p>
                             </div>
                           )}
                           {request.status === 'cancelled' && (
                             <div className="mt-4 rounded-lg border border-slate-500/30 bg-slate-500/10 p-3">
-                              <p className="text-sm text-slate-300">🚫 Product sold to another buyer</p>
+                              <p className="text-sm text-slate-300">ðŸš« Product sold to another buyer</p>
                             </div>
                           )}
                           {request.status === 'withdrawn' && (
                             <div className="mt-4 rounded-lg border border-gray-500/30 bg-gray-500/10 p-3">
-                              <p className="text-sm text-gray-300">↩️ You withdrew this request.</p>
+                              <p className="text-sm text-gray-300">â†©ï¸ You withdrew this request.</p>
                             </div>
                           )}
 
@@ -536,7 +536,7 @@ const MyListings = () => {
         <div className="fixed inset-0 z-30 flex items-center justify-center bg-slate-950/80 p-4">
           <div className="w-full max-w-md rounded-3xl border border-red-500/30 bg-slate-950 p-6 text-slate-100 shadow-2xl shadow-black/60">
             <p className="text-xs uppercase tracking-[0.3em] text-red-300">Confirm delete</p>
-            <h2 className="mt-2 text-2xl font-semibold text-white">Remove “{pendingDelete.title}”?</h2>
+            <h2 className="mt-2 text-2xl font-semibold text-white">Remove â€œ{pendingDelete.title}â€?</h2>
             <p className="mt-3 text-sm text-slate-400">
               This permanently deletes the listing and any chats started from it. Buyers will lose access to the conversation history.
             </p>

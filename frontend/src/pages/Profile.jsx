@@ -91,24 +91,24 @@ const Profile = () => {
   };
 
   return (
-    <main className="mx-auto max-w-4xl px-4 py-10 text-slate-100">
-      <div className="rounded-3xl border border-slate-800 bg-slate-900/60 p-8 shadow-2xl shadow-black/40">
+    <main className="mx-auto max-w-4xl px-4 py-6 sm:py-10 text-slate-100">
+      <div className="rounded-2xl sm:rounded-3xl border border-slate-800 bg-slate-900/60 p-4 sm:p-8 shadow-2xl shadow-black/40">
         {/* Profile Header */}
-        <div className="flex items-center gap-6">
+        <div className="flex flex-col items-center gap-4 sm:flex-row sm:items-center sm:gap-6">
           {/* Avatar with First Letter */}
-          <div className="flex h-32 w-32 items-center justify-center rounded-full bg-gradient-to-br from-brand-primary to-brand-secondary text-5xl font-bold text-white shadow-lg shadow-brand-primary/30">
+          <div className="flex h-20 w-20 sm:h-32 sm:w-32 items-center justify-center rounded-full bg-gradient-to-br from-brand-primary to-brand-secondary text-3xl sm:text-5xl font-bold text-white shadow-lg shadow-brand-primary/30">
             {getInitials(profile.name)}
           </div>
 
-          <div className="flex-1">
-            <h1 className="text-4xl font-bold text-white">{profile.name}</h1>
-            <p className="mt-2 text-lg text-slate-400">{profile.email}</p>
+          <div className="flex-1 text-center sm:text-left">
+            <h1 className="text-2xl sm:text-4xl font-bold text-white">{profile.name}</h1>
+            <p className="mt-1 sm:mt-2 text-sm sm:text-lg text-slate-400">{profile.email}</p>
           </div>
 
           <button
             type="button"
             onClick={() => setIsEditing(!isEditing)}
-            className="rounded-full border border-slate-600 px-6 py-2 text-sm font-semibold text-slate-200 transition hover:border-slate-400"
+            className="w-full sm:w-auto rounded-full border border-slate-600 px-6 py-2 text-sm font-semibold text-slate-200 transition hover:border-slate-400"
           >
             {isEditing ? 'Cancel' : 'Edit Profile'}
           </button>

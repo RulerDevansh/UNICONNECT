@@ -62,9 +62,9 @@ const ResetPassword = () => {
   };
 
   return (
-    <main className="mx-auto max-w-md px-4 py-16">
-      <div className="rounded-3xl border border-slate-800 bg-slate-900/70 p-8 shadow-2xl shadow-black/40">
-        <h1 className="text-3xl font-semibold text-white">Reset your password</h1>
+    <main className="mx-auto max-w-md px-4 py-8 sm:py-16">
+      <div className="rounded-2xl sm:rounded-3xl border border-slate-800 bg-slate-900/70 p-6 sm:p-8 shadow-2xl shadow-black/40">
+        <h1 className="text-2xl sm:text-3xl font-semibold text-white">Reset your password</h1>
         <p className="mt-2 text-sm text-slate-400">
           Enter the 6-digit code sent to{' '}
           <span className="font-medium text-pink-400">{emailFromQuery || 'your email'}</span>.

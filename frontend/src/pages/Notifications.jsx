@@ -90,9 +90,9 @@ const Notifications = () => {
   }
 
   return (
-    <main className="mx-auto max-w-4xl px-4 py-10 text-slate-100">
-      <div className="mb-6 flex items-center justify-between">
-        <h1 className="text-4xl font-bold text-white">Notifications</h1>
+    <main className="mx-auto max-w-4xl px-4 py-6 sm:py-10 text-slate-100">
+      <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <h1 className="text-2xl sm:text-4xl font-bold text-white">Notifications</h1>
         <div className="flex gap-3">
           {notifications.some(n => !n.read) && (
             <button

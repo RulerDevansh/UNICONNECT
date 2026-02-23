@@ -104,8 +104,8 @@ const BiddingBox = ({ listing, user }) => {
   };
 
   return (
-    <div className="mt-8 rounded-2xl border border-slate-700 bg-slate-900/40 p-6">
-      <h2 className="text-lg font-bold text-slate-200 mb-4">Live Bidding</h2>
+    <div className="mt-6 sm:mt-8 rounded-2xl border border-slate-700 bg-slate-900/40 p-4 sm:p-6">
+      <h2 className="text-base sm:text-lg font-bold text-slate-200 mb-3 sm:mb-4">Live Bidding</h2>
       {wonMsg && (
         <div className="mb-4 rounded-lg border border-emerald-600/40 bg-emerald-700/20 px-4 py-2 text-emerald-200">
           {wonMsg}
@@ -128,7 +128,7 @@ const BiddingBox = ({ listing, user }) => {
         <span className="block text-sm text-slate-300 mb-1">Your Highest Bid:</span>
         <span className="block rounded bg-slate-800 px-4 py-2 text-slate-200">You bid ₹{status.yourHighestBid ?? 0}</span>
       </div>
-      <form onSubmit={handleBid} className="flex gap-2">
+      <form onSubmit={handleBid} className="flex flex-col sm:flex-row gap-2">
         <input
           type="number"
           min={currentBidAmt + 1}

@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+﻿import { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useSocket } from '../context/SocketContext';
 import api from '../services/api';
@@ -267,9 +267,9 @@ const MySharing = () => {
   };
 
   return (
-    <main className="mx-auto max-w-6xl px-4 py-8">
+    <main className="mx-auto max-w-6xl px-4 py-4 sm:py-8">
       <div className="mb-6 flex items-center justify-between">
-        <h1 className="text-3xl font-bold text-white">My Sharing</h1>
+        <h1 className="text-2xl sm:text-3xl font-bold text-white">My Sharing</h1>
         <button
           onClick={() => {
             setForm(defaultForm);
@@ -301,7 +301,7 @@ const MySharing = () => {
                   }}
                   className="text-2xl text-slate-400 hover:text-white"
                 >
-                  ×
+                  Ã—
                 </button>
               </div>
               <form onSubmit={createShare} className="space-y-3">
@@ -335,7 +335,7 @@ const MySharing = () => {
                 {/* Cab Sharing Fields */}
                 {form.shareType === 'cab' && (
                   <>
-                    <div className="grid grid-cols-2 gap-3">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <input
                     placeholder="From City"
                     value={form.fromCity}
@@ -351,7 +351,7 @@ const MySharing = () => {
                     required
                   />
                 </div>
-                <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div>
                     <label className="mb-1 block text-xs text-slate-400">Departure Time</label>
                     <input
@@ -383,7 +383,7 @@ const MySharing = () => {
                   />
                   <p className="mt-1 text-xs text-slate-500">Users cannot join after this time</p>
                 </div>
-                <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div>
                     <label className="mb-1 block text-xs text-slate-400">Max Passengers</label>
                     <input
@@ -483,7 +483,7 @@ const MySharing = () => {
                   onChange={(e) => setForm((prev) => ({ ...prev, productCategory: e.target.value }))}
                   className="w-full rounded border border-slate-700 bg-slate-950/60 px-3 py-2 text-slate-100 placeholder:text-slate-500"
                 />
-                <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div>
                     <label className="mb-1 block text-xs text-slate-400">Bulk Quantity</label>
                     <input
@@ -529,7 +529,7 @@ const MySharing = () => {
                     <option value="Merch">Merch</option>
                   </select>
                 </div>
-                <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div>
                     <label className="mb-1 block text-xs text-slate-400">Min Persons</label>
                     <input
@@ -609,7 +609,7 @@ const MySharing = () => {
                   <p className="mt-1 text-xs text-red-400">Host contribution cannot exceed total amount!</p>
                 )}
                 <p className="mt-1 text-xs text-slate-500">
-                  Remaining ₹{Math.max(0, form.totalAmount - form.hostContribution).toFixed(2)} will be split equally among others
+                  Remaining â‚¹{Math.max(0, form.totalAmount - form.hostContribution).toFixed(2)} will be split equally among others
                 </p>
               </div>
             )}
@@ -659,9 +659,9 @@ const MySharing = () => {
                   className="w-full rounded-lg border border-slate-700 bg-slate-950/60 px-4 py-2.5 text-slate-100 transition focus:border-brand-primary focus:outline-none focus:ring-2 focus:ring-brand-primary/20"
                   required
                 >
-                  <option value="cab">🚗 Cab Sharing</option>
-                  <option value="food">🍔 Food Sharing</option>
-                  <option value="other">📦 Other Sharing</option>
+                  <option value="cab">ðŸš— Cab Sharing</option>
+                  <option value="food">ðŸ” Food Sharing</option>
+                  <option value="other">ðŸ“¦ Other Sharing</option>
                 </select>
               </div>
 
@@ -695,7 +695,7 @@ const MySharing = () => {
                 <div className="space-y-4 rounded-lg border border-slate-800 bg-slate-950/40 p-4">
                   <h3 className="text-sm font-semibold text-brand-primary">Cab Details</h3>
                   
-                  <div className="grid grid-cols-2 gap-3">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <div>
                       <label className="mb-1.5 block text-xs font-medium text-slate-400">From City</label>
                       <input
@@ -720,7 +720,7 @@ const MySharing = () => {
                     </div>
                   </div>
 
-                  <div className="grid grid-cols-2 gap-3">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <div>
                       <label className="mb-1.5 block text-xs font-medium text-slate-400">Departure Time</label>
                       <input
@@ -754,7 +754,7 @@ const MySharing = () => {
                     <p className="mt-1.5 text-xs text-slate-500">Users cannot join after this time</p>
                   </div>
 
-                  <div className="grid grid-cols-2 gap-3">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <div>
                       <label className="mb-1.5 block text-xs font-medium text-slate-400">Max Passengers</label>
                       <input
@@ -871,7 +871,7 @@ const MySharing = () => {
                     </select>
                   </div>
 
-                  <div className="grid grid-cols-2 gap-3">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <div>
                       <label className="mb-1.5 block text-xs font-medium text-slate-400">Min Persons</label>
                       <input
@@ -918,7 +918,7 @@ const MySharing = () => {
                 <div>
                   <label className="mb-1.5 block text-xs font-medium text-slate-400">Total Estimated Cost</label>
                   <div className="relative">
-                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400">₹</span>
+                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400">â‚¹</span>
                     <input
                       type="number"
                       min="1"
@@ -947,7 +947,7 @@ const MySharing = () => {
                   <div className="rounded-lg bg-slate-900/60 p-3">
                     <label className="mb-1.5 block text-xs font-medium text-slate-400">Host Willing to Pay</label>
                     <div className="relative">
-                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400">₹</span>
+                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400">â‚¹</span>
                       <input
                         type="number"
                         min="0"
@@ -967,7 +967,7 @@ const MySharing = () => {
                       <p className="mt-1.5 text-xs text-red-400">Host contribution cannot exceed total amount!</p>
                     )}
                     <p className="mt-2 text-xs text-slate-500">
-                      Remaining <span className="font-semibold text-brand-primary">₹{Math.max(0, form.totalAmount - form.hostContribution).toFixed(2)}</span> will be split equally among others
+                      Remaining <span className="font-semibold text-brand-primary">â‚¹{Math.max(0, form.totalAmount - form.hostContribution).toFixed(2)}</span> will be split equally among others
                     </p>
                   </div>
                 )}

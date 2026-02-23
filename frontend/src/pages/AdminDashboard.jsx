@@ -27,8 +27,8 @@ const AdminDashboard = () => {
   };
 
   return (
-    <main className="mx-auto max-w-6xl px-4 py-10 text-slate-100">
-      <h1 className="text-4xl font-semibold text-white">Admin Dashboard</h1>
+    <main className="mx-auto max-w-6xl px-4 py-6 sm:py-10 text-slate-100">
+      <h1 className="text-2xl sm:text-4xl font-semibold text-white">Admin Dashboard</h1>
       {metrics && (
         <div className="mt-6 grid gap-4 sm:grid-cols-3">
           {Object.entries(metrics).map(([key, value]) => (

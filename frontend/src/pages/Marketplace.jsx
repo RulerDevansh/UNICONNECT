@@ -37,11 +37,11 @@ const Marketplace = () => {
   };
 
   return (
-    <main className="mx-auto max-w-6xl px-4 py-10 text-slate-100">
-      <section className="rounded-3xl border border-white/10 bg-gradient-to-br from-slate-900 via-brand-secondary/30 to-brand-primary/40 p-8 shadow-2xl shadow-black/40">
-        <h1 className="text-4xl font-semibold text-white">Marketplace</h1>
-        <p className="mt-3 text-lg text-slate-200">Search every listing in one focused view.</p>
-        <form onSubmit={handleSearch} className="mt-6 flex flex-wrap gap-3">
+    <main className="mx-auto max-w-6xl px-4 py-6 sm:py-10 text-slate-100">
+      <section className="rounded-2xl sm:rounded-3xl border border-white/10 bg-gradient-to-br from-slate-900 via-brand-secondary/30 to-brand-primary/40 p-4 sm:p-8 shadow-2xl shadow-black/40">
+        <h1 className="text-2xl sm:text-4xl font-semibold text-white">Marketplace</h1>
+        <p className="mt-2 sm:mt-3 text-sm sm:text-lg text-slate-200">Search every listing in one focused view.</p>
+        <form onSubmit={handleSearch} className="mt-4 sm:mt-6 flex flex-col sm:flex-row flex-wrap gap-3">
           <div className="relative flex-1">
             <input
               placeholder="Search listings"
@@ -70,7 +70,7 @@ const Marketplace = () => {
               loadListings(searchQuery, e.target.value);
             }}
           />
-          <button type="submit" className="rounded-full bg-white px-6 py-3 font-semibold text-slate-900 shadow-lg shadow-white/40">
+          <button type="submit" className="w-full sm:w-auto rounded-full bg-white px-6 py-3 font-semibold text-slate-900 shadow-lg shadow-white/40">
             Search
           </button>
         </form>

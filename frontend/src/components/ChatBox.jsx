@@ -42,36 +42,37 @@ const ChatBox = ({ chat, messages, onSend, typingUsers, onTyping, currentUserId 
           <p className="text-xs text-slate-400">{typingUsers.join(', ')} typing…</p>
         )}
       </div>
-      <div className="flex-1 space-y-3 overflow-y-auto p-4">
+      <div className="flex-1 space-y-3 overflow-y-auto p-3 sm:p-4">
         {messages.map((message) => {
-          const senderId = String(message.sender?._id || message.sender?.id || message.sender);
-          const userId = String(currentUserId);
-          const isMine = senderId === userId;
+          const senderId = String(message.sender?._id || message.sender?.id || message.sender || '');
+          const userId = String(currentUserId || '');
+          const isMine = !!(userId && senderId && senderId === userId);
           
           return (
             <div
               key={message._id}
-              className={`flex flex-col ${isMine ? 'items-end text-right' : ''}`}
+              className={`flex ${isMine ? 'justify-end' : 'justify-start'}`}
             >
-              <span className="text-xs text-slate-400">
-                {isMine ? 'You' : message.sender?.name || 'Classmate'} •{' '}
-                {new Date(message.createdAt).toLocaleTimeString()}
-              </span>
-              <span
-                className={`inline-block max-w-lg rounded px-3 py-2 text-sm ${
-                  isMine
-                    ? 'bg-brand-primary text-white shadow-lg shadow-brand-primary/30'
-                    : 'bg-slate-800/80 text-slate-100'
-                }`}
-              >
-                {message.content}
-              </span>
+              <div className={`flex max-w-[80%] sm:max-w-[65%] flex-col ${isMine ? 'items-end' : 'items-start'}`}>
+                <span className="mb-0.5 text-[10px] text-slate-500">
+                  {isMine ? 'You' : message.sender?.name || 'Classmate'} • {new Date(message.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                </span>
+                <div
+                  className={`rounded-2xl px-3.5 py-2 text-sm leading-relaxed ${
+                    isMine
+                      ? 'rounded-br-sm bg-brand-primary text-white shadow-md shadow-brand-primary/20'
+                      : 'rounded-bl-sm bg-slate-800 text-slate-100 shadow-md shadow-black/20'
+                  }`}
+                >
+                  {message.content}
+                </div>
+              </div>
             </div>
           );
         })}
         <div ref={bottomRef} />
       </div>
-      <form onSubmit={handleSubmit} className="border-t border-slate-800 p-4">
+      <form onSubmit={handleSubmit} className="border-t border-slate-800 p-3 sm:p-4">
         <div className="flex gap-3">
           <input
             value={content}

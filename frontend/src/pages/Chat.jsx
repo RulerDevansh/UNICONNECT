@@ -16,6 +16,7 @@ const Chat = () => {
   const [unreadChatIds, setUnreadChatIds] = useState(new Set());
   const [searchParams, setSearchParams] = useSearchParams();
   const activeIdRef = useRef(null);
+  const [mobileChatOpen, setMobileChatOpen] = useState(false);
 
   const activeChat = useMemo(() => chats.find((chat) => chat._id === activeId), [chats, activeId]);
   const participantMap = useMemo(() => {
@@ -111,6 +112,7 @@ const Chat = () => {
     loadMessages(chatId);
     setTypingUsers([]);
     updateChatParam(chatId);
+    setMobileChatOpen(true);
     setUnreadChatIds((prev) => {
       if (!prev.has(chatId)) return prev;
       const next = new Set(prev);
@@ -222,9 +224,10 @@ const Chat = () => {
   }, [searchTerm, chats, getChatLabel]);
 
   return (
-    <main className="mx-auto max-w-6xl px-4 py-10 text-slate-100">
+    <main className="mx-auto max-w-6xl px-4 py-6 sm:py-10 text-slate-100">
       <div className="grid gap-4 md:grid-cols-3">
-        <aside className="rounded-2xl border border-slate-800 bg-slate-900/70 p-4">
+        {/* Sidebar — visible on md+, or on mobile when chat is NOT open */}
+        <aside className={`rounded-2xl border border-slate-800 bg-slate-900/70 p-4 ${mobileChatOpen ? 'hidden md:block' : 'block'}`}>
           <div className="flex gap-2">
             <input
               value={searchTerm}
@@ -266,14 +269,24 @@ const Chat = () => {
             ))}
           </ul>
         </aside>
-        <section className="md:col-span-2">
+        {/* Chat area — visible on md+, or on mobile when chat IS open */}
+        <section className={`md:col-span-2 ${mobileChatOpen ? 'block' : 'hidden md:block'}`}>
+          {/* Mobile back button */}
+          <button
+            type="button"
+            onClick={() => setMobileChatOpen(false)}
+            className="mb-3 flex items-center gap-1 text-sm text-slate-400 md:hidden"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" /></svg>
+            Back to chats
+          </button>
           <ChatBox
             chat={activeChat}
             messages={messages}
             typingUsers={typingNames}
             onSend={sendMessage}
             onTyping={handleTyping}
-            currentUserId={user?.id}
+            currentUserId={user?.id || user?._id}
           />
         </section>
       </div>

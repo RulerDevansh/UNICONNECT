@@ -147,8 +147,8 @@ const ListingDetail = () => {
   const canChat = user && sellerId && sellerId !== user.id;
 
   return (
-    <main className="mx-auto max-w-5xl px-4 py-10 text-slate-100">
-      <div className="rounded-3xl border border-slate-800 bg-slate-900/60 p-6 shadow-2xl shadow-black/40 backdrop-blur">
+    <main className="mx-auto max-w-5xl px-4 py-6 sm:py-10 text-slate-100">
+      <div className="rounded-2xl sm:rounded-3xl border border-slate-800 bg-slate-900/60 p-4 sm:p-6 shadow-2xl shadow-black/40 backdrop-blur">
         <div className="grid gap-6 lg:grid-cols-2">
           <img
             src={listing.images?.[0]?.url || 'https://placehold.co/600x400'}
@@ -157,9 +157,9 @@ const ListingDetail = () => {
           />
           <div>
             <p className="text-sm uppercase tracking-[0.3em] text-slate-400">{listing.category}</p>
-            <h1 className="mt-1 text-4xl font-semibold text-white">{listing.title}</h1>
-            <p className="mt-3 text-lg text-slate-300">{listing.description}</p>
-            <p className="mt-5 text-3xl font-bold text-white">{formatCurrency(headerPrice ?? listing.price)}</p>
+            <h1 className="mt-1 text-2xl sm:text-4xl font-semibold text-white">{listing.title}</h1>
+            <p className="mt-2 sm:mt-3 text-sm sm:text-lg text-slate-300">{listing.description}</p>
+            <p className="mt-3 sm:mt-5 text-2xl sm:text-3xl font-bold text-white">{formatCurrency(headerPrice ?? listing.price)}</p>
             <div className="mt-4">
               <span className="inline-block rounded-full bg-slate-800 px-4 py-1.5 text-sm font-medium capitalize text-slate-200">
                 Condition: {listing.condition}
