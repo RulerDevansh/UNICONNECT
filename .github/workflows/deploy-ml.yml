@@ -19,9 +19,10 @@ jobs:
         working-directory: ml_service
         run: zip -r ../ml_service.zip . -x "./__pycache__/*" "./*/__pycache__/*" "./*/*/__pycache__/*" "./.env" "./tests/*" "./.venv/*"
 
-      - name: Deploy to Azure Web App
-        uses: azure/webapps-deploy@v2
+      - name: Login to Azure
+        uses: azure/login@v2
         with:
-          app-name: uniconnect-ml
-          publish-profile: ${{ secrets.AZURE_ML_PUBLISH_PROFILE }}
-          package: ml_service.zip
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+      - name: Deploy to Azure Web App
+        run: az webapp deploy --name uniconnect-ml --resource-group uniconnect --src-path ml_service.zip --type zip --async true

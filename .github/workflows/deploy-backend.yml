@@ -28,9 +28,10 @@ jobs:
         working-directory: backend
         run: zip -r ../backend.zip . -x "./node_modules/*" "./.env" "./tmp/*" "./tests/*"
 
-      - name: Deploy to Azure Web App
-        uses: azure/webapps-deploy@v2
+      - name: Login to Azure
+        uses: azure/login@v2
         with:
-          app-name: uniconnect-backend
-          publish-profile: ${{ secrets.AZURE_BACKEND_PUBLISH_PROFILE }}
-          package: backend.zip
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+      - name: Deploy to Azure Web App
+        run: az webapp deploy --name uniconnect-backend --resource-group uniconnect --src-path backend.zip --type zip --async true
