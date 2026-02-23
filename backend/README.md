@@ -73,3 +73,4 @@ npm test
 | POST | `/api/auth/logout` | Invalidate refresh token |
 | POST | `/api/auth/forgot-password` | Send password-reset OTP to email |
 | POST | `/api/auth/reset-password` | Reset password using OTP |
+

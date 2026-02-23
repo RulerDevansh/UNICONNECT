@@ -90,3 +90,4 @@ pytest
 ## Integration Notes
 
 Set `ML_SERVICE_URL=http://localhost:8001` in the backend `.env`. The Express server already proxies `/api/ml/*` calls to this service.
+
