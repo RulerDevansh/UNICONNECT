@@ -41,9 +41,10 @@ const checkAlcoholImage = async (imageUrl) => {
         .post(
           `${process.env.ML_SERVICE_URL}/predict/url`,
           { image_url: imageUrl },
-          { timeout: 8000 }
+          { timeout: 30000 }
         )
-        .then((res) => res.data)
+        .then((res) => res.data),
+      1
     );
 
     const predictedClass = data?.predicted_class || '';

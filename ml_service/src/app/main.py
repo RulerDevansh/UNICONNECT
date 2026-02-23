@@ -1,9 +1,10 @@
 import logging
+import threading
+from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 
-from .alcohol_detector import AlcoholDetector
 from .config import get_settings
 from .moderation import score_listing
 from .recommender import RecommendationEngine
@@ -16,6 +17,8 @@ from .schemas import (
     RecommendationResponseItem,
 )
 
+logging.basicConfig(level=logging.INFO, format='%(asctime)s %(name)s %(levelname)s %(message)s')
+
 settings = get_settings()
 engine = RecommendationEngine(
     model_path=settings.recommender_model_path,
@@ -23,16 +26,42 @@ engine = RecommendationEngine(
 )
 logger = logging.getLogger(__name__)
 
-try:
-    alcohol_detector = AlcoholDetector(
-        model_path=settings.alcohol_model_path,
-        threshold=settings.alcohol_threshold,
-    )
-except Exception as err:  # pragma: no cover - logged for observability, service stays up.
-    logger.warning('Alcohol detector unavailable: %s', err)
-    alcohol_detector = None
+# Alcohol detector is loaded in background after server starts
+# so it doesn't block the startup probe.
+alcohol_detector = None
+_detector_lock = threading.Lock()
 
-app = FastAPI(title='UniConnect ML Service', version='1.0.0')
+
+def _load_detector_background():
+    """Load TF model + warmup in a background thread so the server can serve health checks."""
+    global alcohol_detector
+    try:
+        logger.info('Loading alcohol detector in background...')
+        # Defer TF import to avoid slowing down module load / server start
+        from .alcohol_detector import AlcoholDetector
+
+        detector = AlcoholDetector(
+            model_path=settings.alcohol_model_path,
+            threshold=settings.alcohol_threshold,
+        )
+        detector.warmup()
+        with _detector_lock:
+            alcohol_detector = detector
+        logger.info('Alcohol detector ready')
+    except Exception as err:
+        logger.warning('Alcohol detector unavailable: %s', err)
+
+
+@asynccontextmanager
+async def lifespan(application: FastAPI):
+    # Start loading the TF model in the background
+    thread = threading.Thread(target=_load_detector_background, daemon=True)
+    thread.start()
+    yield
+    # Shutdown — nothing to clean up
+
+
+app = FastAPI(title='UniConnect ML Service', version='1.0.0', lifespan=lifespan)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=['*'],
@@ -44,7 +73,12 @@ app.add_middleware(
 
 @app.get('/health')
 def health():
-    return {'status': 'ok'}
+    with _detector_lock:
+        detector_status = 'loaded' if alcohol_detector is not None else 'loading'
+    return {
+        'status': 'ok',
+        'alcohol_detector': detector_status,
+    }
 
 
 @app.post('/predict/recommendations', response_model=list[RecommendationResponseItem])
@@ -65,7 +99,10 @@ def moderate(payload: ModerationRequest):
 
 
 def _predict_safety(image_url: str) -> AlcoholDetectionResponse:
-    if alcohol_detector is None:
+    with _detector_lock:
+        detector = alcohol_detector
+    if detector is None:
+        logger.warning('Alcohol detector not loaded, returning fallback')
         return {
             'filename': image_url,
             'predicted_class': 'negative',
@@ -73,10 +110,17 @@ def _predict_safety(image_url: str) -> AlcoholDetectionResponse:
             'threshold': settings.alcohol_threshold,
             'blocked': False,
         }
-    return alcohol_detector.predict_from_url(image_url)
+    return detector.predict_from_url(image_url)
 
 
 @app.post('/predict/alcohol-image', response_model=AlcoholDetectionResponse)
 @app.post('/predict/url', response_model=AlcoholDetectionResponse)
 def detect_alcohol(payload: AlcoholDetectionRequest):
-    return _predict_safety(payload.image_url)
+    try:
+        return _predict_safety(str(payload.image_url))
+    except TimeoutError as exc:
+        logger.error('Alcohol detection timed out: %s', exc)
+        raise HTTPException(status_code=504, detail='Model inference timed out')
+    except Exception as exc:
+        logger.error('Alcohol detection failed: %s', exc, exc_info=True)
+        raise HTTPException(status_code=500, detail=f'Alcohol detection error: {exc}')
