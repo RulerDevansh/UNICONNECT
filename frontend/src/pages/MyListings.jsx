@@ -336,7 +336,7 @@ const MyListings = () => {
 
                           {request.status === 'payment_sent' && (
                             <div className="mt-4 rounded-lg border border-blue-500/30 bg-blue-500/10 p-3">
-                              <p className="mb-3 text-sm text-blue-200">ðŸ’³ Buyer has marked payment as sent. Confirm if you received it.</p>
+                              <p className="mb-3 text-sm text-blue-200">💳 Buyer has marked payment as sent. Confirm if you received it.</p>
                               <button
                                 type="button"
                                 onClick={() => handleConfirmPayment(request._id)}
@@ -350,7 +350,7 @@ const MyListings = () => {
 
                           {request.status === 'payment_received' && (
                             <div className="mt-4 rounded-lg border border-green-500/30 bg-green-500/10 p-3">
-                              <p className="mb-3 text-sm text-green-200">âœ… Payment confirmed. Deliver the product and mark as completed.</p>
+                              <p className="mb-3 text-sm text-green-200">✅ Payment confirmed. Deliver the product and mark as completed.</p>
                               <button
                                 type="button"
                                 onClick={() => handleComplete(request._id)}
@@ -364,7 +364,7 @@ const MyListings = () => {
 
                           {request.status === 'completed' && (
                             <div className="mt-4 rounded-lg border border-emerald-500/30 bg-emerald-500/10 p-3">
-                              <p className="text-sm font-semibold text-emerald-200">ðŸŽ‰ Transaction completed successfully!</p>
+                              <p className="text-sm font-semibold text-emerald-200">🎉 Transaction completed successfully!</p>
                               <p className="mt-2 text-sm text-emerald-300">
                                 Sold <span className="font-semibold">{request.listing?.title}</span> to {request.buyer?.name} for {formatCurrency(request.amount)}
                               </p>
@@ -444,27 +444,27 @@ const MyListings = () => {
                           {/* Status-specific messages */}
                           {request.status === 'pending' && (
                             <div className="mt-4 rounded-lg border border-blue-500/30 bg-blue-500/10 p-3">
-                              <p className="text-sm text-blue-200">â³ Waiting for seller approval...</p>
+                              <p className="text-sm text-blue-200">⏳ Waiting for seller approval...</p>
                             </div>
                           )}
                           {request.status === 'approved' && (
                             <div className="mt-4 rounded-lg border border-green-500/30 bg-green-500/10 p-3">
-                              <p className="text-sm text-green-200">âœ… Request approved! Please complete the payment to proceed.</p>
+                              <p className="text-sm text-green-200">✅ Request approved! Please complete the payment to proceed.</p>
                             </div>
                           )}
                           {request.status === 'payment_sent' && (
                             <div className="mt-4 rounded-lg border border-blue-500/30 bg-blue-500/10 p-3">
-                              <p className="text-sm text-blue-200">ðŸ’³ Payment sent! Waiting for seller confirmation...</p>
+                              <p className="text-sm text-blue-200">💳 Payment sent! Waiting for seller confirmation...</p>
                             </div>
                           )}
                           {request.status === 'payment_received' && (
                             <div className="mt-4 rounded-lg border border-blue-500/30 bg-blue-500/10 p-3">
-                              <p className="text-sm text-blue-200">âœ… Payment confirmed! Waiting for seller to deliver and complete the transaction.</p>
+                              <p className="text-sm text-blue-200">✅ Payment confirmed! Waiting for seller to deliver and complete the transaction.</p>
                             </div>
                           )}
                           {request.status === 'completed' && (
                             <div className="mt-4 rounded-lg border border-emerald-500/30 bg-emerald-500/10 p-3">
-                              <p className="text-sm font-semibold text-emerald-200">ðŸŽ‰ Transaction completed successfully!</p>
+                              <p className="text-sm font-semibold text-emerald-200">🎉 Transaction completed successfully!</p>
                               <p className="mt-2 text-sm text-emerald-300">
                                 You purchased <span className="font-semibold">{request.listing?.title}</span> for {formatCurrency(request.amount)}
                               </p>
@@ -472,17 +472,17 @@ const MyListings = () => {
                           )}
                           {request.status === 'rejected' && (
                             <div className="mt-4 rounded-lg border border-red-500/30 bg-red-500/10 p-3">
-                              <p className="text-sm text-red-200">âŒ Request was rejected by the seller.</p>
+                              <p className="text-sm text-red-200">❌ Request was rejected by the seller.</p>
                             </div>
                           )}
                           {request.status === 'cancelled' && (
                             <div className="mt-4 rounded-lg border border-slate-500/30 bg-slate-500/10 p-3">
-                              <p className="text-sm text-slate-300">ðŸš« Product sold to another buyer</p>
+                              <p className="text-sm text-slate-300">🚫 Product sold to another buyer</p>
                             </div>
                           )}
                           {request.status === 'withdrawn' && (
                             <div className="mt-4 rounded-lg border border-gray-500/30 bg-gray-500/10 p-3">
-                              <p className="text-sm text-gray-300">â†©ï¸ You withdrew this request.</p>
+                              <p className="text-sm text-gray-300">↩️ You withdrew this request.</p>
                             </div>
                           )}
 

@@ -661,9 +661,9 @@ const MySharing = () => {
                   className="w-full rounded-lg border border-slate-700 bg-slate-950/60 px-4 py-2.5 text-slate-100 transition focus:border-brand-primary focus:outline-none focus:ring-2 focus:ring-brand-primary/20"
                   required
                 >
-                  <option value="cab">ðŸš— Cab Sharing</option>
-                  <option value="food">ðŸ” Food Sharing</option>
-                  <option value="other">ðŸ“¦ Other Sharing</option>
+                  <option value="cab">🚗 Cab Sharing</option>
+                  <option value="food">🍔 Food Sharing</option>
+                  <option value="other">📦 Other Sharing</option>
                 </select>
               </div>
 

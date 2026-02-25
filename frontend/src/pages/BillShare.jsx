@@ -847,7 +847,7 @@ const BillShare = () => {
                       <p className="mt-1 text-xs text-red-400">Host contribution cannot exceed total amount!</p>
                     )}
                     <p className="mt-1 text-xs text-slate-500">
-                      Remaining â‚¹{Math.max(0, form.totalAmount - form.hostContribution).toFixed(2)} will be split equally among others
+                      Remaining ₹{Math.max(0, form.totalAmount - form.hostContribution).toFixed(2)} will be split equally among others
                     </p>
                   </div>
                 )}
@@ -1161,7 +1161,7 @@ const BillShare = () => {
                     <p className="mt-1 text-xs text-red-400">Host contribution cannot exceed total amount!</p>
                   )}
                   <p className="mt-1 text-xs text-slate-500">
-                    Remaining â‚¹{Math.max(0, form.totalAmount - form.hostContribution).toFixed(2)} will be split equally among others
+                    Remaining ₹{Math.max(0, form.totalAmount - form.hostContribution).toFixed(2)} will be split equally among others
                   </p>
                 </div>
               )}

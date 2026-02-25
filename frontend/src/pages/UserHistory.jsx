@@ -45,7 +45,7 @@ const UserHistory = () => {
                   <h4 className="font-semibold text-white">{transaction.listing?.title}</h4>
                   {transaction.transactionType === 'auction' && (
                     <span className="rounded-full bg-cyan-500/20 px-2 py-0.5 text-xs font-semibold text-cyan-300">
-                      ðŸŽ‰ AUCTION
+                      🎉 AUCTION
                     </span>
                   )}
                 </div>
@@ -54,7 +54,7 @@ const UserHistory = () => {
                 </p>
                 <p className="mt-1 text-lg font-bold text-brand-primary">{formatCurrency(transaction.amount)}</p>
                 <p className="text-xs text-slate-500">
-                  Status: <span className="capitalize">{transaction.status}</span> â€¢{' '}
+                  Status: <span className="capitalize">{transaction.status}</span> •{' '}
                   {new Date(transaction.createdAt).toLocaleDateString()}
                 </p>
               </div>
@@ -86,7 +86,7 @@ const UserHistory = () => {
                   <h4 className="font-semibold text-white">{transaction.listing?.title}</h4>
                   {transaction.transactionType === 'auction' && (
                     <span className="rounded-full bg-cyan-500/20 px-2 py-0.5 text-xs font-semibold text-cyan-300">
-                      ðŸŽ‰ AUCTION
+                      🎉 AUCTION
                     </span>
                   )}
                 </div>
@@ -95,7 +95,7 @@ const UserHistory = () => {
                 </p>
                 <p className="mt-1 text-lg font-bold text-green-400">{formatCurrency(transaction.amount)}</p>
                 <p className="text-xs text-slate-500">
-                  Status: <span className="capitalize">{transaction.status}</span> â€¢{' '}
+                  Status: <span className="capitalize">{transaction.status}</span> •{' '}
                   {new Date(transaction.createdAt).toLocaleDateString()}
                 </p>
               </div>
@@ -178,9 +178,9 @@ const UserHistory = () => {
                   <div className="flex items-center gap-2">
                     <h4 className="font-semibold text-white">{share.name}</h4>
                     <span className="rounded-full bg-slate-800 px-2 py-0.5 text-xs font-medium text-slate-300">
-                      {share.shareType === 'cab' && 'ðŸš— Cab'}
-                      {share.shareType === 'food' && 'ðŸ” Food'}
-                      {share.shareType === 'other' && 'ðŸ“‹ Other'}
+                      {share.shareType === 'cab' && '🚗 Cab'}
+                      {share.shareType === 'food' && '🍔 Food'}
+                      {share.shareType === 'other' && '📋 Other'}
                     </span>
                   </div>
                   <span className={`rounded-full px-3 py-1 text-xs font-semibold ${
@@ -188,9 +188,9 @@ const UserHistory = () => {
                       ? 'bg-emerald-500/20 text-emerald-300' 
                       : 'bg-red-500/20 text-red-300'
                   }`}>
-                    {share.shareType === 'cab' && (isCompleted ? 'âœ… Completed Trip' : 'âŒ Cancelled Trip')}
-                    {share.shareType === 'food' && (isCompleted ? 'âœ… Completed Order' : 'âŒ Cancelled Order')}
-                    {share.shareType === 'other' && (isCompleted ? 'âœ… Completed Share' : 'âŒ Cancelled Share')}
+                    {share.shareType === 'cab' && (isCompleted ? '✅ Completed Trip' : '❌ Cancelled Trip')}
+                    {share.shareType === 'food' && (isCompleted ? '✅ Completed Order' : '❌ Cancelled Order')}
+                    {share.shareType === 'other' && (isCompleted ? '✅ Completed Share' : '❌ Cancelled Share')}
                   </span>
                 </div>
                 <p className="text-sm text-slate-400">{share.description}</p>
@@ -203,27 +203,27 @@ const UserHistory = () => {
                       : 'border-red-500/30 bg-red-500/10'
                   }`}>
                     <div className="flex items-center gap-2 text-slate-300">
-                      <span className="font-medium text-white">ðŸ“ Route:</span>
-                      <span>{share.fromCity || 'N/A'} â†’ {share.toCity || 'N/A'}</span>
+                      <span className="font-medium text-white">📍 Route:</span>
+                      <span>{share.fromCity || 'N/A'} → {share.toCity || 'N/A'}</span>
                     </div>
                     {share.departureTime && (
                       <div className="flex items-center gap-2 text-slate-300">
-                        <span className="font-medium text-white">ðŸ•’ Departed:</span>
+                        <span className="font-medium text-white">🕒 Departed:</span>
                         <span>{new Date(share.departureTime).toLocaleString()}</span>
                       </div>
                     )}
                     {share.arrivalTime && (
                       <div className="flex items-center gap-2 text-slate-300">
-                        <span className="font-medium text-white">ðŸ Arrived:</span>
+                        <span className="font-medium text-white">🏁 Arrived:</span>
                         <span>{new Date(share.arrivalTime).toLocaleString()}</span>
                       </div>
                     )}
                     <div className="flex items-center gap-4 text-slate-300">
                       {share.maxPassengers && (
-                        <span>ðŸ‘¥ Passengers: {share.members.filter(m => m.status === 'joined').length}/{share.maxPassengers}</span>
+                        <span>👥 Passengers: {share.members.filter(m => m.status === 'joined').length}/{share.maxPassengers}</span>
                       )}
                       {share.vehicleType && (
-                        <span>ðŸš™ {share.vehicleType}</span>
+                        <span>🚙 {share.vehicleType}</span>
                       )}
                     </div>
                   </div>
@@ -238,32 +238,32 @@ const UserHistory = () => {
                   }`}>
                     {share.foodItems && (
                       <div className="flex items-start gap-2 text-slate-300">
-                        <span className="font-medium text-white">ðŸ” Items:</span>
+                        <span className="font-medium text-white">🍔 Items:</span>
                         <span>{share.foodItems}</span>
                       </div>
                     )}
                     <div className="flex items-center gap-4 text-slate-300">
                       {share.quantity && (
-                        <span>ðŸ“Š Qty: {share.quantity}</span>
+                        <span>📊 Qty: {share.quantity}</span>
                       )}
                     </div>
                     {share.deadlineTime && (
                       <div className="flex items-center gap-2 text-slate-300">
-                        <span className="font-medium text-white">â° Delivered:</span>
+                        <span className="font-medium text-white">⏰ Delivered:</span>
                         <span>{new Date(share.deadlineTime).toLocaleString()}</span>
                       </div>
                     )}
                     <div className="flex items-center gap-4 text-slate-300">
                       {share.maxPersons && (
-                        <span>ðŸ‘¥ Persons: {share.members.filter(m => m.status === 'joined').length}/{share.maxPersons}</span>
+                        <span>👥 Persons: {share.members.filter(m => m.status === 'joined').length}/{share.maxPersons}</span>
                       )}
                       {share.minPersons && (
-                        <span>ðŸ”¢ Min: {share.minPersons}</span>
+                        <span>🔢 Min: {share.minPersons}</span>
                       )}
                     </div>
                     {isCancelled && share.minPersons && (
                       <div className="mt-2 rounded bg-red-500/20 px-3 py-2 text-xs text-red-200">
-                        âŒ Cancelled Reason: {
+                        ❌ Cancelled Reason: {
                           joinedCount < share.minPersons 
                             ? `Minimum ${share.minPersons} persons required, only ${joinedCount} joined`
                             : 'Order cancelled by host'
@@ -282,27 +282,27 @@ const UserHistory = () => {
                   }`}>
                     {share.category && (
                       <div className="flex items-center gap-2 text-slate-300">
-                        <span className="font-medium text-white">ðŸ“‹ Category:</span>
+                        <span className="font-medium text-white">📋 Category:</span>
                         <span className="rounded-full bg-slate-500/20 px-2 py-1 text-xs font-semibold text-slate-400">{share.category}</span>
                       </div>
                     )}
                     {share.otherDeadline && (
                       <div className="flex items-center gap-2 text-slate-300">
-                        <span className="font-medium text-white">â° Deadline:</span>
+                        <span className="font-medium text-white">⏰ Deadline:</span>
                         <span>{new Date(share.otherDeadline).toLocaleString()}</span>
                       </div>
                     )}
                     <div className="flex items-center gap-4 text-slate-300">
                       {share.otherMaxPersons && (
-                        <span>ðŸ‘¥ Persons: {share.members.filter(m => m.status === 'joined').length}/{share.otherMaxPersons}</span>
+                        <span>👥 Persons: {share.members.filter(m => m.status === 'joined').length}/{share.otherMaxPersons}</span>
                       )}
                       {share.otherMinPersons && (
-                        <span>ðŸ”¢ Min: {share.otherMinPersons}</span>
+                        <span>🔢 Min: {share.otherMinPersons}</span>
                       )}
                     </div>
                     {isCancelled && share.otherMinPersons && (
                       <div className="mt-2 rounded bg-red-500/20 px-3 py-2 text-xs text-red-200">
-                        âŒ Cancelled Reason: {
+                        ❌ Cancelled Reason: {
                           joinedCount < share.otherMinPersons 
                             ? `Minimum ${share.otherMinPersons} persons required, only ${joinedCount} joined`
                             : 'Share cancelled by host'
@@ -323,7 +323,7 @@ const UserHistory = () => {
                   return hostShare > 0 && isCompleted && (
                     <div className="mt-3 rounded-lg border border-emerald-500/30 bg-emerald-500/10 p-3">
                       <div className="flex items-center gap-2">
-                        <span className="text-lg">ðŸ’°</span>
+                        <span className="text-lg">💰</span>
                         <span className="text-sm font-medium text-white">You Paid:</span>
                         <span className="text-lg font-bold text-emerald-400">
                           {formatCurrency(hostShare)}
@@ -337,7 +337,7 @@ const UserHistory = () => {
                   Total: <span className="text-lg font-bold text-brand-primary">{formatCurrency(share.totalAmount)}</span>
                 </p>
                 <p className="text-xs text-slate-500">
-                  Split: <span className="capitalize">{share.splitType}</span> â€¢ Status:{' '}
+                  Split: <span className="capitalize">{share.splitType}</span> • Status:{' '}
                   <span className="capitalize">{share.status}</span>
                 </p>
                 <div className="mt-2 text-xs text-slate-400">
@@ -420,9 +420,9 @@ const UserHistory = () => {
                     <div className="flex items-center gap-2">
                       <h4 className="font-semibold text-white">{share.name}</h4>
                       <span className="rounded-full bg-slate-800 px-2 py-0.5 text-xs font-medium text-slate-300">
-                        {share.shareType === 'cab' && 'ðŸš— Cab'}
-                        {share.shareType === 'food' && 'ðŸ” Food'}
-                        {share.shareType === 'other' && 'ðŸ“‹ Other'}
+                        {share.shareType === 'cab' && '🚗 Cab'}
+                        {share.shareType === 'food' && '🍔 Food'}
+                        {share.shareType === 'other' && '📋 Other'}
                       </span>
                     </div>
                     <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${
@@ -430,9 +430,9 @@ const UserHistory = () => {
                         ? 'bg-red-500/20 text-red-300' 
                         : 'bg-emerald-500/20 text-emerald-300'
                     }`}>
-                      {share.shareType === 'cab' && (isCancelled ? 'âŒ Cancelled' : 'âœ… Completed Trip')}
-                      {share.shareType === 'food' && (isCancelled ? 'âŒ Cancelled' : 'âœ… Completed Order')}
-                      {share.shareType === 'other' && (isCancelled ? 'âŒ Cancelled' : 'âœ… Completed Share')}
+                      {share.shareType === 'cab' && (isCancelled ? '❌ Cancelled' : '✅ Completed Trip')}
+                      {share.shareType === 'food' && (isCancelled ? '❌ Cancelled' : '✅ Completed Order')}
+                      {share.shareType === 'other' && (isCancelled ? '❌ Cancelled' : '✅ Completed Share')}
                     </span>
                   </div>
                   <p className="text-sm text-slate-400">{share.description}</p>
@@ -445,28 +445,28 @@ const UserHistory = () => {
                         : 'border-emerald-500/30 bg-emerald-500/10'
                     }`}>
                       <div className="flex items-center gap-2 text-slate-300">
-                        <span className="font-medium text-white">ðŸ“ Boarding:</span>
+                        <span className="font-medium text-white">📍 Boarding:</span>
                         <span>{share.fromCity}</span>
                       </div>
                       <div className="flex items-center gap-2 text-slate-300">
-                        <span className="font-medium text-white">ðŸ“ Dropping:</span>
+                        <span className="font-medium text-white">📍 Dropping:</span>
                         <span>{share.toCity}</span>
                       </div>
                       {share.departureTime && (
                         <div className="flex items-center gap-2 text-slate-300">
-                          <span className="font-medium text-white">ðŸ•’ {isCancelled ? 'Was scheduled:' : 'Departed:'}</span>
+                          <span className="font-medium text-white">🕒 {isCancelled ? 'Was scheduled:' : 'Departed:'}</span>
                           <span>{new Date(share.departureTime).toLocaleString()}</span>
                         </div>
                       )}
                       {!isCancelled && share.arrivalTime && (
                         <div className="flex items-center gap-2 text-slate-300">
-                          <span className="font-medium text-white">ðŸ Arrived:</span>
+                          <span className="font-medium text-white">🏁 Arrived:</span>
                           <span>{new Date(share.arrivalTime).toLocaleString()}</span>
                         </div>
                       )}
                       {!isCancelled && (
                         <div className="mt-2 flex items-center gap-2 rounded bg-emerald-500/20 px-3 py-2">
-                          <span className="font-medium text-white">ðŸ’° You Paid:</span>
+                          <span className="font-medium text-white">💰 You Paid:</span>
                           <span className="text-lg font-bold text-emerald-300">
                             {formatCurrency(userMembership?.share || 0)}
                           </span>
@@ -483,22 +483,22 @@ const UserHistory = () => {
                         : 'border-emerald-500/30 bg-emerald-500/10'
                     }`}>
                       <div className="flex items-center gap-2 text-slate-300">
-                        <span className="font-medium text-white">ðŸ” Items:</span>
+                        <span className="font-medium text-white">🍔 Items:</span>
                         <span>{share.foodItems}</span>
                       </div>
                       <div className="flex items-center gap-2 text-slate-300">
-                        <span className="font-medium text-white">ðŸ“Š Quantity:</span>
+                        <span className="font-medium text-white">📊 Quantity:</span>
                         <span>{share.quantity}</span>
                       </div>
                       {share.deadlineTime && (
                         <div className="flex items-center gap-2 text-slate-300">
-                          <span className="font-medium text-white">â° {isCancelled ? 'Was scheduled:' : 'Delivered:'}</span>
+                          <span className="font-medium text-white">⏰ {isCancelled ? 'Was scheduled:' : 'Delivered:'}</span>
                           <span>{new Date(share.deadlineTime).toLocaleString()}</span>
                         </div>
                       )}
                       {!isCancelled && (
                         <div className="mt-2 flex items-center gap-2 rounded bg-emerald-500/20 px-3 py-2">
-                          <span className="font-medium text-white">ðŸ’° You Paid:</span>
+                          <span className="font-medium text-white">💰 You Paid:</span>
                           <span className="text-lg font-bold text-emerald-300">
                             {formatCurrency(userMembership?.share || 0)}
                           </span>
@@ -506,7 +506,7 @@ const UserHistory = () => {
                       )}
                       {isCancelled && share.minPersons && (
                         <div className="mt-2 rounded bg-red-500/20 px-3 py-2 text-xs text-red-200">
-                          âŒ Cancelled Reason: {
+                          ❌ Cancelled Reason: {
                             share.members.filter(m => m.status === 'joined').length < share.minPersons 
                               ? `Minimum ${share.minPersons} persons required, only ${share.members.filter(m => m.status === 'joined').length} joined`
                               : 'Order cancelled'
@@ -525,29 +525,29 @@ const UserHistory = () => {
                     }`}>
                       {share.category && (
                         <div className="flex items-center gap-2 text-slate-300">
-                          <span className="font-medium text-white">ðŸ“‹ Category:</span>
+                          <span className="font-medium text-white">📋 Category:</span>
                           <span className="rounded-full bg-slate-500/20 px-3 py-1 text-xs font-semibold text-slate-400">{share.category}</span>
                         </div>
                       )}
                       {share.otherDeadline && (
                         <div className="flex items-center gap-2 text-slate-300">
-                          <span className="font-medium text-white">â° {isCancelled ? 'Was scheduled:' : 'Completed:'}</span>
+                          <span className="font-medium text-white">⏰ {isCancelled ? 'Was scheduled:' : 'Completed:'}</span>
                           <span>{new Date(share.otherDeadline).toLocaleString()}</span>
                         </div>
                       )}
                       <div className="flex items-center gap-2 text-slate-300">
-                        <span className="font-medium text-white">ðŸ‘¥ Persons:</span>
+                        <span className="font-medium text-white">👥 Persons:</span>
                         <span>{share.members.filter(m => m.status === 'joined').length}{share.otherMaxPersons ? ` / ${share.otherMaxPersons}` : ''}</span>
                       </div>
                       {share.otherMinPersons && (
                         <div className="flex items-center gap-2 text-slate-300">
-                          <span className="font-medium text-white">ðŸ”¢ Minimum:</span>
+                          <span className="font-medium text-white">🔢 Minimum:</span>
                           <span>{share.otherMinPersons}</span>
                         </div>
                       )}
                       {!isCancelled && (
                         <div className="mt-2 flex items-center gap-2 rounded bg-emerald-500/20 px-3 py-2">
-                          <span className="font-medium text-white">ðŸ’° You Paid:</span>
+                          <span className="font-medium text-white">💰 You Paid:</span>
                           <span className="text-lg font-bold text-emerald-300">
                             {formatCurrency(userMembership?.share || 0)}
                           </span>
@@ -555,7 +555,7 @@ const UserHistory = () => {
                       )}
                       {isCancelled && share.otherMinPersons && (
                         <div className="mt-2 rounded bg-red-500/20 px-3 py-2 text-xs text-red-200">
-                          âŒ Cancelled Reason: {
+                          ❌ Cancelled Reason: {
                             share.members.filter(m => m.status === 'joined').length < share.otherMinPersons 
                               ? `Minimum ${share.otherMinPersons} persons required, only ${share.members.filter(m => m.status === 'joined').length} joined`
                               : 'Share cancelled'
@@ -569,7 +569,7 @@ const UserHistory = () => {
                     Host: {share.host?.name} ({share.host?.email})
                   </p>
                   <p className="text-xs text-slate-500">
-                    Total: {formatCurrency(share.totalAmount)} â€¢ Split: <span className="capitalize">{share.splitType}</span>
+                    Total: {formatCurrency(share.totalAmount)} • Split: <span className="capitalize">{share.splitType}</span>
                   </p>
                   <p className="mt-2 text-xs text-slate-500">
                     Completed: {new Date(share.departureTime || share.deadlineTime || share.otherDeadline || share.createdAt).toLocaleDateString()}
