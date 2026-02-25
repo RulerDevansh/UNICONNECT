@@ -301,7 +301,7 @@ const MySharing = () => {
                   }}
                   className="text-2xl text-slate-400 hover:text-white"
                 >
-                  Ã—
+                  &times;
                 </button>
               </div>
               <form onSubmit={createShare} className="space-y-3">

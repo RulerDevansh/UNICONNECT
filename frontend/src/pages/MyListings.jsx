@@ -536,7 +536,7 @@ const MyListings = () => {
         <div className="fixed inset-0 z-30 flex items-center justify-center bg-slate-950/80 p-4">
           <div className="w-full max-w-md rounded-3xl border border-red-500/30 bg-slate-950 p-6 text-slate-100 shadow-2xl shadow-black/60">
             <p className="text-xs uppercase tracking-[0.3em] text-red-300">Confirm delete</p>
-            <h2 className="mt-2 text-2xl font-semibold text-white">Remove â€œ{pendingDelete.title}â€?</h2>
+            <h2 className="mt-2 text-2xl font-semibold text-white">Remove "{pendingDelete.title}"?</h2>
             <p className="mt-3 text-sm text-slate-400">
               This permanently deletes the listing and any chats started from it. Buyers will lose access to the conversation history.
             </p>
