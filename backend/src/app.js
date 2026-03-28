@@ -16,6 +16,7 @@ const transactionRoutes = require('./routes/transactionRoutes');
 const chatRoutes = require('./routes/chatRoutes');
 const reportRoutes = require('./routes/reportRoutes');
 const adminRoutes = require('./routes/adminRoutes');
+const aiRoutes = require('./routes/aiRoutes');
 const mlProxyRoutes = require('./routes/mlProxyRoutes');
 const notificationRoutes = require('./routes/notificationRoutes');
 const { errorHandler } = require('./middlewares/errorMiddleware');
@@ -53,6 +54,7 @@ app.use('/api/transactions', transactionRoutes);
 app.use('/api/chats', chatRoutes);
 app.use('/api/reports', reportRoutes);
 app.use('/api/admin', adminRoutes);
+app.use('/api/ai', aiRoutes);
 app.use('/api/ml', mlProxyRoutes);
 app.use('/api/notifications', notificationRoutes);
 

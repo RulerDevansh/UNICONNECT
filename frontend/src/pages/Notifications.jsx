@@ -80,6 +80,8 @@ const Notifications = () => {
         return '⛔';
       case 'share_full':
         return '🔒';
+      case 'user_warning':
+        return '⚠️';
       default:
         return '📢';
     }

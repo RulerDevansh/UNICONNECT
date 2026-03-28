@@ -1,5 +1,17 @@
 const { verifyAccessToken } = require('../config/jwt');
 
+const ROLE_CAPABILITIES = {
+  admin: ['*'],
+  user: [],
+};
+
+const hasCapability = (role, capability) => {
+  if (!role) return false;
+  if (capability === 'admin-only') return role === 'admin';
+  if (role === 'admin') return true;
+  return ROLE_CAPABILITIES[role]?.includes(capability) || false;
+};
+
 const auth = (roles = []) => (req, res, next) => {
   try {
     const header = req.headers.authorization || '';
@@ -16,4 +28,12 @@ const auth = (roles = []) => (req, res, next) => {
   }
 };
 
-module.exports = { auth };
+const authorizeCapabilities = (capabilities = []) => (req, res, next) => {
+  if (!capabilities.length) return next();
+  const role = req.user?.role;
+  const allowed = capabilities.some((cap) => hasCapability(role, cap));
+  if (!allowed) return res.status(403).json({ message: 'Forbidden' });
+  return next();
+};
+
+module.exports = { auth, authorizeCapabilities, ROLE_CAPABILITIES, hasCapability };

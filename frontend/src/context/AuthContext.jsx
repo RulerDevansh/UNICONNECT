@@ -14,6 +14,13 @@ export const AuthProvider = ({ children }) => {
         return;
       }
       const { data } = await getProfile();
+      if (data?.suspended) {
+        localStorage.removeItem('accessToken');
+        localStorage.removeItem('refreshToken');
+        setUser(null);
+        setLoading(false);
+        return;
+      }
       setUser(data);
     } catch (err) {
       localStorage.removeItem('accessToken');

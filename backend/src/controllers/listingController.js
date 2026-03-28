@@ -5,6 +5,8 @@ const Offer = require('../models/Offer');
 const Chat = require('../models/Chat');
 const Message = require('../models/Message');
 const Report = require('../models/Report');
+const User = require('../models/User');
+const Notification = require('../models/Notification');
 const { uploadImage, deleteImage } = require('../config/cloudinary');
 const { paginate } = require('../utils/pagination');
 const { validateListingFilters } = require('../utils/validators');
@@ -16,6 +18,71 @@ if (!fs.existsSync(TEMP_DIR)) fs.mkdirSync(TEMP_DIR);
 
 const BEER_BLOCK_MESSAGE = 'Your listing appears to contain an abusive product and cannot be posted. If you think this is an error, request review.';
 const TEXT_BLOCK_MESSAGE = 'Your listing appears to contain blocked keywords and cannot be posted. If you think this is an error, request review.';
+
+const normalizeRentalPayload = (rental = {}) => {
+  const normalized = {
+    ratePerDay: Number(rental.ratePerDay),
+    securityDeposit: rental.securityDeposit != null ? Number(rental.securityDeposit) : 0,
+    minimumDays: rental.minimumDays != null ? Number(rental.minimumDays) : 1,
+  };
+
+  if (rental.availableFrom) normalized.availableFrom = new Date(rental.availableFrom);
+  if (rental.availableUntil) normalized.availableUntil = new Date(rental.availableUntil);
+
+  return normalized;
+};
+
+const validateRentalPayload = (rental = {}) => {
+  if (!Number.isFinite(rental.ratePerDay) || rental.ratePerDay <= 0) {
+    return 'Rental rate per day must be greater than 0';
+  }
+
+  if (!Number.isInteger(rental.minimumDays) || rental.minimumDays < 1) {
+    return 'Minimum rental days must be at least 1';
+  }
+
+  if (!Number.isFinite(rental.securityDeposit) || rental.securityDeposit < 0) {
+    return 'Rental security deposit must be greater than or equal to 0';
+  }
+
+  if (rental.availableFrom && Number.isNaN(rental.availableFrom.getTime())) {
+    return 'Rental available from date is invalid';
+  }
+
+  if (rental.availableUntil && Number.isNaN(rental.availableUntil.getTime())) {
+    return 'Rental available until date is invalid';
+  }
+
+  if (rental.availableFrom && rental.availableUntil && rental.availableUntil < rental.availableFrom) {
+    return 'Rental available until date must be after available from date';
+  }
+
+  return null;
+};
+
+const notifyAdminsListingFlagged = async ({ listing, reason, source }) => {
+  try {
+    const admins = await User.find({ role: 'admin' }, '_id').lean();
+    if (!admins.length) return;
+    const io = getIO();
+    const payload = {
+      type: 'listing_flagged_admin',
+      title: 'Listing flagged for review',
+      message: `${listing.title} flagged (${source || 'system'}${reason ? `: ${reason}` : ''}).`,
+      listingRef: listing._id,
+    };
+    await Promise.all(
+      admins.map((admin) => Notification.create({ user: admin._id, ...payload }))
+    );
+    if (io) {
+      admins.forEach((admin) => {
+        io.to(`user:${admin._id.toString()}`).emit('notification', payload);
+      });
+    }
+  } catch (_err) {
+    // best-effort
+  }
+};
 
 const ensureBeerBottleReport = async (listingId, reporterId) => {
   const existing = await Report.findOne({ listing: listingId, reason: 'beer_bottle_detected', status: 'open' }).lean();
@@ -46,6 +113,7 @@ const applyAlcoholScan = async ({ listing, sellerId, imageUrl }) => {
       if (!listing.moderation) listing.moderation = {};
       listing.moderation.flagged = true;
       listing.moderation.reason = 'beer_bottle_detected';
+      listing.moderation.source = 'system';
     }
   }
   return detection;
@@ -57,6 +125,7 @@ const buildQuery = (query) => {
   if (filters.collegeDomain) mongoQuery.collegeDomain = filters.collegeDomain;
   if (filters.category) mongoQuery.category = filters.category;
   if (filters.condition) mongoQuery.condition = filters.condition;
+  if (filters.listingType) mongoQuery.listingType = filters.listingType;
   if (filters.q) {
     // Use regex search instead of text index for better compatibility
     mongoQuery.$or = [
@@ -176,6 +245,18 @@ const createListing = async (req, res, next) => {
       }
     }
 
+    if (req.body.listingType === 'rental') {
+      const rentalPayload = normalizeRentalPayload(req.body.rental || {});
+      const rentalValidationError = validateRentalPayload(rentalPayload);
+      if (rentalValidationError) {
+        return res.status(422).json({ message: rentalValidationError });
+      }
+
+      listingData.rental = rentalPayload;
+      listingData.price = rentalPayload.ratePerDay;
+      delete listingData.auction;
+    }
+
     const listing = await Listing.create(listingData);
 
     const primaryImageUrl = listing.images?.[0]?.url || req.body.primaryImageUrl || req.body.imageUrl;
@@ -191,15 +272,24 @@ const createListing = async (req, res, next) => {
         ...moderation,
         flagged: true,
         reason: 'beer_bottle_detected',
+        source: 'system',
       };
     } else {
-      listing.moderation = moderation;
+      listing.moderation = { ...moderation, source: 'system' };
     }
     const textBlocked = !blockedByAlcohol && Boolean(moderation.flagged);
     if (textBlocked) {
       listing.status = 'blocked';
     }
     await listing.save();
+
+    if (blockedByAlcohol || textBlocked) {
+      await notifyAdminsListingFlagged({
+        listing,
+        reason: listing.moderation?.reason,
+        source: listing.moderation?.source || 'system',
+      });
+    }
 
     if (alcoholResult?.blocked) {
       return res.status(400).json({
@@ -242,6 +332,14 @@ const updateListing = async (req, res, next) => {
         updates.auction = JSON.parse(updates.auction);
       } catch (err) {
         return res.status(400).json({ message: 'Invalid auction data format' });
+      }
+    }
+
+    if (updates.rental && typeof updates.rental === 'string') {
+      try {
+        updates.rental = JSON.parse(updates.rental);
+      } catch (err) {
+        return res.status(400).json({ message: 'Invalid rental data format' });
       }
     }
     
@@ -346,6 +444,24 @@ const updateListing = async (req, res, next) => {
           });
         }
       }
+    } else if (listing.images?.length && listing.images[0]?.url) {
+      // Re-check existing primary image on edits to keep ML scan fresh
+      const alcoholResult = await applyAlcoholScan({
+        listing,
+        sellerId: req.user.id,
+        imageUrl: listing.images[0].url,
+      });
+
+      if (alcoholResult?.blocked) {
+        return res.status(400).json({
+          message: BEER_BLOCK_MESSAGE,
+          reason: 'beer_bottle_detected',
+          details: {
+            predicted_label: alcoholResult.predicted_label,
+            confidence: alcoholResult.confidence,
+          },
+        });
+      }
     }
     
     // For auction listings, preserve existing bids and update only allowed fields
@@ -409,6 +525,21 @@ const updateListing = async (req, res, next) => {
       // Remove auction from updates to avoid overwriting
       delete updates.auction;
     }
+
+    const nextListingType = updates.listingType || listing.listingType;
+    if (nextListingType === 'rental') {
+      const rentalPayload = normalizeRentalPayload(updates.rental || listing.rental || {});
+      const rentalValidationError = validateRentalPayload(rentalPayload);
+      if (rentalValidationError) {
+        return res.status(422).json({ message: rentalValidationError });
+      }
+
+      updates.rental = rentalPayload;
+      updates.price = rentalPayload.ratePerDay;
+      delete updates.auction;
+    } else if (updates.listingType && updates.listingType !== 'rental') {
+      updates.rental = undefined;
+    }
     
     // Capture before Object.assign overwrites listing.status
     const statusChangedToSold = updates.status === 'sold' && listing.status !== 'sold';
@@ -418,6 +549,7 @@ const updateListing = async (req, res, next) => {
       text: `${listing.title} ${listing.description}`,
       metadata: { listingId: listing._id },
     });
+    listing.moderation = { ...listing.moderation, source: 'system' };
     const textBlocked = Boolean(listing.moderation.flagged);
     if (textBlocked) {
       listing.status = 'blocked';
@@ -462,7 +594,48 @@ const updateListing = async (req, res, next) => {
       });
     }
 
+    if (listing.status === 'blocked' && listing.moderation?.flagged) {
+      await notifyAdminsListingFlagged({
+        listing,
+        reason: listing.moderation?.reason,
+        source: listing.moderation?.source || 'system',
+      });
+    }
+
     res.json(listing);
+  } catch (err) {
+    next(err);
+  }
+};
+
+/**
+ * @route POST /api/listings/:id/review
+ * @body { note }
+ */
+const requestListingReview = async (req, res, next) => {
+  try {
+    const listing = await Listing.findOne({ _id: req.params.id, seller: req.user.id });
+    if (!listing) return res.status(404).json({ message: 'Listing not found' });
+    if (listing.status !== 'blocked') {
+      return res.status(400).json({ message: 'Only blocked listings can request review' });
+    }
+    if (listing.moderation?.action === 'ban') {
+      return res.status(403).json({ message: 'This listing was permanently banned' });
+    }
+    if (listing.moderation?.flagged) {
+      return res.status(400).json({ message: 'Review is already requested' });
+    }
+
+    listing.moderation = listing.moderation || {};
+    listing.moderation.flagged = true;
+    listing.moderation.reason = listing.moderation.reason || 'user_review_request';
+    listing.moderation.source = 'review_request';
+    if (req.body?.note) {
+      listing.moderation.reviewNotes = req.body.note;
+    }
+    await listing.save();
+
+    res.json({ message: 'Review requested' });
   } catch (err) {
     next(err);
   }
@@ -556,4 +729,5 @@ module.exports = {
   updateListing,
   uploadListingImage,
   deleteListing,
+  requestListingReview,
 };

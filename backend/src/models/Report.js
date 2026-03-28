@@ -12,6 +12,8 @@ const reportSchema = new mongoose.Schema(
     },
     status: { type: String, enum: ['open', 'reviewed', 'resolved'], default: 'open' },
     notes: String,
+    moderatedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+    moderatedAt: { type: Date },
   },
   { timestamps: true }
 );

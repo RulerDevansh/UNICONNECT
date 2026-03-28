@@ -1,16 +1,18 @@
 ﻿import { useEffect, useState } from 'react';
-import { useLocation, useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import ListingCard from '../components/ListingCard';
 import api from '../services/api';
 import { formatCurrency } from '../utils/currency';
 import useChatLauncher from '../hooks/useChatLauncher';
 
-const MyListings = () => {
+const MyListings = ({ forceRentalMode = false }) => {
   const [listings, setListings] = useState([]);
   const [updatingId, setUpdatingId] = useState('');
   const [error, setError] = useState('');
+  const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const location = useLocation();
+  const rentalMode = forceRentalMode || searchParams.get('section') === 'rental';
   const [toast, setToast] = useState('');
   const [pendingDelete, setPendingDelete] = useState(null);
   
@@ -35,9 +37,9 @@ const MyListings = () => {
   useEffect(() => {
     if (location.state?.toast) {
       setToast(location.state.toast);
-      navigate(location.pathname, { replace: true });
+      navigate(`${location.pathname}${location.search}`, { replace: true });
     }
-  }, [location.state, location.pathname, navigate]);
+  }, [location.state, location.pathname, location.search, navigate]);
 
   const loadBuyRequests = async () => {
     setLoadingRequests(true);
@@ -142,6 +144,35 @@ const MyListings = () => {
     }
   };
 
+  const handleRentalAction = async (transactionId, rentalAction, successMessage) => {
+    setUpdatingId(transactionId);
+    try {
+      await api.put(`/transactions/${transactionId}`, { rentalAction });
+      setToast(successMessage);
+      await loadBuyRequests();
+      await loadMyRequests();
+    } catch (err) {
+      setError(err.response?.data?.message || 'Failed to update rental status');
+    } finally {
+      setUpdatingId('');
+    }
+  };
+
+  const handleRaiseRentalDispute = async (transactionId) => {
+    if (!confirm('Raise dispute for this rental request?')) return;
+    setUpdatingId(transactionId);
+    try {
+      await api.put(`/transactions/${transactionId}`, { rentalAction: 'raise_dispute' });
+      setToast('Dispute raised successfully.');
+      await loadBuyRequests();
+      await loadMyRequests();
+    } catch (err) {
+      setError(err.response?.data?.message || 'Failed to raise dispute');
+    } finally {
+      setUpdatingId('');
+    }
+  };
+
   const deleteListing = async () => {
     if (!pendingDelete) return;
     setUpdatingId(pendingDelete._id);
@@ -158,14 +189,39 @@ const MyListings = () => {
     }
   };
 
+  const requestReview = async (listing) => {
+    if (!confirm('Request admin review for this blocked listing?')) return;
+    const note = window.prompt('Review note (optional):', '') || '';
+    setUpdatingId(listing._id);
+    setError('');
+    try {
+      await api.post(`/listings/${listing._id}/review`, { note: note || undefined });
+      setToast('Review requested. We will notify you after moderation.');
+      await load();
+    } catch (err) {
+      setError(err.response?.data?.message || 'Unable to request review');
+    } finally {
+      setUpdatingId('');
+    }
+  };
+
   // Badge counts: exclude cancelled, rejected, completed, withdrawn
   const isActiveTx = (s) => !['cancelled', 'rejected', 'completed', 'withdrawn'].includes(s);
-  const buyActiveCount = buyRequests.filter((r) => isActiveTx(r.status)).length;
-  const myActiveCount = myRequests.filter((r) => isActiveTx(r.status)).length;
+  const filteredListings = listings.filter((listing) =>
+    rentalMode ? listing.listingType === 'rental' : listing.listingType !== 'rental'
+  );
+  const displayedBuyRequests = buyRequests.filter((request) =>
+    rentalMode ? request.transactionType === 'rental_booking' : request.transactionType !== 'rental_booking'
+  );
+  const displayedMyRequests = myRequests.filter((request) =>
+    rentalMode ? request.transactionType === 'rental_booking' : request.transactionType !== 'rental_booking'
+  );
+  const buyActiveCount = displayedBuyRequests.filter((r) => isActiveTx(r.status)).length;
+  const myActiveCount = displayedMyRequests.filter((r) => isActiveTx(r.status)).length;
 
   return (
     <main className="mx-auto max-w-full px-4 py-4 sm:py-8">
-      <h1 className="mb-4 sm:mb-6 text-2xl sm:text-3xl font-bold text-white">My Listings</h1>
+      <h1 className="mb-4 sm:mb-6 text-2xl sm:text-3xl font-bold text-white">{rentalMode ? 'My Rentals' : 'My Listings'}</h1>
       
       {/* Messages */}
       {(error || toast) && (
@@ -188,10 +244,10 @@ const MyListings = () => {
         <div>
           <section className="space-y-4">
             <div className="flex items-center justify-between">
-              <h2 className="text-2xl font-semibold text-white">My Listings</h2>
+              <h2 className="text-2xl font-semibold text-white">{rentalMode ? 'My Rentals' : 'My Listings'}</h2>
               <button
                 type="button"
-                onClick={() => navigate('/listings/new')}
+                onClick={() => navigate(rentalMode ? '/rentals/new' : '/listings/new')}
                 className="rounded-full bg-brand-primary px-4 py-2 text-sm font-semibold text-white shadow shadow-brand-primary/40 transition hover:bg-brand-secondary"
               >
                 + Create
@@ -199,18 +255,42 @@ const MyListings = () => {
             </div>
             
             <div className="space-y-3">
-              {listings.length > 0 ? (
-                listings.map((listing) => (
-                  <div key={listing._id} className="space-y-3 rounded-2xl border border-slate-800 bg-slate-900/50 p-4 shadow shadow-black/40">
+              <h3 className={`text-sm font-semibold uppercase tracking-wide ${rentalMode ? 'text-orange-200' : 'text-slate-300'}`}>
+                {rentalMode ? 'Rental Listings' : 'Product Listings'}
+              </h3>
+              {filteredListings.length > 0 ? (
+                filteredListings.map((listing) => (
+                  <div
+                    key={listing._id}
+                    className={`space-y-3 rounded-2xl p-4 shadow shadow-black/40 ${
+                      rentalMode ? 'border border-orange-500/30 bg-slate-900/50' : 'border border-slate-800 bg-slate-900/50'
+                    }`}
+                  >
                     <ListingCard listing={listing} hideBuyNowBadge />
+                    {listing.status === 'blocked' && listing.moderation?.action === 'ban' && (
+                      <div className="rounded-lg border border-red-500/40 bg-red-500/10 px-3 py-2 text-xs font-semibold text-red-200">
+                        Permanently banned by admin
+                      </div>
+                    )}
                     <div className="flex flex-wrap gap-3">
                       <button
                         type="button"
                         onClick={() => navigate(`/listings/${listing._id}/edit`)}
-                        className="flex-1 rounded-full border border-white/20 px-4 py-2 text-sm font-semibold text-white transition hover:border-white/60"
+                        disabled={listing.moderation?.action === 'ban'}
+                        className="flex-1 rounded-full border border-white/20 px-4 py-2 text-sm font-semibold text-white transition hover:border-white/60 disabled:cursor-not-allowed disabled:border-slate-700 disabled:text-slate-500"
                       >
                         Edit
                       </button>
+                      {listing.status === 'blocked' && listing.moderation?.action !== 'ban' && (
+                        <button
+                          type="button"
+                          onClick={() => requestReview(listing)}
+                          disabled={updatingId === listing._id || listing.moderation?.flagged}
+                          className="flex-1 rounded-full border border-amber-400/40 px-4 py-2 text-sm font-semibold text-amber-200 hover:border-amber-300 disabled:cursor-not-allowed disabled:border-slate-700 disabled:text-slate-500"
+                        >
+                          {listing.moderation?.flagged ? 'Review Pending' : 'Request Review'}
+                        </button>
+                      )}
                       {listing.status !== 'sold' && listing.status !== 'archived' && (
                         <button
                           type="button"
@@ -230,7 +310,7 @@ const MyListings = () => {
                   </div>
                 ))
               ) : (
-                <p className="text-slate-400">No listings yet.</p>
+                <p className="text-sm text-slate-400">{rentalMode ? 'No rental listings yet.' : 'No product listings yet.'}</p>
               )}
             </div>
           </section>
@@ -251,7 +331,7 @@ const MyListings = () => {
                     : 'text-slate-400 hover:text-slate-200'
                 }`}
               >
-                Buy Requests {buyActiveCount > 0 && (
+                {rentalMode ? 'Rental Requests' : 'Buy Requests'} {buyActiveCount > 0 && (
                   <span className="ml-1 rounded-full bg-brand-primary px-2 py-0.5 text-xs text-white">{buyActiveCount}</span>
                 )}
               </button>
@@ -263,7 +343,7 @@ const MyListings = () => {
                     : 'text-slate-400 hover:text-slate-200'
                 }`}
               >
-                My Requests {myActiveCount > 0 && (
+                {rentalMode ? 'My Rental Requests' : 'My Requests'} {myActiveCount > 0 && (
                   <span className="ml-1 rounded-full bg-brand-primary px-2 py-0.5 text-xs text-white">{myActiveCount}</span>
                 )}
               </button>
@@ -276,8 +356,11 @@ const MyListings = () => {
                 <div className="space-y-3">
                   {loadingRequests ? (
                     <p className="text-sm text-slate-400">Loading...</p>
-                  ) : buyRequests.length > 0 ? (
-                    buyRequests.map((request) => {
+                  ) : displayedBuyRequests.length > 0 ? (
+                    displayedBuyRequests.map((request) => {
+                      const isRentalRequest = request.transactionType === 'rental_booking';
+                      const showSellerPaymentActions = !isRentalRequest;
+                      const rentalStatus = request.rentalStatus || 'requested';
                       const statusBadgeConfig = {
                         pending: 'bg-yellow-500/20 text-yellow-300',
                         approved: 'bg-green-500/20 text-green-300',
@@ -300,6 +383,16 @@ const MyListings = () => {
                             <div className="flex-1">
                               <h3 className="text-lg font-semibold text-white">{request.listing?.title || request.listingSnapshot?.title}</h3>
                               <p className="mt-1 text-xl font-bold text-brand-primary">{formatCurrency(request.amount)}</p>
+                              {isRentalRequest && request.rentalStartDate && request.rentalEndDate && (
+                                <p className="mt-1 text-xs text-orange-200">
+                                  Rental: {new Date(request.rentalStartDate).toLocaleDateString()} to {new Date(request.rentalEndDate).toLocaleDateString()} ({request.rentalDays || '-'} day(s))
+                                </p>
+                              )}
+                              {isRentalRequest && (
+                                <p className="mt-1 text-xs text-orange-200">
+                                  Deposit: {formatCurrency(request.depositAmount || 0)} ({request.depositStatus || 'not_required'})
+                                </p>
+                              )}
                               <p className="mt-2 text-sm text-slate-400">
                                 Buyer: <span className="font-medium text-slate-200">{request.buyer?.name}</span> ({request.buyer?.email})
                               </p>
@@ -309,6 +402,21 @@ const MyListings = () => {
                               <span className={`mt-2 inline-block rounded-full px-3 py-1 text-xs font-semibold uppercase ${statusBadgeConfig[request.status] || 'bg-slate-500/20 text-slate-300'}`}>
                                 {request.status.replace('_', ' ')}
                               </span>
+                              {isRentalRequest && (
+                                <span className="ml-2 mt-2 inline-block rounded-full bg-orange-500/20 px-3 py-1 text-xs font-semibold uppercase text-orange-200">
+                                  rental request
+                                </span>
+                              )}
+                              {isRentalRequest && (
+                                <span className="ml-2 mt-2 inline-block rounded-full bg-slate-700/60 px-3 py-1 text-xs font-semibold uppercase text-slate-200">
+                                  {rentalStatus}
+                                </span>
+                              )}
+                                  {isRentalRequest && request.disputeStatus === 'open' && (
+                                    <span className="ml-2 mt-2 inline-block rounded-full bg-orange-500/20 px-3 py-1 text-xs font-semibold uppercase text-orange-200">
+                                      dispute open
+                                    </span>
+                                  )}
                             </div>
                           </div>
 
@@ -334,7 +442,7 @@ const MyListings = () => {
                             </div>
                           )}
 
-                          {request.status === 'payment_sent' && (
+                          {showSellerPaymentActions && request.status === 'payment_sent' && (
                             <div className="mt-4 rounded-lg border border-blue-500/30 bg-blue-500/10 p-3">
                               <p className="mb-3 text-sm text-blue-200">💳 Buyer has marked payment as sent. Confirm if you received it.</p>
                               <button
@@ -348,7 +456,7 @@ const MyListings = () => {
                             </div>
                           )}
 
-                          {request.status === 'payment_received' && (
+                          {showSellerPaymentActions && request.status === 'payment_received' && (
                             <div className="mt-4 rounded-lg border border-green-500/30 bg-green-500/10 p-3">
                               <p className="mb-3 text-sm text-green-200">✅ Payment confirmed. Deliver the product and mark as completed.</p>
                               <button
@@ -364,15 +472,31 @@ const MyListings = () => {
 
                           {request.status === 'completed' && (
                             <div className="mt-4 rounded-lg border border-emerald-500/30 bg-emerald-500/10 p-3">
-                              <p className="text-sm font-semibold text-emerald-200">🎉 Transaction completed successfully!</p>
+                              <p className="text-sm font-semibold text-emerald-200">
+                                {isRentalRequest ? '🎉 Rental completed successfully!' : '🎉 Transaction completed successfully!'}
+                              </p>
                               <p className="mt-2 text-sm text-emerald-300">
-                                Sold <span className="font-semibold">{request.listing?.title}</span> to {request.buyer?.name} for {formatCurrency(request.amount)}
+                                {isRentalRequest
+                                  ? (
+                                    <>
+                                      Rental for <span className="font-semibold">{request.listing?.title}</span> completed with {request.buyer?.name} ({formatCurrency(request.amount)}).
+                                    </>
+                                  )
+                                  : (
+                                    <>
+                                      Sold <span className="font-semibold">{request.listing?.title}</span> to {request.buyer?.name} for {formatCurrency(request.amount)}
+                                    </>
+                                  )}
                               </p>
                             </div>
                           )}
 
                           {/* Chat Button - Available after approval but not when completed */}
-                          {['approved', 'payment_sent', 'payment_received'].includes(request.status) && (
+                          {(
+                            isRentalRequest
+                              ? ['approved'].includes(request.status)
+                              : ['approved', 'payment_sent', 'payment_received'].includes(request.status)
+                          ) && (
                             <div className="mt-3">
                               <button
                                 onClick={() => {
@@ -386,23 +510,96 @@ const MyListings = () => {
                               </button>
                             </div>
                           )}
+
+                          {isRentalRequest && request.status === 'approved' && request.rentalStatus === 'approved' && (
+                            <div className="mt-3">
+                              <button
+                                type="button"
+                                onClick={() => handleRentalAction(request._id, 'mark_active', 'Rental marked as active.')}
+                                disabled={updatingId === request._id}
+                                className="w-full rounded-full bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-700 disabled:cursor-not-allowed disabled:bg-slate-700"
+                              >
+                                Mark Rental Started
+                              </button>
+                            </div>
+                          )}
+
+                          {isRentalRequest && request.rentalStatus === 'active' && request.disputeStatus !== 'open' && (
+                            <div className="mt-3 flex gap-3">
+                              <button
+                                type="button"
+                                onClick={() => handleRentalAction(request._id, 'confirm_return', 'Rental return confirmed.')}
+                                disabled={updatingId === request._id}
+                                className="flex-1 rounded-full bg-emerald-600 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-700 disabled:cursor-not-allowed disabled:bg-slate-700"
+                              >
+                                Confirm Return
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => handleRaiseRentalDispute(request._id)}
+                                disabled={updatingId === request._id}
+                                className="flex-1 rounded-full border border-orange-500/60 px-4 py-2 text-sm font-semibold text-orange-200 hover:border-orange-300 disabled:cursor-not-allowed disabled:border-slate-700 disabled:text-slate-500"
+                              >
+                                Raise Dispute
+                              </button>
+                            </div>
+                          )}
+
+                          {isRentalRequest && request.disputeStatus === 'open' && (
+                            <div className="mt-3 space-y-2 rounded-lg border border-orange-500/30 bg-orange-500/10 p-3">
+                              <p className="text-sm text-orange-200">Dispute is open. Resolve with an outcome:</p>
+                              <div className="flex gap-3">
+                                <button
+                                  type="button"
+                                  onClick={() => handleRentalAction(request._id, 'resolve_dispute_release', 'Dispute resolved and deposit released.')}
+                                  disabled={updatingId === request._id}
+                                  className="flex-1 rounded-full bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-slate-700"
+                                >
+                                  Resolve + Release Deposit
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => handleRentalAction(request._id, 'resolve_dispute_forfeit', 'Dispute resolved and deposit forfeited.')}
+                                  disabled={updatingId === request._id}
+                                  className="flex-1 rounded-full border border-red-500/60 px-4 py-2 text-sm font-semibold text-red-200 hover:border-red-300 disabled:cursor-not-allowed disabled:border-slate-700 disabled:text-slate-500"
+                                >
+                                  Resolve + Forfeit Deposit
+                                </button>
+                              </div>
+                            </div>
+                          )}
+
+                          {isRentalRequest && request.rentalStatus === 'returned' && request.depositStatus === 'held' && (
+                            <div className="mt-3">
+                              <button
+                                type="button"
+                                onClick={() => handleRentalAction(request._id, 'release_deposit', 'Security deposit released.')}
+                                disabled={updatingId === request._id}
+                                className="w-full rounded-full bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-slate-700"
+                              >
+                                Release Deposit
+                              </button>
+                            </div>
+                          )}
                         </div>
                       );
                     })
                   ) : (
-                    <p className="text-sm text-slate-400">No buy requests yet.</p>
+                    <p className="text-sm text-slate-400">{rentalMode ? 'No rental requests yet.' : 'No buy requests yet.'}</p>
                   )}
                 </div>
               )}
 
               {activeTab === 'myRequests' && (
                 <div className="space-y-3">
-                  {myRequests.length > 0 ? (
-                    myRequests.map((request) => {
+                  {displayedMyRequests.length > 0 ? (
+                    displayedMyRequests.map((request) => {
+                      const isRentalRequest = request.transactionType === 'rental_booking';
+                      const rentalStatus = request.rentalStatus || 'requested';
                       const getStatusConfig = (status) => {
                         const configs = {
-                          pending: { label: 'Pending Approval', color: 'bg-yellow-500/20 text-yellow-300' },
-                          approved: { label: 'Approved - Pay Now', color: 'bg-green-500/20 text-green-300' },
+                          pending: { label: isRentalRequest ? 'Rental Pending Approval' : 'Pending Approval', color: 'bg-yellow-500/20 text-yellow-300' },
+                          approved: { label: isRentalRequest ? 'Rental Approved' : 'Approved - Pay Now', color: 'bg-green-500/20 text-green-300' },
                           payment_sent: { label: 'Payment Sent', color: 'bg-blue-500/20 text-blue-300' },
                           payment_received: { label: 'Payment Received', color: 'bg-blue-500/20 text-blue-300' },
                           completed: { label: 'Completed', color: 'bg-emerald-500/20 text-emerald-300' },
@@ -432,12 +629,37 @@ const MyListings = () => {
                               <p className="mt-1 text-sm text-slate-400">
                                 Requested: <span className="text-slate-300">{new Date(request.createdAt).toLocaleString()}</span>
                               </p>
+                              {isRentalRequest && request.rentalStartDate && request.rentalEndDate && (
+                                <p className="mt-1 text-xs text-orange-200">
+                                  Rental: {new Date(request.rentalStartDate).toLocaleDateString()} to {new Date(request.rentalEndDate).toLocaleDateString()} ({request.rentalDays || '-'} day(s))
+                                </p>
+                              )}
+                              {isRentalRequest && (
+                                <p className="mt-1 text-xs text-orange-200">
+                                  Deposit: {formatCurrency(request.depositAmount || 0)} ({request.depositStatus || 'not_required'})
+                                </p>
+                              )}
                               <div className="mt-2 flex items-center gap-3">
                                 <p className="text-xl font-bold text-emerald-400">{formatCurrency(request.amount ?? request.listing?.price)}</p>
                                 <span className={`rounded-full px-3 py-1 text-xs font-semibold uppercase ${statusConfig.color}`}>
                                   {statusConfig.label}
                                 </span>
                               </div>
+                              {isRentalRequest && (
+                                <span className="mt-2 inline-block rounded-full bg-orange-500/20 px-3 py-1 text-xs font-semibold uppercase text-orange-200">
+                                  rental request
+                                </span>
+                              )}
+                              {isRentalRequest && (
+                                <span className="ml-2 mt-2 inline-block rounded-full bg-slate-700/60 px-3 py-1 text-xs font-semibold uppercase text-slate-200">
+                                  {rentalStatus}
+                                </span>
+                              )}
+                              {isRentalRequest && request.disputeStatus === 'open' && (
+                                <span className="ml-2 mt-2 inline-block rounded-full bg-orange-500/20 px-3 py-1 text-xs font-semibold uppercase text-orange-200">
+                                  dispute open
+                                </span>
+                              )}
                             </div>
                           </div>
 
@@ -449,7 +671,41 @@ const MyListings = () => {
                           )}
                           {request.status === 'approved' && (
                             <div className="mt-4 rounded-lg border border-green-500/30 bg-green-500/10 p-3">
-                              <p className="text-sm text-green-200">✅ Request approved! Please complete the payment to proceed.</p>
+                              <p className="text-sm text-green-200">
+                                {isRentalRequest
+                                  ? '✅ Rental request approved! Coordinate pickup and return with the owner via chat.'
+                                  : '✅ Request approved! Please complete the payment to proceed.'}
+                              </p>
+                            </div>
+                          )}
+                          {isRentalRequest && request.rentalStatus === 'active' && (
+                            <div className="mt-4 rounded-lg border border-indigo-500/30 bg-indigo-500/10 p-3">
+                              <p className="text-sm text-indigo-200">🛵 Rental is active currently.</p>
+                            </div>
+                          )}
+                          {isRentalRequest && request.rentalStatus === 'returned' && (
+                            <div className="mt-4 rounded-lg border border-blue-500/30 bg-blue-500/10 p-3">
+                              <p className="text-sm text-blue-200">✅ Return confirmed by owner. Waiting for deposit release.</p>
+                            </div>
+                          )}
+                          {isRentalRequest && request.rentalStatus === 'closed' && (
+                            <div className="mt-4 rounded-lg border border-emerald-500/30 bg-emerald-500/10 p-3">
+                              <p className="text-sm text-emerald-200">🎉 Rental closed successfully.</p>
+                            </div>
+                          )}
+                          {isRentalRequest && request.disputeStatus === 'open' && (
+                            <div className="mt-4 rounded-lg border border-orange-500/30 bg-orange-500/10 p-3">
+                              <p className="text-sm text-orange-200">⚠️ Dispute is currently under review by the owner.</p>
+                            </div>
+                          )}
+                          {isRentalRequest && request.disputeStatus === 'resolved' && request.depositStatus === 'forfeited' && (
+                            <div className="mt-4 rounded-lg border border-red-500/30 bg-red-500/10 p-3">
+                              <p className="text-sm text-red-200">❗ Dispute resolved: security deposit was forfeited.</p>
+                            </div>
+                          )}
+                          {isRentalRequest && request.disputeStatus === 'resolved' && request.depositStatus === 'released' && (
+                            <div className="mt-4 rounded-lg border border-blue-500/30 bg-blue-500/10 p-3">
+                              <p className="text-sm text-blue-200">✅ Dispute resolved: security deposit was released to you.</p>
                             </div>
                           )}
                           {request.status === 'payment_sent' && (
@@ -464,9 +720,21 @@ const MyListings = () => {
                           )}
                           {request.status === 'completed' && (
                             <div className="mt-4 rounded-lg border border-emerald-500/30 bg-emerald-500/10 p-3">
-                              <p className="text-sm font-semibold text-emerald-200">🎉 Transaction completed successfully!</p>
+                              <p className="text-sm font-semibold text-emerald-200">
+                                {isRentalRequest ? '🎉 Rental completed successfully!' : '🎉 Transaction completed successfully!'}
+                              </p>
                               <p className="mt-2 text-sm text-emerald-300">
-                                You purchased <span className="font-semibold">{request.listing?.title}</span> for {formatCurrency(request.amount)}
+                                {isRentalRequest
+                                  ? (
+                                    <>
+                                      You successfully completed rental for <span className="font-semibold">{request.listing?.title}</span> ({formatCurrency(request.amount)}).
+                                    </>
+                                  )
+                                  : (
+                                    <>
+                                      You purchased <span className="font-semibold">{request.listing?.title}</span> for {formatCurrency(request.amount)}
+                                    </>
+                                  )}
                               </p>
                             </div>
                           )}
@@ -489,6 +757,7 @@ const MyListings = () => {
                           {/* Action Buttons */}
                           <div className="mt-4 flex flex-wrap gap-2">
                             {request.status === 'approved' && (
+                              !isRentalRequest && (
                               <button
                                 onClick={() => handleMarkAsPaid(request._id)}
                                 disabled={updatingId === request._id}
@@ -496,6 +765,7 @@ const MyListings = () => {
                               >
                                 Mark as Paid
                               </button>
+                              )
                             )}
                             {(request.status === 'pending' || request.status === 'approved') && request.listing?.listingType !== 'auction' && request.transactionType !== 'auction' && (
                               <button
@@ -506,7 +776,20 @@ const MyListings = () => {
                                 Withdraw Request
                               </button>
                             )}
-                            {['approved', 'payment_sent', 'payment_received'].includes(request.status) && (
+                            {isRentalRequest && ['approved', 'active'].includes(request.rentalStatus) && request.disputeStatus !== 'open' && (
+                              <button
+                                onClick={() => handleRaiseRentalDispute(request._id)}
+                                disabled={updatingId === request._id}
+                                className="rounded-full border border-orange-500/40 px-4 py-2 text-sm font-semibold text-orange-300 hover:border-orange-300 disabled:opacity-50"
+                              >
+                                Raise Dispute
+                              </button>
+                            )}
+                            {(
+                              isRentalRequest
+                                ? ['approved'].includes(request.status)
+                                : ['approved', 'payment_sent', 'payment_received'].includes(request.status)
+                            ) && (
                               <button
                                 onClick={() => {
                                   const sellerId = request.seller?._id || request.seller;
@@ -523,7 +806,7 @@ const MyListings = () => {
                       );
                     })
                   ) : (
-                    <p className="text-sm text-slate-400">You have not made any buy requests yet.</p>
+                    <p className="text-sm text-slate-400">{rentalMode ? 'You have not made any rental requests yet.' : 'You have not made any buy requests yet.'}</p>
                   )}
                 </div>
               )}

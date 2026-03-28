@@ -1,6 +1,7 @@
 const User = require('../models/User');
 const Transaction = require('../models/Transaction');
 const Share = require('../models/Share');
+const { paginate } = require('../utils/pagination');
 
 /**
  * @route GET /api/users/me
@@ -62,10 +63,46 @@ const changePassword = async (req, res, next) => {
 /**
  * @route GET /api/users (admin)
  */
-const listUsers = async (_req, res, next) => {
+const listUsers = async (req, res, next) => {
   try {
-    const users = await User.find().select('name email role collegeDomain verified');
-    res.json(users);
+    const { page, limit, sort } = paginate(req.query);
+    const { role, verified, suspended, q, collegeDomain } = req.query;
+    const filter = {};
+    if (role) filter.role = role;
+    if (verified !== undefined) filter.verified = verified === 'true';
+    if (suspended !== undefined) filter.suspended = suspended === 'true';
+    if (collegeDomain) filter.collegeDomain = collegeDomain;
+    if (q) {
+      filter.$or = [
+        { name: { $regex: q, $options: 'i' } },
+        { email: { $regex: q, $options: 'i' } },
+      ];
+    }
+
+    const sortMap = {
+      newest: { createdAt: -1 },
+      oldest: { createdAt: 1 },
+      name: { name: 1 },
+      email: { email: 1 },
+    };
+    const sortBy = sortMap[sort] || sortMap.newest;
+
+    const [users, total] = await Promise.all([
+      User.find(filter)
+        .select('name email role collegeDomain verified suspended suspendedReason createdAt')
+        .sort(sortBy)
+        .skip((page - 1) * limit)
+        .limit(limit),
+      User.countDocuments(filter),
+    ]);
+
+    res.json({
+      data: users,
+      page,
+      limit,
+      total,
+      totalPages: Math.ceil(total / limit),
+    });
   } catch (err) {
     next(err);
   }

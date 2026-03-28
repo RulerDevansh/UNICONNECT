@@ -18,6 +18,7 @@ const run = async () => {
     verified: true,
   });
 
+
   const user = await User.create({
     name: 'Student One',
     email: 'student1@college.edu',

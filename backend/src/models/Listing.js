@@ -22,8 +22,15 @@ const listingSchema = new mongoose.Schema(
     },
     listingType: {
       type: String,
-      enum: ['buy-now', 'offer', 'auction'],
+      enum: ['buy-now', 'offer', 'auction', 'rental'],
       default: 'buy-now',
+    },
+    rental: {
+      ratePerDay: { type: Number, min: 0 },
+      securityDeposit: { type: Number, min: 0, default: 0 },
+      availableFrom: { type: Date },
+      availableUntil: { type: Date },
+      minimumDays: { type: Number, min: 1, default: 1 },
     },
     auction: {
       isAuction: { type: Boolean, default: false },
@@ -66,6 +73,15 @@ const listingSchema = new mongoose.Schema(
       flagged: { type: Boolean, default: false },
       score: Number,
       reason: String,
+      source: { type: String, enum: ['system', 'report', 'review_request'] },
+      reportReason: String,
+      reportMessage: String,
+      action: { type: String, enum: ['approve', 'block', 'ban'] },
+      reviewNotes: String,
+      reviewedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+      reviewedAt: { type: Date },
+      reportedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+      reportedAt: { type: Date },
     },
   },
   { timestamps: true }

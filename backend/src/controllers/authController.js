@@ -124,6 +124,7 @@ const login = async (req, res, next) => {
     if (!user) return res.status(401).json({ message: 'Invalid credentials' });
     const isMatch = await user.comparePassword(password);
     if (!isMatch) return res.status(401).json({ message: 'Invalid credentials' });
+    if (user.suspended) return res.status(403).json({ message: 'Account suspended. Contact support.' });
     if (!user.verified) return res.status(403).json({ message: 'Please verify email' });
 
     const payload = { id: user._id, role: user.role, collegeDomain: user.collegeDomain };

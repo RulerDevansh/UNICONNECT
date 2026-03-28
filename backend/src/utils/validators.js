@@ -22,6 +22,34 @@ const listingValidationRules = () => [
   body('category')
     .isIn(['physical', 'digital', 'ticket', 'merch'])
     .withMessage('Category must be physical, digital, ticket or merch'),
+  body('listingType')
+    .optional()
+    .isIn(['buy-now', 'offer', 'auction', 'rental'])
+    .withMessage('Listing type must be buy-now, offer, auction, or rental'),
+  body('rental.ratePerDay')
+    .if(body('listingType').equals('rental'))
+    .isFloat({ gt: 0 })
+    .withMessage('Rental rate per day must be greater than 0'),
+  body('rental.minimumDays')
+    .optional()
+    .if(body('listingType').equals('rental'))
+    .isInt({ min: 1 })
+    .withMessage('Minimum rental days must be at least 1'),
+  body('rental.securityDeposit')
+    .optional()
+    .if(body('listingType').equals('rental'))
+    .isFloat({ min: 0 })
+    .withMessage('Rental security deposit must be greater than or equal to 0'),
+  body('rental.availableFrom')
+    .optional()
+    .if(body('listingType').equals('rental'))
+    .isISO8601()
+    .withMessage('Rental available from must be a valid date'),
+  body('rental.availableUntil')
+    .optional()
+    .if(body('listingType').equals('rental'))
+    .isISO8601()
+    .withMessage('Rental available until must be a valid date'),
 ];
 
 const validateListingFilters = (query) => ({
@@ -31,6 +59,7 @@ const validateListingFilters = (query) => ({
   priceMin: query.priceMin ? Number(query.priceMin) : undefined,
   priceMax: query.priceMax ? Number(query.priceMax) : undefined,
   condition: query.condition,
+  listingType: query.listingType,
   collegeDomain: query.collegeId || query.collegeDomain,
 });
 

@@ -1,22 +1,26 @@
 import { useEffect, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import ListingCard from '../components/ListingCard';
 import CategorySelect from '../components/CategorySelect';
 import api from '../services/api';
 
 const Marketplace = () => {
+  const [searchParams] = useSearchParams();
   const [listings, setListings] = useState([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [category, setCategory] = useState('');
+  const [listingType, setListingType] = useState(searchParams.get('listingType') || '');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
-  const loadListings = async (q = '', cat = '') => {
+  const loadListings = async (q = '', cat = '', type = '') => {
     setLoading(true);
     setError('');
     try {
       const params = {};
       if (q) params.q = q;
       if (cat) params.category = cat;
+      if (type) params.listingType = type;
       
       const { data } = await api.get('/listings', { params });
       setListings(data.data);
@@ -28,12 +32,14 @@ const Marketplace = () => {
   };
 
   useEffect(() => {
-    loadListings();
-  }, []);
+    const queryType = searchParams.get('listingType') || '';
+    setListingType(queryType);
+    loadListings('', '', queryType);
+  }, [searchParams]);
 
   const handleSearch = (e) => {
     e.preventDefault();
-    loadListings(searchQuery, category);
+    loadListings(searchQuery, category, listingType);
   };
 
   return (
@@ -56,7 +62,7 @@ const Marketplace = () => {
                 className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-300 hover:text-white text-xl"
                 onClick={() => {
                   setSearchQuery('');
-                  loadListings('', category);
+                  loadListings('', category, listingType);
                 }}
               >
                 &#10005;
@@ -67,9 +73,23 @@ const Marketplace = () => {
             value={category}
             onChange={(e) => {
               setCategory(e.target.value);
-              loadListings(searchQuery, e.target.value);
+              loadListings(searchQuery, e.target.value, listingType);
             }}
           />
+          <select
+            value={listingType}
+            onChange={(e) => {
+              setListingType(e.target.value);
+              loadListings(searchQuery, category, e.target.value);
+            }}
+            className="rounded-full border border-white/20 bg-white/10 px-4 py-3 text-white"
+          >
+            <option value="" className="text-slate-900">All Types</option>
+            <option value="buy-now" className="text-slate-900">Buy Now</option>
+            <option value="offer" className="text-slate-900">Offer</option>
+            <option value="auction" className="text-slate-900">Auction</option>
+            <option value="rental" className="text-slate-900">Rental</option>
+          </select>
           <button type="submit" className="w-full sm:w-auto rounded-full bg-white px-6 py-3 font-semibold text-slate-900 shadow-lg shadow-white/40">
             Search
           </button>

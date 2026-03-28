@@ -44,6 +44,14 @@ UniConnect is an all-in-one campus platform where students can:
 - Finalize a share to lock in the split amounts
 - View all your active and past shares
 
+### 🏠 Rentals
+- Create and discover rental listings using `listingType: rental`
+- Set per-day rental pricing with availability window and minimum rental days
+- Send rental requests with start/end dates
+- Owner can approve/reject requests and manage rental lifecycle
+- Rental lifecycle includes start, return confirmation, deposit release, and dispute handling
+- Dedicated rental states are visible in request management for both owner and renter
+
 ### 🔔 Notifications
 - In-app notifications for bids, offers, chat messages, and share updates
 - Real-time delivery via Socket.IO

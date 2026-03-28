@@ -43,6 +43,27 @@ SMTP_PASS=your-16-char-app-password
 
 > Generate an App Password at [myaccount.google.com/apppasswords](https://myaccount.google.com/apppasswords) after enabling 2-Step Verification. Paste the 16-character password (no spaces) as `SMTP_PASS`.
 
+## AI Assistant (Gemini) Configuration
+
+To enable the floating assistant backend endpoint (`/api/ai/chat`), add these variables to `backend/.env`:
+
+```env
+GEMINI_API_KEY=your-gemini-api-key
+# optional overrides
+GEMINI_MODEL=gemini-2.5-flash
+GEMINI_BASE_URL=https://generativelanguage.googleapis.com/v1beta
+AI_RATE_LIMIT_MAX=20
+AI_ASSISTANT_ENABLED=true
+```
+
+If `GEMINI_API_KEY` is missing, the assistant still returns a safe fallback response without calling Gemini.
+
+Frontend feature flag (in `frontend/.env`):
+
+```env
+VITE_AI_ASSISTANT_ENABLED=true
+```
+
 ## Testing & Linting
 
 ```bash

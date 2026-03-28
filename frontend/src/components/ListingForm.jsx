@@ -13,6 +13,13 @@ const createEmptyForm = () => ({
     startBid: 0,
     endTime: '',
   },
+  rental: {
+    ratePerDay: 0,
+    securityDeposit: 0,
+    availableFrom: '',
+    availableUntil: '',
+    minimumDays: 1,
+  },
 });
 
 const toLocalDateTime = (value) => {
@@ -42,10 +49,25 @@ const mapListingToForm = (listing) => {
       startBid: listing.auction?.startBid ?? 0,
       endTime: toLocalDateTime(listing.auction?.endTime) || '',
     },
+    rental: {
+      ratePerDay: listing.rental?.ratePerDay ?? listing.price ?? 0,
+      securityDeposit: listing.rental?.securityDeposit ?? 0,
+      availableFrom: toLocalDateTime(listing.rental?.availableFrom) || '',
+      availableUntil: toLocalDateTime(listing.rental?.availableUntil) || '',
+      minimumDays: listing.rental?.minimumDays ?? 1,
+    },
   };
 };
 
-const ListingForm = ({ onCreated, onSuccess, initialData, mode = 'create' }) => {
+const ListingForm = ({
+  onCreated,
+  onSuccess,
+  initialData,
+  mode = 'create',
+  allowRental = true,
+  forceListingType,
+  submitLabel,
+}) => {
   const [form, setForm] = useState(initialData ? mapListingToForm(initialData) : createEmptyForm());
   const [uploading, setUploading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
@@ -59,6 +81,12 @@ const ListingForm = ({ onCreated, onSuccess, initialData, mode = 'create' }) => 
       setForm(createEmptyForm());
     }
   }, [initialData, mode]);
+
+  useEffect(() => {
+    if (forceListingType && form.listingType !== forceListingType) {
+      setForm((prev) => ({ ...prev, listingType: forceListingType }));
+    }
+  }, [forceListingType, form.listingType]);
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -81,6 +109,19 @@ const ListingForm = ({ onCreated, onSuccess, initialData, mode = 'create' }) => 
     });
   };
 
+  const handleRentalChange = (e) => {
+    const { name, value } = e.target;
+    setForm((prev) => {
+      const nextRental = { ...prev.rental, [name]: value };
+      const next = { ...prev, rental: nextRental };
+      if (prev.listingType === 'rental' && name === 'ratePerDay') {
+        const n = Number(value) || 0;
+        if (next.price !== n) next.price = n;
+      }
+      return next;
+    });
+  };
+
   // Keep price synced to startBid for auction type
   useEffect(() => {
     if (form.listingType === 'auction') {
@@ -88,9 +129,14 @@ const ListingForm = ({ onCreated, onSuccess, initialData, mode = 'create' }) => 
       if (form.price !== n) {
         setForm((prev) => ({ ...prev, price: n }));
       }
+    } else if (form.listingType === 'rental') {
+      const n = Number(form.rental.ratePerDay) || 0;
+      if (form.price !== n) {
+        setForm((prev) => ({ ...prev, price: n }));
+      }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [form.listingType, form.auction.startBid]);
+  }, [form.listingType, form.auction.startBid, form.rental.ratePerDay]);
 
   const uploadImage = async (listingId) => {
     if (!image) return null;
@@ -128,6 +174,17 @@ const ListingForm = ({ onCreated, onSuccess, initialData, mode = 'create' }) => 
         payload.price = Number(form.auction.startBid) || 0;
       }
 
+      if (form.listingType === 'rental') {
+        payload.rental = {
+          ratePerDay: Number(form.rental.ratePerDay),
+          securityDeposit: Number(form.rental.securityDeposit) || 0,
+          minimumDays: Number(form.rental.minimumDays) || 1,
+          availableFrom: form.rental.availableFrom ? new Date(form.rental.availableFrom).toISOString() : undefined,
+          availableUntil: form.rental.availableUntil ? new Date(form.rental.availableUntil).toISOString() : undefined,
+        };
+        payload.price = Number(form.rental.ratePerDay) || 0;
+      }
+
       let response;
       let listingId;
       if (mode === 'edit' && initialData?._id) {
@@ -140,6 +197,8 @@ const ListingForm = ({ onCreated, onSuccess, initialData, mode = 'create' }) => 
           Object.keys(payload).forEach(key => {
             if (key === 'auction' && payload.auction) {
               formData.append('auction', JSON.stringify(payload.auction));
+            } else if (key === 'rental' && payload.rental) {
+              formData.append('rental', JSON.stringify(payload.rental));
             } else if (key === 'tags' && Array.isArray(payload.tags)) {
               formData.append('tags', payload.tags.join(','));
             } else {
@@ -230,13 +289,15 @@ const ListingForm = ({ onCreated, onSuccess, initialData, mode = 'create' }) => 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         {form.listingType !== 'auction' ? (
           <div>
-            <label className="text-sm font-medium text-slate-300">Price</label>
+            <label className="text-sm font-medium text-slate-300">
+              {form.listingType === 'rental' ? 'Rate Per Day (INR)' : 'Price'}
+            </label>
             <input
-              name="price"
+              name={form.listingType === 'rental' ? 'ratePerDay' : 'price'}
               type="number"
-              min="0"
-              value={form.price}
-              onChange={handleChange}
+              min={form.listingType === 'rental' ? '1' : '0'}
+              value={form.listingType === 'rental' ? form.rental.ratePerDay : form.price}
+              onChange={form.listingType === 'rental' ? handleRentalChange : handleChange}
               className="mt-1 w-full rounded border border-slate-700 bg-slate-950/60 px-3 py-2 text-slate-100"
               required
             />
@@ -284,13 +345,62 @@ const ListingForm = ({ onCreated, onSuccess, initialData, mode = 'create' }) => 
             name="listingType"
             value={form.listingType}
             onChange={handleChange}
+            disabled={Boolean(forceListingType)}
             className="mt-1 w-full rounded border border-slate-700 bg-slate-950/60 px-3 py-2 text-slate-100"
           >
             <option value="buy-now">Buy Now</option>
+            <option value="offer">Offer</option>
             <option value="auction">Auction</option>
+            {allowRental && <option value="rental">Rental</option>}
           </select>
         </div>
       </div>
+      {form.listingType === 'rental' && (
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-4 rounded border border-slate-700 bg-slate-800/40 p-4">
+          <div>
+            <label className="text-sm font-medium text-slate-300">Available From</label>
+            <input
+              name="availableFrom"
+              type="datetime-local"
+              value={form.rental.availableFrom}
+              onChange={handleRentalChange}
+              className="mt-1 w-full rounded border border-slate-700 bg-slate-950/60 px-3 py-2 text-slate-100"
+            />
+          </div>
+          <div>
+            <label className="text-sm font-medium text-slate-300">Available Until</label>
+            <input
+              name="availableUntil"
+              type="datetime-local"
+              value={form.rental.availableUntil}
+              onChange={handleRentalChange}
+              className="mt-1 w-full rounded border border-slate-700 bg-slate-950/60 px-3 py-2 text-slate-100"
+            />
+          </div>
+          <div>
+            <label className="text-sm font-medium text-slate-300">Minimum Days</label>
+            <input
+              name="minimumDays"
+              type="number"
+              min="1"
+              value={form.rental.minimumDays}
+              onChange={handleRentalChange}
+              className="mt-1 w-full rounded border border-slate-700 bg-slate-950/60 px-3 py-2 text-slate-100"
+            />
+          </div>
+          <div>
+            <label className="text-sm font-medium text-slate-300">Security Deposit (INR)</label>
+            <input
+              name="securityDeposit"
+              type="number"
+              min="0"
+              value={form.rental.securityDeposit}
+              onChange={handleRentalChange}
+              className="mt-1 w-full rounded border border-slate-700 bg-slate-950/60 px-3 py-2 text-slate-100"
+            />
+          </div>
+        </div>
+      )}
       {form.listingType === 'auction' && (
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 rounded border border-slate-700 bg-slate-800/40 p-4">
           <div>
@@ -337,7 +447,11 @@ const ListingForm = ({ onCreated, onSuccess, initialData, mode = 'create' }) => 
         className="w-full rounded-full bg-brand-primary py-3 text-white shadow shadow-brand-primary/40 disabled:cursor-not-allowed disabled:opacity-50"
         disabled={uploading || submitting}
       >
-        {uploading ? 'Uploading…' : submitting ? 'Submitting…' : mode === 'edit' ? 'Update Listing' : 'Create Listing'}
+        {uploading
+          ? 'Uploading…'
+          : submitting
+            ? 'Submitting…'
+            : submitLabel || (mode === 'edit' ? 'Update Listing' : 'Create Listing')}
       </button>
     </form>
   );

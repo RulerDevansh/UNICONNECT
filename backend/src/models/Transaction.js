@@ -9,13 +9,67 @@ const transactionSchema = new mongoose.Schema(
     amount: { type: Number, required: true },
     status: {
       type: String,
-      enum: ['pending', 'approved', 'payment_sent', 'payment_received', 'completed', 'rejected', 'withdrawn', 'cancelled', 'disputed'],
+      enum: ['pending', 'approved', 'payment_sent', 'payment_received', 'completed', 'rejected', 'withdrawn', 'cancelled'],
       default: 'pending',
     },
     transactionType: {
       type: String,
-      enum: ['buy_request', 'offer_based', 'auction'],
+      enum: ['buy_request', 'offer_based', 'auction', 'rental_booking'],
       default: 'buy_request',
+    },
+    rentalStartDate: {
+      type: Date,
+    },
+    rentalEndDate: {
+      type: Date,
+    },
+    rentalDays: {
+      type: Number,
+      min: 1,
+    },
+    depositAmount: {
+      type: Number,
+      min: 0,
+      default: 0,
+    },
+    depositStatus: {
+      type: String,
+      enum: ['not_required', 'pending', 'held', 'released', 'forfeited'],
+      default: 'not_required',
+    },
+    rentalStatus: {
+      type: String,
+      enum: ['requested', 'approved', 'active', 'returned', 'closed'],
+      default: 'requested',
+    },
+    disputeStatus: {
+      type: String,
+      enum: ['none', 'open', 'resolved'],
+      default: 'none',
+    },
+    disputeResolution: {
+      action: {
+        type: String,
+        enum: ['release', 'forfeit'],
+      },
+      notes: {
+        type: String,
+        default: '',
+      },
+      resolvedAt: {
+        type: Date,
+      },
+      resolvedBy: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'User',
+      },
+    },
+    returnConfirmedBySeller: {
+      type: Boolean,
+      default: false,
+    },
+    returnConfirmedAt: {
+      type: Date,
     },
     paymentStatus: {
       type: String,

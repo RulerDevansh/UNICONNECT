@@ -6,11 +6,14 @@ import logo from '../assets/logo.svg';
 
 const navItems = [
   { to: '/', label: 'Home', private: false },
+  { to: '/admin', label: 'Overview', private: true, roles: ['admin'], end: true },
+  { to: '/admin/listings', label: 'Listings', private: true, roles: ['admin'] },
+  { to: '/admin/users', label: 'Users', private: true, roles: ['admin'] },
   { to: '/my-listings', label: 'My Listings', private: true },
   { to: '/shares', label: 'Sharing', private: true },
+  { to: '/rentals', label: 'Rental', private: true },
   { to: '/marketplace', label: 'Marketplace', private: true },
   { to: '/chat', label: 'Chat', private: true },
-  { to: '/admin', label: 'Admin', private: true, roles: ['admin'] },
 ];
 
 const Navbar = () => {
@@ -24,6 +27,7 @@ const Navbar = () => {
   const mobileMenuRef = useRef(null);
   const hamburgerRef = useRef(null);
   const mobileProfileRef = useRef(null);
+  const isStaff = user?.role === 'admin';
 
   // Close mobile menu on route change
   useEffect(() => {
@@ -72,6 +76,9 @@ const Navbar = () => {
   const filteredNavItems = navItems.filter((item) => {
     if (item.private && !user) return false;
     if (item.roles && !item.roles.includes(user?.role)) return false;
+    if (user?.role === 'admin' && !item.roles?.includes('admin') && item.to !== '/') {
+      return false;
+    }
     return true;
   });
 
@@ -93,6 +100,7 @@ const Navbar = () => {
               <NavLink
                 key={item.to}
                 to={item.to}
+                end={item.end}
                 className={({ isActive }) =>
                   `rounded px-2 py-1 transition ${isActive ? 'bg-white/10 text-white shadow-sm' : 'text-slate-400 hover:text-white'}`
                 }
@@ -164,15 +172,17 @@ const Navbar = () => {
                     >
                       Edit Profile
                     </button>
-                    <button
-                      onClick={() => {
-                        navigate('/history');
-                        setShowProfileDropdown(false);
-                      }}
-                      className="w-full px-4 py-2 text-left text-sm text-slate-300 transition hover:bg-slate-800 hover:text-white"
-                    >
-                      History
-                    </button>
+                    {!isStaff && (
+                      <button
+                        onClick={() => {
+                          navigate('/history');
+                          setShowProfileDropdown(false);
+                        }}
+                        className="w-full px-4 py-2 text-left text-sm text-slate-300 transition hover:bg-slate-800 hover:text-white"
+                      >
+                        History
+                      </button>
+                    )}
                     <button
                       onClick={() => {
                         logout();
@@ -215,12 +225,14 @@ const Navbar = () => {
                     >
                       Edit Profile
                     </button>
-                    <button
-                      onClick={() => { navigate('/history'); setMobileProfileOpen(false); }}
-                      className="w-full px-4 py-2.5 text-left text-sm text-slate-300 transition hover:bg-slate-800 hover:text-white"
-                    >
-                      History
-                    </button>
+                    {!isStaff && (
+                      <button
+                        onClick={() => { navigate('/history'); setMobileProfileOpen(false); }}
+                        className="w-full px-4 py-2.5 text-left text-sm text-slate-300 transition hover:bg-slate-800 hover:text-white"
+                      >
+                        History
+                      </button>
+                    )}
                     <button
                       onClick={() => { logout(); setMobileProfileOpen(false); }}
                       className="w-full px-4 py-2.5 text-left text-sm text-red-300 transition hover:bg-slate-800 hover:text-red-200"

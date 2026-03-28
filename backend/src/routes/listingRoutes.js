@@ -11,6 +11,7 @@ const {
   updateListing,
   uploadListingImage,
   deleteListing,
+  requestListingReview,
 } = require('../controllers/listingController');
 
 const upload = multer({
@@ -29,5 +30,6 @@ router.post('/', auth(), listingValidationRules(), handleValidation, createListi
 router.put('/:id', auth(), upload.array('images', 5), updateListing);
 router.delete('/:id', auth(), deleteListing);
 router.post('/:id/images', auth(), upload.single('image'), uploadListingImage);
+router.post('/:id/review', auth(), requestListingReview);
 
 module.exports = router;

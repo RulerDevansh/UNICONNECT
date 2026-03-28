@@ -31,6 +31,7 @@ const ListingCard = ({ listing, wideImage = false, hideBuyNowBadge = false, comp
     const isOwnListing = sellerId && currentUserId && String(sellerId) === String(currentUserId);
   const showBuyCta = listing.listingType === 'buy-now' && !isOwnListing && sellerId && status === 'active';
   const isAuction = listing.listingType === 'auction';
+  const isRental = listing.listingType === 'rental';
   const [auctionTimeRemaining, setAuctionTimeRemaining] = useState('');
   const [displayPrice, setDisplayPrice] = useState(() => {
     if (isAuction && listing?.auction) {
@@ -100,6 +101,11 @@ const ListingCard = ({ listing, wideImage = false, hideBuyNowBadge = false, comp
     draft: 'Draft',
   };
 
+  const rentalRate = Number(listing.rental?.ratePerDay ?? listing.price ?? 0);
+  const displayPriceText = isRental
+    ? `${formatCurrency(rentalRate)}/day`
+    : formatCurrency(displayPrice);
+
   return (
     <div className="rounded-2xl border border-slate-800 bg-slate-900/70 p-3 sm:p-4 shadow-lg shadow-slate-950/40 backdrop-blur overflow-hidden">
       <div className="flex flex-col sm:flex-row gap-3 sm:gap-4">
@@ -128,7 +134,7 @@ const ListingCard = ({ listing, wideImage = false, hideBuyNowBadge = false, comp
               <h3 className="text-base sm:text-lg font-semibold text-slate-100 truncate">{listing.title}</h3>
               <p className="text-xs sm:text-sm text-slate-400">{listing.category}</p>
             </div>
-            <p className="text-lg sm:text-xl font-semibold text-white whitespace-nowrap">{formatCurrency(displayPrice)}</p>
+            <p className="text-lg sm:text-xl font-semibold text-white whitespace-nowrap">{displayPriceText}</p>
           </div>
           <p className="mt-1.5 sm:mt-2 line-clamp-2 text-xs sm:text-sm text-slate-300">{listing.description}</p>
 
@@ -139,6 +145,7 @@ const ListingCard = ({ listing, wideImage = false, hideBuyNowBadge = false, comp
                   'bg-emerald-500/20 text-emerald-300': listing.listingType === 'buy-now',
                   'bg-amber-500/20 text-amber-200': listing.listingType === 'offer',
                   'bg-cyan-500/20 text-cyan-200': listing.listingType === 'auction',
+                  'bg-orange-500/20 text-orange-200': listing.listingType === 'rental',
                 })}
               >
                 {listing.listingType}

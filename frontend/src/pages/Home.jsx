@@ -187,15 +187,18 @@ const Home = () => {
   const [listings, setListings] = useState([]);
   const [listingError, setListingError] = useState('');
   const [listingsLoading, setListingsLoading] = useState(true);
+  const [listingTypeFilter, setListingTypeFilter] = useState('');
   const [shares, setShares] = useState([]);
   const [sharesLoading, setSharesLoading] = useState(true);
   const [shareError, setShareError] = useState('');
 
-  const loadListings = async () => {
+  const loadListings = async (type = '') => {
     setListingsLoading(true);
     setListingError('');
     try {
-      const { data } = await api.get('/listings');
+      const params = {};
+      if (type) params.listingType = type;
+      const { data } = await api.get('/listings', { params });
       setListings(data.data);
     } catch (err) {
       setListingError('Unable to load listings right now.');
@@ -284,9 +287,9 @@ const Home = () => {
   };
 
   useEffect(() => {
-    loadListings();
+    loadListings(listingTypeFilter);
     loadShares();
-  }, []);
+  }, [listingTypeFilter]);
 
   return (
     <main className="mx-auto max-w-6xl px-4 py-6 sm:py-10 text-slate-100">
@@ -319,15 +322,41 @@ const Home = () => {
               Go to Marketplace
             </Link>
           </div>
+          <div className="mt-4 flex flex-wrap gap-2">
+            <button
+              type="button"
+              onClick={() => setListingTypeFilter('')}
+              className={`rounded-full border px-3 py-1 text-xs font-semibold transition ${
+                listingTypeFilter === ''
+                  ? 'border-white/60 bg-white/10 text-white'
+                  : 'border-slate-700 text-slate-300 hover:border-slate-500'
+              }`}
+            >
+              All Listings
+            </button>
+            <button
+              type="button"
+              onClick={() => setListingTypeFilter('rental')}
+              className={`rounded-full border px-3 py-1 text-xs font-semibold transition ${
+                listingTypeFilter === 'rental'
+                  ? 'border-orange-300/70 bg-orange-500/15 text-orange-200'
+                  : 'border-slate-700 text-slate-300 hover:border-slate-500'
+              }`}
+            >
+              Rental Only
+            </button>
+          </div>
           <div className="mt-6 space-y-4">
             {listingsLoading ? (
               <p className="text-center text-sm text-slate-400">Loading listings…</p>
             ) : listingError ? (
               <p className="text-center text-sm text-slate-500">{listingError}</p>
             ) : listings.length ? (
-              listings.map((listing) => <ListingCard key={listing._id} listing={listing} hideBuyNowBadge compactButtons />)
+              listings.map((listing) => <ListingCard key={listing._id} listing={listing} compactButtons />)
             ) : (
-              <p className="text-center text-sm text-slate-500">No listings posted yet.</p>
+              <p className="text-center text-sm text-slate-500">
+                {listingTypeFilter === 'rental' ? 'No rental listings posted yet.' : 'No listings posted yet.'}
+              </p>
             )}
           </div>
         </div>
