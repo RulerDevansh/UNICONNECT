@@ -69,7 +69,11 @@ const ListingCard = ({ listing, wideImage = false, hideBuyNowBadge = false, comp
   useEffect(() => {
     if (!socket || !isAuction) return;
     const listingId = listing._id;
-    try { socket.emit('auction:join', { listingId }); } catch {}
+    try {
+      socket.emit('auction:join', { listingId });
+    } catch {
+      // best-effort socket room join
+    }
     const onUpdate = (payload) => {
       if (payload.listingId !== listingId) return;
       // Update price: show currentBid if > 0, else keep showing startBid
@@ -139,6 +143,11 @@ const ListingCard = ({ listing, wideImage = false, hideBuyNowBadge = false, comp
           <p className="mt-1.5 sm:mt-2 line-clamp-2 text-xs sm:text-sm text-slate-300">{listing.description}</p>
 
           <div className="mt-2 sm:mt-3 flex flex-wrap items-center gap-1.5 sm:gap-2 pr-2 md:pr-3">
+            {typeof listing.distance_km === 'number' && (
+              <span className="rounded-full bg-blue-500/15 px-2 sm:px-3 py-0.5 text-[10px] sm:text-xs font-semibold text-blue-200">
+                {listing.distance_km.toFixed(1)} km away
+              </span>
+            )}
             {!(hideBuyNowBadge && listing.listingType === 'buy-now') && (
               <span
                 className={classNames('rounded-full px-2 sm:px-3 py-0.5 text-[10px] sm:text-xs font-semibold uppercase tracking-wide', {

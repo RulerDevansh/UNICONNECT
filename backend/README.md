@@ -49,8 +49,6 @@ To enable the floating assistant backend endpoint (`/api/ai/chat`), add these va
 
 ```env
 GEMINI_API_KEY=your-gemini-api-key
-# optional overrides
-GEMINI_MODEL=gemini-2.5-flash
 GEMINI_BASE_URL=https://generativelanguage.googleapis.com/v1beta
 AI_RATE_LIMIT_MAX=20
 AI_ASSISTANT_ENABLED=true
@@ -58,11 +56,8 @@ AI_ASSISTANT_ENABLED=true
 
 If `GEMINI_API_KEY` is missing, the assistant still returns a safe fallback response without calling Gemini.
 
-Frontend feature flag (in `frontend/.env`):
-
-```env
-VITE_AI_ASSISTANT_ENABLED=true
-```
+The assistant will try Gemini models in this order: `gemini-2.5-flash`, `gemini-3-flash-preview`, then `gemini-2.5-flash-lite`.
+When Gemini rate limits or model-specific limits occur, it automatically retries the next model.
 
 ## Testing & Linting
 

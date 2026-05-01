@@ -2,6 +2,8 @@
 import { useAuth } from '../context/AuthContext';
 import api from '../services/api';
 import BillShareCard from '../components/BillShareCard';
+import LocationPicker from '../components/LocationPicker';
+import { useGeolocation } from '../hooks/useGeolocation';
 
 const BillShare = () => {
   const [shares, setShares] = useState([]);
@@ -39,6 +41,9 @@ const BillShare = () => {
     hostContribution: 0
   });
   const { user } = useAuth();
+  const { getCurrentLocation } = useGeolocation();
+  const [locationMode, setLocationMode] = useState('auto');
+  const [manualLocation, setManualLocation] = useState(null);
 
   const loadShares = async () => {
     const { data } = await api.get('/shares');
@@ -271,7 +276,40 @@ const BillShare = () => {
     setError('');
     setSuccessMessage('');
     try {
-      await api.post('/shares', form);
+      // Collect location for the share
+      let location = null;
+      if (locationMode === 'manual' && manualLocation) {
+        location = manualLocation;
+      } else {
+        try {
+          location = await getCurrentLocation({
+            enableHighAccuracy: true,
+            timeout: 15000,
+            maximumAge: 60000,
+            watchForAccuracy: true,
+            desiredAccuracy: 200,
+            watchTimeout: 20000,
+          });
+        } catch (err) {
+          console.log('Failed to collect share location:', err.message);
+          // Continue without location - it's optional
+        }
+      }
+
+      const payload = { ...form };
+
+      // Include location data if collected
+      if (location) {
+        payload.location = {
+          latitude: location.latitude,
+          longitude: location.longitude,
+          address: location.address || '',
+          accuracy: location.accuracy,
+          source: location.source || 'manual',
+        };
+      }
+
+      await api.post('/shares', payload);
       setForm({
         name: '',
         description: '',
@@ -452,7 +490,7 @@ const BillShare = () => {
                   />
                 ))
               ) : (
-                <p className="text-sm text-slate-400">You haven't created any shares yet.</p>
+                <p className="text-sm text-slate-400">You haven&apos;t created any shares yet.</p>
               )}
             </div>
           </section>
@@ -543,7 +581,7 @@ const BillShare = () => {
                   />
                 ))}
                 {!myRequestsShares.length && (
-                  <p className="text-sm text-slate-400">You haven't sent any join requests yet.</p>
+                  <p className="text-sm text-slate-400">You haven&apos;t sent any join requests yet.</p>
                 )}
               </div>
             )}
@@ -851,6 +889,38 @@ const BillShare = () => {
                     </p>
                   </div>
                 )}
+                <div className="mt-2">
+                  <label className="mb-1 block text-sm text-slate-300">Location</label>
+                  <div className="flex flex-wrap gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setLocationMode('auto')}
+                      className={`rounded-full border px-3 py-1 text-xs font-semibold transition ${
+                        locationMode === 'auto'
+                          ? 'border-white/60 bg-white/10 text-white'
+                          : 'border-slate-700 text-slate-300 hover:border-slate-500'
+                      }`}
+                    >
+                      Use Current Location
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setLocationMode('manual')}
+                      className={`rounded-full border px-3 py-1 text-xs font-semibold transition ${
+                        locationMode === 'manual'
+                          ? 'border-white/60 bg-white/10 text-white'
+                          : 'border-slate-700 text-slate-300 hover:border-slate-500'
+                      }`}
+                    >
+                      Enter Manually
+                    </button>
+                  </div>
+                  {locationMode === 'manual' && (
+                    <div className="mt-3">
+                      <LocationPicker value={manualLocation} onChange={setManualLocation} />
+                    </div>
+                  )}
+                </div>
                 <button type="submit" className="w-full rounded-full bg-brand-primary py-3 text-sm font-semibold text-white shadow shadow-brand-primary/40">
                   Create Share
                 </button>

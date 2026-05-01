@@ -11,7 +11,7 @@ const createAuditLog = async ({ actorId, action, targetType, targetId, details, 
       ip: req?.ip,
       userAgent: req?.headers?.['user-agent'],
     });
-  } catch (_err) {
+  } catch {
     // best-effort logging
   }
 };

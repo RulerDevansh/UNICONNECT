@@ -136,7 +136,7 @@ const initSocket = (io) => {
           currentBid: listing.auction?.currentBid || null,
           highestBidPerUser: highestObj,
         });
-      } catch (_err) {
+      } catch {
         // non-fatal
       }
     });
@@ -190,7 +190,7 @@ const initSocket = (io) => {
           currentBid: listing.auction.currentBid,
           highestBidPerUser: highestObj,
         });
-      } catch (_err) {
+      } catch {
         socket.emit('auction:error', { message: 'Failed to place bid' });
       }
     });

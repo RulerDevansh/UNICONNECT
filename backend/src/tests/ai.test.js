@@ -37,12 +37,15 @@ const buildToken = () => jwt.sign(
 describe('ai endpoint', () => {
   const originalGeminiKey = process.env.GEMINI_API_KEY;
   const originalAssistantEnabled = process.env.AI_ASSISTANT_ENABLED;
+  const originalGeminiOrder = process.env.GEMINI_MODEL_ORDER;
 
   beforeEach(() => {
     mockListings = [];
     mockShares = [];
     delete process.env.GEMINI_API_KEY;
     delete process.env.AI_ASSISTANT_ENABLED;
+    // Ensure model order exists during tests
+    process.env.GEMINI_MODEL_ORDER = 'gemini-2.5-flash,gemini-3-flash-preview,gemini-2.5-flash-lite';
     axios.post.mockReset();
   });
 
@@ -57,6 +60,12 @@ describe('ai endpoint', () => {
       process.env.AI_ASSISTANT_ENABLED = originalAssistantEnabled;
     } else {
       delete process.env.AI_ASSISTANT_ENABLED;
+    }
+
+    if (originalGeminiOrder) {
+      process.env.GEMINI_MODEL_ORDER = originalGeminiOrder;
+    } else {
+      delete process.env.GEMINI_MODEL_ORDER;
     }
   });
 
@@ -110,7 +119,7 @@ describe('ai endpoint', () => {
     expect(res.body.intent).toBe('listing_discovery');
     expect(Array.isArray(res.body.listings)).toBe(true);
     expect(res.body.listings[0].title).toBe('Campus Bike');
-    expect(res.body.meta.model).toBe('fallback');
+    expect(res.body.meta.model).toBe('structured');
     expect(res.body.reply).toMatch(/campus bike/i);
   });
 
@@ -164,6 +173,54 @@ describe('ai endpoint', () => {
     expect(res.body.reply).toMatch(/active sharing options/i);
   });
 
+  it.each([
+    'how to share expense',
+    'how to list a sharing',
+  ])('answers share how-to query as app guidance: %s', async (message) => {
+    mockShares = [
+      {
+        _id: 's1',
+        name: 'Mess Group Order',
+        shareType: 'food',
+        totalAmount: 180,
+        foodItems: 'Pizza combo',
+        members: [{ status: 'joined' }],
+        maxPersons: 5,
+      },
+    ];
+
+    const token = buildToken();
+    const res = await request(app)
+      .post('/api/ai/chat')
+      .set('Authorization', `Bearer ${token}`)
+      .send({ message });
+
+    expect(res.status).toBe(200);
+    expect(res.body.intent).toBe('app_qa');
+    expect(res.body.shares).toEqual([]);
+    expect(res.body.reply).toMatch(/sharing/i);
+    expect(res.body.reply).toMatch(/my sharing/i);
+    expect(res.body.reply).toMatch(/\+ create/i);
+    expect(res.body.reply).toMatch(/create share/i);
+    expect(res.body.reply).not.toMatch(/try a query/i);
+  });
+
+  it('does not send share how-to guidance through gemini routing', async () => {
+    process.env.GEMINI_API_KEY = 'test-gemini-key';
+
+    const token = buildToken();
+    const res = await request(app)
+      .post('/api/ai/chat')
+      .set('Authorization', `Bearer ${token}`)
+      .send({ message: 'how to share expense' });
+
+    expect(res.status).toBe(200);
+    expect(res.body.intent).toBe('app_qa');
+    expect(res.body.meta.routeSource).toBe('platform-guide');
+    expect(res.body.reply).toMatch(/my sharing/i);
+    expect(axios.post).not.toHaveBeenCalled();
+  });
+
   it('treats short product query as listing discovery', async () => {
     mockListings = [
       {
@@ -180,12 +237,126 @@ describe('ai endpoint', () => {
     const res = await request(app)
       .post('/api/ai/chat')
       .set('Authorization', `Bearer ${token}`)
-      .send({ message: 'charts' });
+      .send({ message: 'chair' });
 
     expect(res.status).toBe(200);
     expect(res.body.intent).toBe('listing_discovery');
     expect(Array.isArray(res.body.listings)).toBe(true);
     expect(res.body.listings[0].title).toBe('Study Chair');
+  });
+
+  it('filters assistant listing cards to the requested product', async () => {
+    mockListings = [
+      {
+        _id: 'l20',
+        title: 'painting',
+        description: 'Acrylic wall painting',
+        price: 1000,
+        category: 'physical',
+        condition: 'good',
+        listingType: 'buy-now',
+        images: [],
+      },
+      {
+        _id: 'l21',
+        title: 'Laptop DELL',
+        description: 'Working laptop',
+        price: 25000,
+        category: 'physical',
+        condition: 'good',
+        listingType: 'buy-now',
+        images: [],
+      },
+      {
+        _id: 'l22',
+        title: 'Home',
+        description: 'Room decor item',
+        price: 400,
+        category: 'physical',
+        condition: 'good',
+        listingType: 'buy-now',
+        images: [],
+      },
+    ];
+
+    const token = buildToken();
+    const res = await request(app)
+      .post('/api/ai/chat')
+      .set('Authorization', `Bearer ${token}`)
+      .send({ message: 'painting' });
+
+    expect(res.status).toBe(200);
+    expect(res.body.intent).toBe('listing_discovery');
+    expect(res.body.listings).toHaveLength(1);
+    expect(res.body.listings[0]).toEqual(expect.objectContaining({
+      id: 'l20',
+      title: 'painting',
+      price: 1000,
+    }));
+    expect(res.body.reply).toMatch(/painting/i);
+    expect(res.body.reply).toMatch(/open the card below/i);
+  });
+
+  it('handles price-only product queries without a hardcoded item name', async () => {
+    mockListings = [
+      {
+        _id: 'l11',
+        title: 'Notebook Bundle',
+        price: 250,
+        category: 'stationery',
+        condition: 'new',
+        images: [],
+      },
+    ];
+
+    const token = buildToken();
+    const res = await request(app)
+      .post('/api/ai/chat')
+      .set('Authorization', `Bearer ${token}`)
+      .send({ message: 'products under 3000' });
+
+    expect(res.status).toBe(200);
+    expect(res.body.intent).toBe('listing_discovery');
+    expect(res.body.listings[0].title).toBe('Notebook Bundle');
+    expect(res.body.reply).not.toMatch(/try a clearer query/i);
+  });
+
+  it('keeps listing reply text aligned with all returned cards', async () => {
+    mockListings = [
+      {
+        _id: 'l30',
+        title: 'Home',
+        description: 'Room decor item',
+        price: 400,
+        category: 'physical',
+        condition: 'good',
+        listingType: 'rental',
+        images: [],
+      },
+      {
+        _id: 'l31',
+        title: 'painting',
+        description: 'Canvas painting',
+        price: 1000,
+        category: 'physical',
+        condition: 'good',
+        listingType: 'buy-now',
+        images: [],
+      },
+    ];
+
+    const token = buildToken();
+    const res = await request(app)
+      .post('/api/ai/chat')
+      .set('Authorization', `Bearer ${token}`)
+      .send({ message: 'products under 1000' });
+
+    expect(res.status).toBe(200);
+    expect(res.body.intent).toBe('listing_discovery');
+    expect(res.body.listings).toHaveLength(2);
+    expect(res.body.reply).toMatch(/home/i);
+    expect(res.body.reply).toMatch(/painting/i);
+    expect(res.body.reply).not.toMatch(/home \(rental\)/i);
   });
 
   it('treats question-style query as app guidance instead of listing intent', async () => {
@@ -197,7 +368,21 @@ describe('ai endpoint', () => {
 
     expect(res.status).toBe(200);
     expect(res.body.intent).toBe('app_qa');
-    expect(res.body.reply).toMatch(/i can still help|did not fully understand|help/i);
+    expect(res.body.reply).toMatch(/campus marketplace/i);
+  });
+
+  it('uses the real create listing path instead of a sell button', async () => {
+    const token = buildToken();
+    const res = await request(app)
+      .post('/api/ai/chat')
+      .set('Authorization', `Bearer ${token}`)
+      .send({ message: 'how to list an item' });
+
+    expect(res.status).toBe(200);
+    expect(res.body.intent).toBe('app_qa');
+    expect(res.body.reply).toMatch(/my listings/i);
+    expect(res.body.reply).toMatch(/\+ create/i);
+    expect(res.body.reply).toMatch(/there is no sell button/i);
   });
 
   it('uses history context for price-only follow-up queries', async () => {
@@ -230,14 +415,105 @@ describe('ai endpoint', () => {
     expect(res.body.listings[0].title).toBe('Wooden Chair');
   });
 
-  it('returns gemini response when api key is configured', async () => {
+  it('keeps contextual product terms when gemini classifies a price-only follow-up', async () => {
     process.env.GEMINI_API_KEY = 'test-gemini-key';
-    axios.post.mockResolvedValue({
+    axios.post.mockResolvedValueOnce({
       data: {
         candidates: [
           {
             content: {
-              parts: [{ text: 'Use Marketplace filters and set budget to INR 4000.' }],
+              parts: [{ text: '{"intent":"listing_discovery","searchQuery":"","searchTerms":[],"priceMin":null,"priceMax":50000}' }],
+            },
+          },
+        ],
+      },
+    });
+    mockListings = [
+      {
+        _id: 'l40',
+        title: 'painting',
+        description: 'Canvas painting',
+        price: 1000,
+        category: 'physical',
+        condition: 'good',
+        listingType: 'buy-now',
+        images: [],
+      },
+      {
+        _id: 'l41',
+        title: 'Laptop DELL',
+        description: 'Working laptop',
+        price: 25000,
+        category: 'physical',
+        condition: 'good',
+        listingType: 'buy-now',
+        images: [],
+      },
+    ];
+
+    const token = buildToken();
+    const res = await request(app)
+      .post('/api/ai/chat')
+      .set('Authorization', `Bearer ${token}`)
+      .send({
+        message: 'under 50000',
+        history: [
+          { role: 'user', content: 'painting' },
+          { role: 'assistant', content: 'I found 1 matching listing for "painting".' },
+        ],
+      });
+
+    expect(res.status).toBe(200);
+    expect(res.body.intent).toBe('listing_discovery');
+    expect(res.body.meta.searchQuery).toBe('painting');
+    expect(res.body.listings).toHaveLength(1);
+    expect(res.body.listings[0].title).toBe('painting');
+    expect(axios.post).toHaveBeenCalledTimes(1);
+  });
+
+  it('answers session memory questions from chat history', async () => {
+    const token = buildToken();
+    const res = await request(app)
+      .post('/api/ai/chat')
+      .set('Authorization', `Bearer ${token}`)
+      .send({
+        message: 'what have i searched before',
+        history: [
+          { role: 'user', content: 'products under 1000' },
+          { role: 'assistant', content: 'I found 2 matching listings.' },
+          { role: 'user', content: 'painting' },
+          { role: 'assistant', content: 'I found 1 matching listing.' },
+          { role: 'user', content: 'do you remember my past messages' },
+        ],
+      });
+
+    expect(res.status).toBe(200);
+    expect(res.body.intent).toBe('app_qa');
+    expect(res.body.meta.model).toBe('session-memory');
+    expect(res.body.reply).toMatch(/products under 1000/i);
+    expect(res.body.reply).toMatch(/painting/i);
+    expect(res.body.reply).not.toMatch(/marketplace page/i);
+  });
+
+  it('returns gemini response for app guidance when api key is configured', async () => {
+    process.env.GEMINI_API_KEY = 'test-gemini-key';
+    axios.post.mockResolvedValueOnce({
+      data: {
+        candidates: [
+          {
+            content: {
+              parts: [{ text: '{"intent":"app_qa","searchQuery":"","searchTerms":[],"priceMin":null,"priceMax":null}' }],
+            },
+          },
+        ],
+      },
+    });
+    axios.post.mockResolvedValueOnce({
+      data: {
+        candidates: [
+          {
+            content: {
+              parts: [{ text: 'Open Profile from the navbar to update your account and location.' }],
             },
           },
         ],
@@ -248,11 +524,12 @@ describe('ai endpoint', () => {
     const res = await request(app)
       .post('/api/ai/chat')
       .set('Authorization', `Bearer ${token}`)
-      .send({ message: 'how can I find cheap bikes?' });
+      .send({ message: 'how do I update my profile?' });
 
     expect(res.status).toBe(200);
-    expect(res.body.reply).toMatch(/marketplace filters/i);
+    expect(res.body.reply).toMatch(/open profile/i);
     expect(res.body.meta.model).toBeTruthy();
-    expect(axios.post).toHaveBeenCalledTimes(1);
+    expect(res.body.meta.routeSource).toBe('gemini');
+    expect(axios.post).toHaveBeenCalledTimes(2);
   });
 });

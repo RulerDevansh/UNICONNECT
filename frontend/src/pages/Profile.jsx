@@ -1,13 +1,14 @@
 import { useEffect, useState } from 'react';
-import { useAuth } from '../context/AuthContext';
 import api from '../services/api';
+import LocationPicker from '../components/LocationPicker';
 
 const Profile = () => {
-  const { user } = useAuth();
   const [profile, setProfile] = useState(null);
   const [loading, setLoading] = useState(true);
   const [isEditing, setIsEditing] = useState(false);
   const [showPasswordChange, setShowPasswordChange] = useState(false);
+  const [showLocationEditor, setShowLocationEditor] = useState(false);
+  const [locationDraft, setLocationDraft] = useState(null);
   const [formData, setFormData] = useState({
     name: '',
   });
@@ -25,6 +26,15 @@ const Profile = () => {
         setFormData({
           name: data.name,
         });
+        if (data.location?.latitude && data.location?.longitude) {
+          setLocationDraft({
+            latitude: data.location.latitude,
+            longitude: data.location.longitude,
+            address: data.location.address || '',
+            accuracy: data.location.accuracy,
+            source: data.location.source || 'manual',
+          });
+        }
       } catch (err) {
         console.error('Failed to fetch profile:', err);
       } finally {
@@ -70,6 +80,17 @@ const Profile = () => {
       });
     } catch (err) {
       alert(err.response?.data?.message || 'Failed to change password');
+    }
+  };
+
+  const handleLocationSave = async () => {
+    if (!locationDraft) return;
+    try {
+      const { data } = await api.post('/users/location', locationDraft);
+      setProfile(data);
+      setShowLocationEditor(false);
+    } catch (err) {
+      alert(err.response?.data?.message || 'Failed to update location');
     }
   };
 
@@ -135,6 +156,33 @@ const Profile = () => {
                   </span>
                 </div>
               </div>
+            </div>
+            <div>
+              <div className="flex items-center justify-between">
+                <h3 className="text-sm font-semibold uppercase tracking-wide text-slate-500">Location</h3>
+                <button
+                  type="button"
+                  onClick={() => setShowLocationEditor((prev) => !prev)}
+                  className="rounded-full border border-slate-600 px-4 py-1.5 text-xs font-semibold text-slate-200 transition hover:border-slate-400"
+                >
+                  {showLocationEditor ? 'Cancel' : 'Set Location'}
+                </button>
+              </div>
+              {profile.location?.address && (
+                <p className="mt-2 text-sm text-slate-300">Current: {profile.location.address}</p>
+              )}
+              {showLocationEditor && (
+                <div className="mt-3 space-y-3">
+                  <LocationPicker value={locationDraft} onChange={setLocationDraft} />
+                  <button
+                    type="button"
+                    onClick={handleLocationSave}
+                    className="w-full rounded-full bg-brand-primary px-6 py-2 text-sm font-semibold text-white shadow shadow-brand-primary/40 transition hover:bg-brand-secondary"
+                  >
+                    Save Location
+                  </button>
+                </div>
+              )}
             </div>
           </div>
         ) : (

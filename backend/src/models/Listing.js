@@ -83,11 +83,20 @@ const listingSchema = new mongoose.Schema(
       reportedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
       reportedAt: { type: Date },
     },
+    location: {
+      latitude: { type: Number },
+      longitude: { type: Number },
+      address: { type: String },
+      accuracy: { type: Number },
+      source: { type: String, enum: ['browser', 'manual'], default: 'manual' },
+      updatedAt: { type: Date },
+    },
   },
   { timestamps: true }
 );
 
 listingSchema.index({ title: 'text', description: 'text', tags: 'text' });
 listingSchema.index({ category: 1, collegeDomain: 1, status: 1 });
+listingSchema.index({ 'location.latitude': 1, 'location.longitude': 1 });
 
 module.exports = mongoose.model('Listing', listingSchema);

@@ -7,13 +7,33 @@ const withRetry = async (fn, attempts = 3) => {
       return await fn();
     } catch (err) {
       lastError = err;
-      await new Promise((resolve) => setTimeout(resolve, 200 * (i + 1)));
+      if (i < attempts - 1) {
+        await new Promise((resolve) => setTimeout(resolve, 200 * (i + 1)));
+      }
     }
   }
   throw lastError;
 };
 
 const BEER_BLOCK_REASON = 'beer_bottle_detected';
+const BEER_BLOCK_RECOMMENDATION = 'Beer bottles are not allowed on UniConnect. Please remove the image or request admin review if this is a mistake.';
+
+const normalizeAlcoholResponse = (data = {}) => {
+  const predictedLabel = data.predicted_class || data.predicted_label || '';
+  const confidence = Number(data.probability ?? data.confidence ?? 0);
+  const blocked = Boolean(
+    data.blocked
+    ?? data.is_beer
+    ?? (data.flagged && /beer|positive/i.test(predictedLabel))
+  );
+
+  return {
+    blocked,
+    predictedLabel,
+    confidence: Number.isFinite(confidence) ? confidence : 0,
+    threshold: data.threshold,
+  };
+};
 
 const callModeration = async (payload) => {
   if (!process.env.ML_SERVICE_URL) return { flagged: false, score: 0 };
@@ -25,7 +45,7 @@ const callModeration = async (payload) => {
     );
     console.info('[ML] moderation result', data);
     return data;
-  } catch (_err) {
+  } catch {
     return { flagged: false, score: 0, reason: 'ml_unreachable' };
   }
 };
@@ -47,26 +67,25 @@ const checkAlcoholImage = async (imageUrl) => {
       1
     );
 
-    const predictedClass = data?.predicted_class || '';
-    const probability = Number(data?.probability ?? 0);
-    const blocked = Boolean(data?.blocked);
+    const { blocked, predictedLabel, confidence, threshold } = normalizeAlcoholResponse(data);
 
     console.info('[ML] alcohol prediction', {
-      predicted_class: predictedClass,
-      probability,
-      threshold: data?.threshold,
+      predicted_class: predictedLabel,
+      probability: confidence,
+      threshold,
       blocked,
     });
 
     return {
       blocked,
       reason: blocked ? BEER_BLOCK_REASON : 'clear',
-      predicted_label: predictedClass,
-      confidence: probability,
+      predicted_label: predictedLabel,
+      confidence,
       flagged: blocked,
       needs_review: false,
+      recommendation: blocked ? BEER_BLOCK_RECOMMENDATION : null,
     };
-  } catch (_err) {
+  } catch {
     return {
       blocked: false,
       needs_review: true,

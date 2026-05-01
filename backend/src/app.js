@@ -19,6 +19,7 @@ const adminRoutes = require('./routes/adminRoutes');
 const aiRoutes = require('./routes/aiRoutes');
 const mlProxyRoutes = require('./routes/mlProxyRoutes');
 const notificationRoutes = require('./routes/notificationRoutes');
+const recommendationRoutes = require('./routes/recommendationRoutes');
 const { errorHandler } = require('./middlewares/errorMiddleware');
 const { xssClean } = require('./middlewares/xssMiddleware');
 const { corsOriginCallback } = require('./config/cors');
@@ -57,6 +58,7 @@ app.use('/api/admin', adminRoutes);
 app.use('/api/ai', aiRoutes);
 app.use('/api/ml', mlProxyRoutes);
 app.use('/api/notifications', notificationRoutes);
+app.use('/api/recommendations', recommendationRoutes);
 
 app.use(errorHandler);
 

@@ -1,189 +1,16 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
+import { useAuth } from '../context/AuthContext';
 import ListingCard from '../components/ListingCard';
+import LocationPicker from '../components/LocationPicker';
+import NearestProducts from '../components/NearestProducts';
+import NearestShares from '../components/NearestShares';
+import SharePreviewCard from '../components/SharePreviewCard';
 import api from '../services/api';
-import { formatCurrency } from '../utils/currency';
 import logo from '../assets/logo.svg';
 
-const SharePreview = ({ share }) => {
-  // Filter out cancelled members
-  const members = share.members?.filter(m => m.status !== 'cancelled') || [];
-  const visibleMembers = members.slice(0, 3);
-  const remainingMembers = Math.max(members.length - visibleMembers.length, 0);
-  const hostName = share.host?.name || 'Host';
-  const totalAmount = formatCurrency(share.totalAmount);
-  const status = share.status || 'open';
-  const statusBadgeClasses = status === 'open' ? 'bg-emerald-500/15 text-emerald-300' : 'bg-slate-800 text-slate-300';
-  
-  // Calculate occupancy for cab sharing
-  const joinedMembersCount = share.members?.filter(m => m.status === 'joined').length || 0;
-  const remainingSeats = share.maxPassengers ? share.maxPassengers - joinedMembersCount : null;
-
-  // Get sharing type details
-  const getShareTypeInfo = () => {
-    switch(share.shareType) {
-      case 'cab':
-        return { label: '🚗 Cab', color: 'bg-blue-500/20 text-blue-300' };
-      case 'food':
-        return { label: '🍔 Food', color: 'bg-orange-500/20 text-orange-300' };
-      case 'other':
-        return { label: '📋 Other', color: 'bg-slate-500/20 text-slate-300' };
-      default:
-        return { label: '📋 Split', color: 'bg-slate-500/20 text-slate-300' };
-    }
-  };
-
-  const shareTypeInfo = getShareTypeInfo();
-
-  return (
-    <div className="rounded-2xl border border-slate-800/70 bg-slate-950/60 p-4 shadow shadow-black/30">
-      <div className="flex items-center justify-between gap-2 text-xs">
-        <div className="flex items-center gap-2 flex-wrap">
-          <span className={`rounded-full px-2.5 py-0.5 text-[11px] font-semibold ${shareTypeInfo.color}`}>
-            {shareTypeInfo.label}
-          </span>
-          <span className="uppercase tracking-wide text-slate-400">{share.splitType} split</span>
-        </div>
-        <span className={`rounded-full px-3 py-0.5 text-[11px] font-semibold ${statusBadgeClasses}`}>{status}</span>
-      </div>
-      <h3 className="mt-2 text-lg font-semibold text-white">{share.name}</h3>
-      {share.description && <p className="text-sm text-slate-400">{share.description}</p>}
-      
-      {/* Cab Sharing Details */}
-      {share.shareType === 'cab' && (
-        <div className="mt-3 space-y-1.5 rounded-lg border border-slate-800 bg-slate-950/50 p-2.5 text-xs">
-          {share.fromCity && share.toCity && (
-            <div className="flex items-center gap-1.5 text-slate-300">
-              <span className="font-medium text-white">📍</span>
-              <span>{share.fromCity} → {share.toCity}</span>
-            </div>
-          )}
-          {share.departureTime && (
-            <div className="flex items-center gap-1.5 text-slate-300">
-              <span className="font-medium text-white">🕒</span>
-              <span>{new Date(share.departureTime).toLocaleString()}</span>
-            </div>
-          )}
-          {share.bookingDeadline && (
-            <div className="flex items-center gap-1.5 text-slate-300">
-              <span className="font-medium text-white">⏰</span>
-              <span>Deadline: {new Date(share.bookingDeadline).toLocaleDateString()}</span>
-            </div>
-          )}
-          {share.maxPassengers && (
-            <div className="flex items-center gap-3">
-              <div className="flex items-center gap-1.5 text-slate-300">
-                <span className="font-medium text-white">👥</span>
-                <span>Occupancy: {joinedMembersCount}/{share.maxPassengers}</span>
-              </div>
-              {remainingSeats > 0 && (
-                <span className="rounded-full bg-emerald-500/20 px-2 py-0.5 text-[10px] font-semibold text-emerald-300">
-                  {remainingSeats} seat{remainingSeats !== 1 ? 's' : ''} left
-                </span>
-              )}
-            </div>
-          )}
-        </div>
-      )}
-      
-      {/* Food Sharing Details */}
-      {share.shareType === 'food' && (
-        <div className="mt-3 space-y-1.5 rounded-lg border border-slate-800 bg-slate-950/50 p-2.5 text-xs">
-          {share.foodItems && (
-            <div className="flex items-center gap-1.5 text-slate-300">
-              <span className="font-medium text-white">🍽️</span>
-              <span>{share.foodItems}</span>
-            </div>
-          )}
-          {share.deadlineTime && (
-            <div className="flex items-center gap-1.5 text-slate-300">
-              <span className="font-medium text-white">⏰</span>
-              <span>Deadline: {new Date(share.deadlineTime).toLocaleString()}</span>
-            </div>
-          )}
-          {share.maxPersons && (
-            <div className="flex items-center gap-3">
-              <div className="flex items-center gap-1.5 text-slate-300">
-                <span className="font-medium text-white">👥</span>
-                <span>Participants: {joinedMembersCount}/{share.maxPersons}</span>
-              </div>
-              {(share.maxPersons - joinedMembersCount) > 0 && (
-                <span className="rounded-full bg-emerald-500/20 px-2 py-0.5 text-[10px] font-semibold text-emerald-300">
-                  {share.maxPersons - joinedMembersCount} spot{(share.maxPersons - joinedMembersCount) !== 1 ? 's' : ''} left
-                </span>
-              )}
-            </div>
-          )}
-          {share.minPersons && (
-            <div className="flex items-center gap-1.5 text-slate-300">
-              <span className="font-medium text-white">🔢</span>
-              <span className={joinedMembersCount < share.minPersons ? 'text-orange-400 font-semibold' : ''}>
-                Min Required: {share.minPersons}
-                {joinedMembersCount < share.minPersons && ' ⚠️'}
-              </span>
-            </div>
-          )}
-        </div>
-      )}
-      
-      {/* Other Sharing Details */}
-      {share.shareType === 'other' && (
-        <div className="mt-3 space-y-1.5 rounded-lg border border-slate-800 bg-slate-950/50 p-2.5 text-xs">
-          {share.category && (
-            <div className="flex items-center gap-1.5 text-slate-300">
-              <span className="font-medium text-white">📋</span>
-              <span className="rounded-full bg-slate-500/20 px-2 py-0.5 text-[10px] font-semibold text-slate-300">{share.category}</span>
-            </div>
-          )}
-          {share.otherDeadline && (
-            <div className="flex items-center gap-1.5 text-slate-300">
-              <span className="font-medium text-white">⏰</span>
-              <span>Deadline: {new Date(share.otherDeadline).toLocaleString()}</span>
-            </div>
-          )}
-          {share.otherMaxPersons && (
-            <div className="flex items-center gap-3">
-              <div className="flex items-center gap-1.5 text-slate-300">
-                <span className="font-medium text-white">👥</span>
-                <span>Participants: {joinedMembersCount}/{share.otherMaxPersons}</span>
-              </div>
-              {(share.otherMaxPersons - joinedMembersCount) > 0 && (
-                <span className="rounded-full bg-emerald-500/20 px-2 py-0.5 text-[10px] font-semibold text-emerald-300">
-                  {share.otherMaxPersons - joinedMembersCount} spot{(share.otherMaxPersons - joinedMembersCount) !== 1 ? 's' : ''} left
-                </span>
-              )}
-            </div>
-          )}
-          {share.otherMinPersons && (
-            <div className="flex items-center gap-1.5 text-slate-300">
-              <span className="font-medium text-white">🔢</span>
-              <span className={joinedMembersCount < share.otherMinPersons ? 'text-orange-400 font-semibold' : ''}>
-                Min Required: {share.otherMinPersons}
-                {joinedMembersCount < share.otherMinPersons && ' ⚠️'}
-              </span>
-            </div>
-          )}
-        </div>
-      )}
-      
-      <p className="mt-3 text-sm text-slate-300">
-        Total <span className="font-semibold text-white">{totalAmount}</span>
-      </p>
-      <p className="text-xs uppercase tracking-wide text-slate-500">Host: {hostName}</p>
-      <div className="mt-3 flex flex-wrap gap-2 text-xs text-slate-300">
-        {visibleMembers.map((member, index) => (
-          <span key={`${share._id}-${index}`} className="rounded-full bg-slate-900/80 px-3 py-0.5">
-            {member.user?.name || 'Member'}
-          </span>
-        ))}
-        {remainingMembers > 0 && <span className="rounded-full bg-slate-900/40 px-3 py-0.5">+{remainingMembers} more</span>}
-        {!visibleMembers.length && <span className="text-slate-500">No members yet</span>}
-      </div>
-    </div>
-  );
-};
-
 const Home = () => {
+  const { isAuthenticated, user, refreshProfile } = useAuth();
   const [listings, setListings] = useState([]);
   const [listingError, setListingError] = useState('');
   const [listingsLoading, setListingsLoading] = useState(true);
@@ -191,6 +18,9 @@ const Home = () => {
   const [shares, setShares] = useState([]);
   const [sharesLoading, setSharesLoading] = useState(true);
   const [shareError, setShareError] = useState('');
+  const [showLocationEditor, setShowLocationEditor] = useState(false);
+  const [locationDraft, setLocationDraft] = useState(null);
+  const [savingLocation, setSavingLocation] = useState(false);
 
   const loadListings = async (type = '') => {
     setListingsLoading(true);
@@ -200,7 +30,7 @@ const Home = () => {
       if (type) params.listingType = type;
       const { data } = await api.get('/listings', { params });
       setListings(data.data);
-    } catch (err) {
+    } catch {
       setListingError('Unable to load listings right now.');
       setListings([]);
     } finally {
@@ -291,6 +121,32 @@ const Home = () => {
     loadShares();
   }, [listingTypeFilter]);
 
+  useEffect(() => {
+    if (user?.location?.latitude && user?.location?.longitude) {
+      setLocationDraft({
+        latitude: user.location.latitude,
+        longitude: user.location.longitude,
+        address: user.location.address || '',
+        accuracy: user.location.accuracy,
+        source: user.location.source || 'manual',
+      });
+    }
+  }, [user]);
+
+  const handleSaveLocation = async () => {
+    if (!locationDraft) return;
+    try {
+      setSavingLocation(true);
+      await api.post('/users/location', locationDraft);
+      await refreshProfile();
+      setShowLocationEditor(false);
+    } catch (err) {
+      console.error('Failed to update location:', err);
+    } finally {
+      setSavingLocation(false);
+    }
+  };
+
   return (
     <main className="mx-auto max-w-6xl px-4 py-6 sm:py-10 text-slate-100">
       <div className="flex flex-col gap-4 sm:gap-8 text-center">
@@ -307,6 +163,40 @@ const Home = () => {
           <p className="mt-2 text-sm sm:text-base text-slate-400">Everything classmates are selling and splitting, side by side.</p>
         </div>
       </div>
+      {isAuthenticated && (
+        <section className="mt-6 sm:mt-10">
+          <div className="mb-3 flex items-center justify-end">
+            <button
+              type="button"
+              onClick={() => setShowLocationEditor((prev) => !prev)}
+              className="rounded-full border border-slate-600 px-3 py-1 text-xs font-semibold text-slate-200 transition hover:border-slate-400"
+            >
+              {showLocationEditor ? 'Close' : 'Set Location'}
+            </button>
+          </div>
+          {showLocationEditor && (
+            <div className="mb-6 rounded-2xl border border-slate-800/80 bg-slate-950/70 p-4 sm:p-6 shadow-2xl shadow-black/40">
+              <LocationPicker value={locationDraft} onChange={setLocationDraft} />
+              <button
+                type="button"
+                onClick={handleSaveLocation}
+                className="mt-4 rounded-full bg-brand-primary px-5 py-2 text-sm font-semibold text-white shadow shadow-brand-primary/40 transition hover:bg-brand-secondary"
+                disabled={savingLocation}
+              >
+                {savingLocation ? 'Saving…' : 'Save Location'}
+              </button>
+            </div>
+          )}
+          <div className="grid gap-4 sm:gap-6 lg:grid-cols-2">
+            <div className="rounded-2xl sm:rounded-3xl border border-white/10 bg-gradient-to-b from-slate-900 via-slate-950 to-slate-900/80 p-4 sm:p-6 shadow-2xl shadow-black/40">
+              <NearestProducts />
+            </div>
+            <div className="rounded-2xl sm:rounded-3xl border border-slate-800/80 bg-slate-950/70 p-4 sm:p-6 shadow-2xl shadow-black/40">
+              <NearestShares />
+            </div>
+          </div>
+        </section>
+      )}
       <section className="mt-6 sm:mt-10 grid gap-4 sm:gap-6 lg:grid-cols-2">
         <div className="rounded-2xl sm:rounded-3xl border border-white/10 bg-gradient-to-b from-slate-900 via-slate-950 to-slate-900/80 p-4 sm:p-6 shadow-2xl shadow-black/40">
           <div className="flex flex-wrap items-center justify-between gap-3">
@@ -377,7 +267,7 @@ const Home = () => {
             ) : shareError ? (
               <p className="text-center text-sm text-slate-500">{shareError}</p>
             ) : shares.length ? (
-              shares.map((share) => <SharePreview key={share._id} share={share} />)
+              shares.map((share) => <SharePreviewCard key={share._id} share={share} />)
             ) : (
               <p className="text-center text-sm text-slate-500">No shares created yet.</p>
             )}

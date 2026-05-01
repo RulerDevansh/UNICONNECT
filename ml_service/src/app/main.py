@@ -8,9 +8,12 @@ from fastapi.middleware.cors import CORSMiddleware
 from .config import get_settings
 from .moderation import score_listing
 from .recommender import RecommendationEngine
+from ..location_utils import find_nearest_by_location, haversine_distance, kmeans_clustering
 from .schemas import (
     AlcoholDetectionRequest,
     AlcoholDetectionResponse,
+    LocationBasedRecommendationRequest,
+    LocationBasedRecommendationResponse,
     ModerationRequest,
     ModerationResponse,
     RecommendationRequest,
@@ -124,3 +127,97 @@ def detect_alcohol(payload: AlcoholDetectionRequest):
     except Exception as exc:
         logger.error('Alcohol detection failed: %s', exc, exc_info=True)
         raise HTTPException(status_code=500, detail=f'Alcohol detection error: {exc}')
+
+
+@app.post('/predict/location-based-recommendations', response_model=list[LocationBasedRecommendationResponse])
+def recommend_by_location(payload: LocationBasedRecommendationRequest):
+    """
+    Recommend listings and shares based on user location using Haversine distance.
+    Returns items sorted by distance from user location.
+    """
+    try:
+        recommendations = []
+
+        def _cluster_and_rank(items):
+            if not items:
+                return []
+
+            user_location = {
+                'latitude': payload.user_location.latitude,
+                'longitude': payload.user_location.longitude,
+            }
+
+            points = []
+            for item in items:
+                location = item.get('location') or {}
+                latitude = location.get('latitude')
+                longitude = location.get('longitude')
+                if latitude is None or longitude is None:
+                    continue
+                points.append({
+                    **item,
+                    'latitude': latitude,
+                    'longitude': longitude,
+                })
+
+            if not points:
+                return []
+
+            cluster_count = min(3, len(points))
+            clusters = kmeans_clustering(points, k=cluster_count, max_iterations=10)
+
+            nearest_cluster = None
+            nearest_distance = float('inf')
+            for cluster in clusters:
+                if not cluster:
+                    continue
+                centroid_lat = sum(p['latitude'] for p in cluster) / len(cluster)
+                centroid_lon = sum(p['longitude'] for p in cluster) / len(cluster)
+                distance = haversine_distance(
+                    user_location['latitude'],
+                    user_location['longitude'],
+                    centroid_lat,
+                    centroid_lon,
+                )
+                if distance < nearest_distance:
+                    nearest_distance = distance
+                    nearest_cluster = cluster
+
+            cluster_items = nearest_cluster or points
+            return find_nearest_by_location(user_location, cluster_items, payload.max_distance_km)
+
+        # Process listings
+        if payload.listings:
+            nearby_listings = _cluster_and_rank(payload.listings)
+            for listing in nearby_listings[:payload.limit]:
+                recommendations.append(
+                    LocationBasedRecommendationResponse(
+                        type='listing',
+                        id=str(listing.get('_id', listing.get('id', ''))),
+                        title=listing.get('title', ''),
+                        distance_km=listing['distance_km'],
+                        category=listing.get('category'),
+                    )
+                )
+
+        # Process shares
+        if payload.shares:
+            nearby_shares = _cluster_and_rank(payload.shares)
+            for share in nearby_shares[:payload.limit]:
+                recommendations.append(
+                    LocationBasedRecommendationResponse(
+                        type='share',
+                        id=str(share.get('_id', share.get('id', ''))),
+                        title=share.get('name', ''),
+                        distance_km=share['distance_km'],
+                        category=share.get('shareType'),
+                    )
+                )
+
+        # Sort all recommendations by distance and limit
+        recommendations.sort(key=lambda x: x.distance_km)
+        return recommendations[:payload.limit]
+
+    except Exception as exc:
+        logger.error('Location-based recommendation error: %s', exc, exc_info=True)
+        raise HTTPException(status_code=500, detail=f'Recommendation error: {exc}')

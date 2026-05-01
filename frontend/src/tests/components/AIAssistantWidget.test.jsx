@@ -53,6 +53,8 @@ describe('AIAssistantWidget', () => {
     expect(await screen.findByText(/try marketplace with category bike/i)).toBeInTheDocument();
     expect(screen.getByText(/hostel bike/i)).toBeInTheDocument();
     expect(screen.getByText(/mess group order/i)).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: /open hostel bike listing/i })).toHaveAttribute('href', '/listings/l1');
+    expect(screen.getByRole('link', { name: /open mess group order sharing option/i })).toHaveAttribute('href', '/shares');
 
     fireEvent.click(screen.getByRole('button', { name: /clear/i }));
     expect(screen.getByText(/clear this conversation/i)).toBeInTheDocument();

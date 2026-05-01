@@ -30,7 +30,7 @@ const sendNotification = async ({ userId, type, title, message, listingId, trans
       io.to(`user:${userId}`).emit('notification', notification);
     }
     return notification;
-  } catch (_err) {
+  } catch {
     return null;
   }
 };
@@ -333,7 +333,7 @@ const updateTransactionStatus = async (req, res, next) => {
           await Message.deleteMany({ chat: { $in: chatIds } });
           await Chat.deleteMany({ _id: { $in: chatIds } });
         }
-      } catch (_err) {
+      } catch {
         // chat cleanup is best-effort
       }
       await sendNotification({
@@ -356,7 +356,7 @@ const updateTransactionStatus = async (req, res, next) => {
           await Message.deleteMany({ chat: { $in: chatIds } });
           await Chat.deleteMany({ _id: { $in: chatIds } });
         }
-      } catch (_err) {
+      } catch {
         // chat cleanup is best-effort
       }
       await sendNotification({
@@ -455,11 +455,11 @@ const updateTransactionStatus = async (req, res, next) => {
             try {
               await Message.deleteMany({ chat: chat._id });
               await Chat.findByIdAndDelete(chat._id);
-            } catch (_err) {
+            } catch {
               // chat cleanup is best-effort
             }
           }
-        } catch (_err) {
+        } catch {
           // chat cleanup is best-effort
         }
         // Delete the listing from database

@@ -256,4 +256,39 @@ const getUserHistory = async (req, res, next) => {
   }
 };
 
-module.exports = { getProfile, updateProfile, changePassword, listUsers, lookupUsers, getUserHistory };
+/**
+ * @route POST /api/users/location
+ * @description Update user location for geolocation-based recommendations
+ */
+const updateLocation = async (req, res, next) => {
+  try {
+    const { latitude, longitude, address, accuracy, source } = req.body;
+    const lat = Number(latitude);
+    const lon = Number(longitude);
+
+    if (!Number.isFinite(lat) || !Number.isFinite(lon)) {
+      return res.status(400).json({ message: 'Latitude and longitude are required' });
+    }
+
+    const user = await User.findByIdAndUpdate(
+      req.user.id,
+      {
+        location: {
+          latitude: lat,
+          longitude: lon,
+          address: address || '',
+          accuracy: Number.isFinite(Number(accuracy)) ? Number(accuracy) : undefined,
+          source: source === 'browser' ? 'browser' : 'manual',
+          updatedAt: new Date(),
+        },
+      },
+      { new: true }
+    ).select('-password');
+
+    res.json(user);
+  } catch (err) {
+    next(err);
+  }
+};
+
+module.exports = { getProfile, updateProfile, changePassword, listUsers, lookupUsers, getUserHistory, updateLocation };

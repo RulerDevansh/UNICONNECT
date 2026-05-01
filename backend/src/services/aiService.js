@@ -3,17 +3,11 @@ const Listing = require('../models/Listing');
 const Share = require('../models/Share');
 
 const GEMINI_BASE_URL = process.env.GEMINI_BASE_URL || 'https://generativelanguage.googleapis.com/v1beta';
-
-const GEMINI_MODEL_CANDIDATES = [
-  process.env.GEMINI_MODEL,
-  'gemini-2.5-flash',
-  'gemini-2.0-flash',
-  'gemini-2.0-flash-lite',
-  'gemini-1.5-flash-latest',
-  'gemini-1.5-flash-8b',
-]
-  .filter(Boolean)
-  .filter((model, index, arr) => arr.indexOf(model) === index);
+const GEMINI_MODEL_ORDER = process.env.GEMINI_MODEL_ORDER
+  ? String(process.env.GEMINI_MODEL_ORDER).split(',').map((s) => s.trim()).filter(Boolean)
+  : [process.env.GEMINI_MODEL, 'gemini-2.5-flash', 'gemini-3-flash-preview', 'gemini-2.5-flash-lite']
+    .filter(Boolean)
+    .filter((model, index, arr) => arr.indexOf(model) === index);
 
 const normalizeGeminiReason = (raw = '') => {
   const msg = String(raw || '').toLowerCase();
@@ -33,10 +27,27 @@ const STOP_WORDS = new Set([
   'the', 'a', 'an', 'and', 'or', 'for', 'with', 'from', 'near', 'show', 'find', 'search', 'need',
   'want', 'please', 'help', 'how', 'what', 'is', 'are', 'to', 'in', 'on', 'at', 'of', 'me', 'my',
   'under', 'below', 'above', 'over', 'rent', 'buy', 'sale', 'item', 'items', 'listing', 'listings',
-  'yes', 'no', 'ok', 'okay',
+  'product', 'products', 'thing', 'things', 'stuff', 'any', 'available', 'yes', 'no', 'ok', 'okay',
+  'platform', 'app', 'application', 'uniconnect',
 ]);
 
 const escapeRegex = (value = '') => String(value).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+const LISTING_CATEGORIES = new Set(['physical', 'digital', 'ticket', 'merch']);
+
+const PLATFORM_GUIDE = [
+  'UniConnect navigation and exact labels:',
+  '- Home (/): overview with live listings, active shares, nearby listings/shares, and Set Location.',
+  '- Marketplace (/marketplace): browse/search all listings and filter by category or listing type.',
+  '- My Listings (/my-listings): manage your product listings and buy requests. To list an item, open My Listings and click + Create. There is no Sell button.',
+  '- Create Listing (/listings/new): create a product listing with title, description, price, category, listing type, tags, location, and image.',
+  '- Rental (/rentals): manage rental listings and rental requests. Use + Create or /rentals/new for rental items.',
+  '- Sharing (/shares): create cab, food, or other sharing groups; split expenses; request to join; approve/reject members; finalize shares. To list/create a share, open Sharing, go to My Sharing, click + Create, choose Type of Sharing, enter total amount and split type, then submit Create Share.',
+  '- Chat (/chat): message sellers, buyers, and share group members after opening/creating a chat.',
+  '- Notifications (/notifications): see bid, offer, chat, rental, sharing, moderation, and admin updates.',
+  '- Profile (/profile): edit name/password and set precise location.',
+  '- Listing details (/listings/:id): view images, price, description, location, report a listing, buy now, make offer, request rental, or bid in auctions.',
+  '- Admin (/admin): admins review flagged listings, users, analytics, and rental disputes.',
+].join('\n');
 
 const tokenizeQuery = (message = '') => {
   return String(message)
@@ -48,6 +59,11 @@ const tokenizeQuery = (message = '') => {
 };
 
 const hasPriceConstraint = (message = '') => /(?:under|below|less than|above|over|more than)\s*[₹rs\s]*[0-9]+/i.test(String(message));
+
+const isPriceOnlyListingQuery = (message = '') => {
+  if (!hasPriceConstraint(message)) return false;
+  return sanitizeSearchTerms(tokenizeQuery(message)).length === 0;
+};
 
 const inferListingContextFromHistory = (history = []) => {
   if (!Array.isArray(history)) return null;
@@ -70,26 +86,12 @@ const extractSearchHints = (message = '') => {
   const priceUnder = text.match(/(?:under|below|less than)\s*[₹rs\s]*([0-9]+)/i);
   const priceAbove = text.match(/(?:above|over|more than)\s*[₹rs\s]*([0-9]+)/i);
 
-  const categoryKeywords = [
-    'bike',
-    'cycle',
-    'laptop',
-    'phone',
-    'book',
-    'chair',
-    'chairs',
-    'chart',
-    'charts',
-    'furniture',
-    'electronics',
-    'hostel',
-  ];
-
-  const category = categoryKeywords.find((word) => text.includes(word)) || null;
+  // Only accept the platform's real listing categories here. Product names
+  // like "painting" should stay search terms, not broaden into "physical".
   return {
     priceMax: priceUnder ? Number(priceUnder[1]) : null,
     priceMin: priceAbove ? Number(priceAbove[1]) : null,
-    category,
+    category: tokens.find((token) => LISTING_CATEGORIES.has(token)) || null,
     tokens,
     keyword: text,
   };
@@ -111,41 +113,94 @@ const extractShareHints = (message = '') => {
   };
 };
 
-const getRelevantListings = async (message, intent, history = []) => {
+const isShareGuidanceQuery = (message = '') => {
+  const text = String(message || '').toLowerCase();
+  const asksHowOrWhere = /\b(how|where|what|can|do|does|guide|steps?)\b/.test(text);
+  const shareTopic = /\b(share|sharing|split|expense|expenses|bill|bills)\b/.test(text);
+  const createOrManageAction = /\b(create|list|post|add|make|start|open|use|manage|join|request|approve|reject|finalize|complete)\b/.test(text);
+  const clearDiscoverySignal = /\b(find|show|search|available|near|under|below|above|less than|more than|cheap|budget)\b/.test(text);
+
+  return shareTopic && (asksHowOrWhere || createOrManageAction) && !clearDiscoverySignal;
+};
+
+const getListingText = (item = {}) => [
+  item.title,
+  item.description,
+  item.category,
+  item.condition,
+  ...(Array.isArray(item.tags) ? item.tags : []),
+].filter(Boolean).join(' ').toLowerCase();
+
+const normalizeSearchTerm = (term = '') => {
+  const normalized = String(term || '').toLowerCase().trim();
+  if (normalized.length > 3 && normalized.endsWith('s')) return normalized.slice(0, -1);
+  return normalized;
+};
+
+const scoreListing = (item, terms = []) => {
+  if (!terms.length) return 1;
+
+  const title = String(item.title || '').toLowerCase();
+  const description = String(item.description || '').toLowerCase();
+  const tags = Array.isArray(item.tags) ? item.tags.join(' ').toLowerCase() : '';
+  const category = String(item.category || '').toLowerCase();
+
+  let score = 0;
+  for (const term of terms) {
+    const normalized = normalizeSearchTerm(term);
+    if (!normalized) continue;
+    if (title === normalized) score += 10;
+    else if (title.includes(normalized)) score += 6;
+    if (tags.includes(normalized)) score += 4;
+    if (description.includes(normalized)) score += 2;
+    if (category === normalized) score += 1;
+  }
+
+  return score;
+};
+
+const buildSearchTerms = ({ hints, route, history, message }) => {
+  const routeTerms = Array.isArray(route?.searchTerms)
+    ? route.searchTerms
+    : tokenizeQuery(route?.searchQuery || '');
+  const baseTerms = routeTerms.length ? routeTerms : hints.tokens;
+  const terms = baseTerms
+    .map(normalizeSearchTerm)
+    .filter((term) => term.length >= 3 && !/^\d+$/.test(term) && !STOP_WORDS.has(term) && !LISTING_CATEGORIES.has(term));
+
+  if (!terms.length && !hints.category && hasPriceConstraint(message)) {
+    const contextualToken = inferListingContextFromHistory(history);
+    if (contextualToken) terms.push(contextualToken);
+  }
+
+  return [...new Set(terms)];
+};
+
+const getRelevantListings = async (message, intent, history = [], route = {}) => {
   // For non-listing intents, avoid returning random latest listings cards.
   if (intent !== 'listing_discovery') return [];
 
   const hints = extractSearchHints(message);
+  if (route.priceMin != null) hints.priceMin = route.priceMin;
+  if (route.priceMax != null) hints.priceMax = route.priceMax;
+  const searchTerms = buildSearchTerms({ hints, route, history, message });
   const query = {
     status: { $nin: ['archived', 'sold', 'blocked'] },
   };
 
-  let contextualToken = null;
-  if (!hints.category && !hints.tokens.length && hasPriceConstraint(message)) {
-    contextualToken = inferListingContextFromHistory(history);
-  }
+  if (hints.category) query.category = hints.category;
 
-  if (hints.category || hints.tokens.length || contextualToken) {
-    const searchTerms = hints.category
-      ? [hints.category, ...hints.tokens.slice(0, 2)]
-      : contextualToken
-        ? [contextualToken, ...hints.tokens.slice(0, 2)]
-        : hints.tokens.slice(0, 3);
-
-    const termRegex = searchTerms.map((term) => ({
-      $regex: escapeRegex(term),
-      $options: 'i',
-    }));
-
-    query.$or = [
-      ...termRegex.map((regex) => ({ category: regex })),
-      ...termRegex.map((regex) => ({ title: regex })),
-      ...termRegex.map((regex) => ({ description: regex })),
-      ...termRegex.map((regex) => ({ tags: regex })),
-    ];
-  } else {
-    // Query has no meaningful search signal; avoid unrelated recommendation spam.
-    return [];
+  if (searchTerms.length) {
+    query.$and = searchTerms.slice(0, 4).map((term) => {
+      const regex = { $regex: escapeRegex(term), $options: 'i' };
+      return {
+        $or: [
+          { title: regex },
+          { description: regex },
+          { tags: regex },
+        ],
+      };
+    });
   }
 
   if (hints.priceMin || hints.priceMax) {
@@ -154,18 +209,32 @@ const getRelevantListings = async (message, intent, history = []) => {
     if (hints.priceMax) query.price.$lte = hints.priceMax;
   }
 
+  if (!searchTerms.length && !hints.category && !hints.priceMin && !hints.priceMax) {
+    // Query has no meaningful search signal; avoid unrelated recommendation spam.
+    return [];
+  }
+
   const listings = await Listing.find(query)
-    .select('title price category condition images createdAt')
-    .sort({ createdAt: -1 })
-    .limit(5)
+    .select('title description price category condition listingType tags images createdAt')
+    .sort(hints.priceMax && !searchTerms.length ? { price: 1, createdAt: -1 } : { createdAt: -1 })
+    .limit(12)
     .lean();
 
-  return listings.map((item) => ({
+  const filtered = searchTerms.length
+    ? listings
+      .map((item) => ({ item, score: scoreListing(item, searchTerms) }))
+      .filter(({ item, score }) => score > 0 && searchTerms.every((term) => getListingText(item).includes(term)))
+      .sort((a, b) => b.score - a.score || Number(a.item.price || 0) - Number(b.item.price || 0))
+      .map(({ item }) => item)
+    : listings;
+
+  return filtered.slice(0, 3).map((item) => ({
     id: item._id,
     title: item.title,
     price: item.price,
     category: item.category,
     condition: item.condition,
+    listingType: item.listingType,
     image: item.images?.[0]?.url || null,
   }));
 };
@@ -215,31 +284,60 @@ const getRelevantShares = async (message, user, intent) => {
   }));
 };
 
-const buildSystemPrompt = ({ user }) => {
+const buildSystemPrompt = ({ user, intent }) => {
   const collegeDomain = user?.collegeDomain || 'unknown campus';
+  const taskInstruction = intent === 'listing_discovery'
+    ? 'The user is searching listings. Use only supplied matched listings. Do not mention products that are not supplied.'
+    : intent === 'sharing'
+      ? 'The user is searching sharing options. Use only supplied matched shares. Do not invent routes, prices, or members.'
+      : intent === 'support_help'
+        ? 'The user needs support or safety guidance. Explain the exact report, notification, admin review, or dispute path from the guide.'
+        : 'The user is asking how the platform works. Answer from the UniConnect navigation guide.';
+
   return [
     'You are UniConnect Assistant for a student marketplace app.',
-    'Primary tasks: explain product behavior, help users find listings, and provide support guidance.',
-    'Never claim to perform transactions. Instead guide the user to relevant app pages and steps.',
-    'Be concise and practical in 3-6 lines.',
+    taskInstruction,
+    'Never claim to perform transactions. Guide the user to the exact page or button.',
+    'Do not say there is a "Sell" button. Listing an item is done from My Listings > + Create or Create Listing.',
+    'Keep answers short, practical, and free of markdown formatting.',
     `User campus context: ${collegeDomain}`,
+    PLATFORM_GUIDE,
   ].join('\n');
 };
 
-const buildUserPrompt = ({ message, listings, shares }) => {
+const buildUserPrompt = ({ message, listings, shares, intent }) => {
   const listingsSummary = listings.length
-    ? `Relevant listings:\n${listings
-      .map((item, index) => `${index + 1}. ${item.title} | INR ${item.price} | ${item.category}`)
+    ? `Matched listings (max 3):\n${listings
+      .map((item, index) => `${index + 1}. id=${item.id} | ${item.title} | INR ${item.price} | ${item.category} | ${item.listingType || 'buy-now'}`)
       .join('\n')}`
-    : 'Relevant listings: none';
+    : 'Matched listings: none';
 
   const sharesSummary = shares.length
-    ? `Relevant shares:\n${shares
+    ? `Matched shares (max 3):\n${shares
       .map((item, index) => `${index + 1}. ${item.name} | ${item.shareType} | INR ${item.totalAmount}`)
       .join('\n')}`
-    : 'Relevant shares: none';
+    : 'Matched shares: none';
 
-  return `${listingsSummary}\n${sharesSummary}\n\nUser query: ${message}`;
+  if (intent === 'listing_discovery') {
+    return [
+      listingsSummary,
+      'If matched listings are none, say no matching listings were found and ask for a more specific item or budget.',
+      `User query: ${message}`,
+    ].join('\n');
+  }
+
+  if (intent === 'sharing') {
+    return [
+      sharesSummary,
+      'If matched shares are none, say no matching sharing options were found and suggest checking Sharing.',
+      `User query: ${message}`,
+    ].join('\n');
+  }
+
+  return [
+    'Answer from the UniConnect navigation guide only.',
+    `User query: ${message}`,
+  ].join('\n');
 };
 
 const callGemini = async ({ prompt, history, systemPrompt }) => {
@@ -262,7 +360,7 @@ const callGemini = async ({ prompt, history, systemPrompt }) => {
 
   let lastReason = 'gemini_error';
 
-  for (const modelName of GEMINI_MODEL_CANDIDATES) {
+  for (const modelName of GEMINI_MODEL_ORDER) {
     try {
       const { data } = await axios.post(
         `${GEMINI_BASE_URL}/models/${modelName}:generateContent?key=${apiKey}`,
@@ -294,11 +392,17 @@ const callGemini = async ({ prompt, history, systemPrompt }) => {
 
       return { text, reason: null, model: modelName };
     } catch (err) {
+      // Treat HTTP 429 (too many requests) as quota/rate-limited and try next model.
+      if (err?.response?.status === 429) {
+        lastReason = 'quota_exceeded';
+        continue;
+      }
+
       const rawReason = err?.response?.data?.error?.message || err?.message || 'gemini_error';
       const reason = normalizeGeminiReason(rawReason);
       lastReason = reason;
 
-      // Retry with next model when the model is unavailable or model-specific limits/errors occur.
+      // Retry with the next model when the model is unavailable or model-specific limits/errors occur.
       if (reason === 'model_unavailable' || reason === 'quota_exceeded' || reason === 'gemini_error') {
         continue;
       }
@@ -311,13 +415,212 @@ const callGemini = async ({ prompt, history, systemPrompt }) => {
   return { text: null, reason: lastReason, model: null };
 };
 
-const fallbackReply = ({ message, listings, shares, intent, fallbackReason }) => {
+const extractJsonObject = (raw = '') => {
+  const cleaned = String(raw || '')
+    .trim()
+    .replace(/^```(?:json)?/i, '')
+    .replace(/```$/i, '')
+    .trim();
+  const start = cleaned.indexOf('{');
+  const end = cleaned.lastIndexOf('}');
+  if (start === -1 || end === -1 || end <= start) return null;
+
+  try {
+    return JSON.parse(cleaned.slice(start, end + 1));
+  } catch {
+    return null;
+  }
+};
+
+const normalizeIntent = (value) => {
+  const allowed = new Set(['listing_discovery', 'sharing', 'app_qa', 'support_help']);
+  const normalized = String(value || '').trim().toLowerCase();
+  return allowed.has(normalized) ? normalized : 'app_qa';
+};
+
+const toNumberOrNull = (value) => {
+  if (value === null || value === undefined || value === '') return null;
+  const number = Number(value);
+  return Number.isFinite(number) ? number : null;
+};
+
+const sanitizeSearchTerms = (terms = []) => {
+  const rawTerms = Array.isArray(terms) ? terms : tokenizeQuery(String(terms || ''));
+  return [...new Set(rawTerms
+    .flatMap((term) => tokenizeQuery(String(term || '')))
+    .map(normalizeSearchTerm)
+    .filter((term) => term.length >= 3 && !/^\d+$/.test(term) && !STOP_WORDS.has(term) && !LISTING_CATEGORIES.has(term)))]
+    .slice(0, 4);
+};
+
+const fallbackClassify = (message, history = []) => {
+  const intent = detectIntent(message);
+  const hints = extractSearchHints(message);
+  let searchTerms = intent === 'listing_discovery' ? sanitizeSearchTerms(hints.tokens) : [];
+
+  if (intent === 'listing_discovery' && !searchTerms.length && hasPriceConstraint(message)) {
+    const contextualToken = inferListingContextFromHistory(history);
+    if (contextualToken) searchTerms = sanitizeSearchTerms([contextualToken]);
+  }
+
+  return {
+    intent,
+    searchQuery: searchTerms.join(' '),
+    searchTerms,
+    priceMin: hints.priceMin,
+    priceMax: hints.priceMax,
+    source: 'fallback',
+  };
+};
+
+const buildClassificationPrompt = ({ message, history }) => {
+  const recentUserTurns = Array.isArray(history)
+    ? history
+      .filter((turn) => turn?.role === 'user' && turn.content)
+      .slice(-3)
+      .map((turn) => `- ${String(turn.content).slice(0, 180)}`)
+      .join('\n')
+    : '';
+
+  return [
+    'Classify the latest UniConnect assistant message. Return JSON only.',
+    'Intents:',
+    '- listing_discovery: user wants matching marketplace/rental listing cards, a product search, item availability, or a budget-filtered product result.',
+    '- sharing: user wants matching cab/food/product sharing group cards to join, such as "food sharing under 300" or "cab sharing to airport".',
+    '- app_qa: user asks what the platform is, how to navigate, how to list/create an item, how to create/list a sharing group, how to share expenses/split bills, how bidding/offers/rentals work, or where a feature lives.',
+    '- support_help: user asks about reports, scams, abuse, disputes, account help, moderation, or safety support.',
+    'Rules:',
+    '- For "how to list/create/sell an item", choose app_qa, not listing_discovery.',
+    '- For "how to share expense", "how to split a bill", or "how to list/create a sharing", choose app_qa, not sharing.',
+    '- For a short noun like "painting" or "laptop under 30000", choose listing_discovery.',
+    '- searchQuery/searchTerms must contain only the product or share target, not generic words like product, listing, platform, app, item, cheap, under, find, or search.',
+    '- Do not invent any products or platform labels.',
+    'Return exactly this JSON shape:',
+    '{"intent":"listing_discovery|sharing|app_qa|support_help","searchQuery":"","searchTerms":[],"priceMin":null,"priceMax":null}',
+    recentUserTurns ? `Recent user-only context:\n${recentUserTurns}` : 'Recent user-only context: none',
+    `Latest message: ${message}`,
+  ].join('\n');
+};
+
+const classifyMessage = async ({ message, history }) => {
+  const fallback = fallbackClassify(message, history);
+
+  if (!process.env.GEMINI_API_KEY) {
+    return fallback;
+  }
+
+  const result = await callGemini({
+    prompt: buildClassificationPrompt({ message, history }),
+    history: [],
+    systemPrompt: [
+      'You classify UniConnect assistant requests before any product data is fetched.',
+      'Return valid JSON only and never include markdown.',
+      PLATFORM_GUIDE,
+    ].join('\n'),
+  });
+
+  const parsed = extractJsonObject(result.text);
+  if (!parsed) {
+    return { ...fallback, source: 'fallback', classificationReason: result.reason || 'invalid_json' };
+  }
+
+  const intent = normalizeIntent(parsed.intent);
+  const forceContextualListing = fallback.intent === 'listing_discovery'
+    && fallback.searchTerms.length > 0
+    && isPriceOnlyListingQuery(message);
+  const resolvedIntent = isShareGuidanceQuery(message)
+    ? 'app_qa'
+    : forceContextualListing
+      ? 'listing_discovery'
+      : intent;
+  const priceMin = toNumberOrNull(parsed.priceMin) ?? fallback.priceMin;
+  const priceMax = toNumberOrNull(parsed.priceMax) ?? fallback.priceMax;
+  const parsedTerms = sanitizeSearchTerms(parsed.searchTerms?.length ? parsed.searchTerms : parsed.searchQuery);
+  const searchTerms = resolvedIntent === 'listing_discovery'
+    ? (parsedTerms.length ? parsedTerms : fallback.searchTerms)
+    : [];
+
+  return {
+    intent: resolvedIntent,
+    searchQuery: resolvedIntent === 'listing_discovery'
+      ? (searchTerms.join(' ') || String(parsed.searchQuery || '').trim())
+      : '',
+    searchTerms,
+    priceMin,
+    priceMax,
+    source: 'gemini',
+    model: result.model,
+  };
+};
+
+const cleanReply = (reply = '') => String(reply || '')
+  .replace(/\*\*([^*]+)\*\*/g, '$1')
+  .replace(/\s+\n/g, '\n')
+  .trim();
+
+const isSessionMemoryQuery = (message = '') => {
+  const text = String(message || '').toLowerCase();
+  return /\b(remember|past messages?|previous messages?|searched before|search history|what have i searched|what did i search|earlier messages?)\b/.test(text);
+};
+
+const getRecentUserMessages = (history = []) => {
+  if (!Array.isArray(history)) return [];
+  return history
+    .filter((turn) => turn?.role === 'user' && String(turn.content || '').trim())
+    .map((turn) => String(turn.content).trim())
+    .filter((content) => !/^(hi|hello|hey|hii|yo|thanks|thank you)\b/i.test(content));
+};
+
+const buildSessionMemoryReply = ({ message, history }) => {
+  const text = String(message || '').toLowerCase();
+  const userMessages = getRecentUserMessages(history);
+
+  if (!userMessages.length) {
+    return 'I can remember messages from this open assistant session only, but I do not see any earlier messages in this chat yet.';
+  }
+
+  const wantsSearches = /\b(search|searched|find|looked)\b/.test(text);
+  const relevantMessages = wantsSearches
+    ? userMessages.filter((content) => detectIntent(content) === 'listing_discovery')
+    : userMessages;
+  const messagesToShow = (relevantMessages.length ? relevantMessages : userMessages).slice(-5);
+
+  if (wantsSearches) {
+    return `In this session, you searched for: ${messagesToShow.map((content) => `"${content}"`).join(', ')}.`;
+  }
+
+  return `Yes, within this open assistant session. Your recent messages were: ${messagesToShow.map((content) => `"${content}"`).join(', ')}.`;
+};
+
+const fallbackReply = ({ message, listings, shares, intent, fallbackReason, route }) => {
   const isListingIntent = /find|show|search|recommend|under|below|above|near|rent/i.test(message);
   const isSharingIntent = /share|sharing|split|bill|group order|cab|ride|food/i.test(message);
   const isGreeting = /^(hi|hello|hey|hii|yo)\b/i.test(String(message || '').trim());
+  const text = String(message || '').toLowerCase();
+  const searchLabel = route?.searchQuery || sanitizeSearchTerms(tokenizeQuery(message)).join(' ');
 
   if (isGreeting) {
     return 'Hello! I can help you find listings, explore sharing options, and explain app features. What do you want to do right now?';
+  }
+
+  if (/\b(list|create|post|upload|sell)\b/.test(text) && /\b(item|listing|product|sell|rental)\b/.test(text)) {
+    return 'To list an item, open My Listings from the navbar, click + Create, then fill the title, description, price, category, listing type, tags, location, and image. For rentals, open Rental and click + Create. There is no Sell button.';
+  }
+
+  if (/\bwhat\b.*\b(platform|uniconnect|app)\b/.test(text) || /\bplatform\b.*\b(works?|about)\b/.test(text)) {
+    return 'UniConnect is a campus marketplace for students to browse and create listings, rent items, join sharing groups, chat with other users, make offers, bid in auctions, and manage notifications.';
+  }
+
+  if (isShareGuidanceQuery(message)) {
+    if (/\bjoin|request\b/.test(text)) {
+      return 'To join a share, open Sharing, check Available Shares, open the share card, and tap Join. Your request appears under My Requests, and the host can approve or reject it from Received Requests.';
+    }
+
+    if (/\bapprove|reject|finalize|complete|manage\b/.test(text)) {
+      return 'To manage a share, open Sharing. Your hosted shares are under My Sharing, join requests appear in Received Requests, and you can approve, reject, update, delete, or finalize a share from its card.';
+    }
+
+    return 'To share an expense or list a sharing, open Sharing from the navbar, go to My Sharing, click + Create, choose Type of Sharing, enter the total amount and split type, then submit Create Share. Other users can request to join from Available Shares.';
   }
 
   if (intent === 'sharing' || isSharingIntent) {
@@ -330,15 +633,20 @@ const fallbackReply = ({ message, listings, shares, intent, fallbackReason }) =>
     return 'I can help with sharing. Try a query like "food sharing under 300" or "cab sharing to airport".';
   }
 
-  if (isListingIntent && listings.length) {
+  if ((intent === 'listing_discovery' || isListingIntent) && listings.length) {
+    if (listings.length === 1) {
+      const [item] = listings;
+      return `I found 1 matching listing${searchLabel ? ` for "${searchLabel}"` : ''}: ${item.title} - INR ${item.price}. Open the card below to view details.`;
+    }
+
     const top = listings.slice(0, 3)
       .map((item) => `${item.title} (INR ${item.price})`)
       .join(', ');
-    return `I found relevant options: ${top}. Open Marketplace to compare details and message sellers.`;
+    return `I found ${listings.length} matching listings${searchLabel ? ` for "${searchLabel}"` : ''}: ${top}. Open a card below to view details.`;
   }
 
-  if (isListingIntent) {
-    return `I could not find a strong match for "${String(message).trim()}". Try a clearer query like "laptop under 30000" or "bike near hostel".`;
+  if (intent === 'listing_discovery' || isListingIntent) {
+    return `I could not find matching listings${searchLabel ? ` for "${searchLabel}"` : ''}. Try a different item or budget, or browse Marketplace filters.`;
   }
 
   if (/bid|bidding|auction/i.test(message)) {
@@ -374,10 +682,10 @@ const fallbackReply = ({ message, listings, shares, intent, fallbackReason }) =>
       return 'I can help with sharing too. Try "food sharing under 300" or "cab sharing to airport".';
     }
 
-    return 'I can still help. Ask me in a goal-based way like "find chairs under 500", "food sharing under 300", or "how bidding works".';
+    return 'Use Home for an overview, Marketplace to browse listings, My Listings > + Create to list an item, Rental for rentals, Sharing for groups, Chat for messages, Notifications for updates, and Profile for your account/location.';
   }
 
-  return `I did not fully understand "${String(message || '').trim()}". Try a clearer goal like "find chairs under 500", "food sharing under 300", or "how bidding works".`;
+  return 'Use Home for an overview, Marketplace to browse listings, My Listings > + Create to list an item, Rental for rentals, Sharing for groups, Chat for messages, Notifications for updates, and Profile for your account/location.';
 };
 
 const detectIntent = (message) => {
@@ -385,6 +693,7 @@ const detectIntent = (message) => {
   const tokens = tokenizeQuery(text);
   const isQuestionStyle = /\b(how|what|why|when|where|who|can|does|do|is|are)\b/.test(text);
 
+  if (isShareGuidanceQuery(message)) return 'app_qa';
   if (/share|sharing|split|group order|bill split|cab share|food share|ride share/.test(text)) return 'sharing';
   if (/bid|bidding|auction/.test(text)) return 'app_qa';
   if (/find|show|search|recommend|under|below|above|rent|buy/.test(text)) return 'listing_discovery';
@@ -403,12 +712,79 @@ const detectIntent = (message) => {
 };
 
 const generateAssistantReply = async ({ user, message, history }) => {
-  const intent = detectIntent(message);
-  const listings = await getRelevantListings(message, intent, history);
+  if (isSessionMemoryQuery(message)) {
+    return {
+      intent: 'app_qa',
+      reply: buildSessionMemoryReply({ message, history }),
+      listings: [],
+      shares: [],
+      meta: {
+        model: 'session-memory',
+        responseMode: 'structured',
+        fallbackReason: null,
+        routeSource: 'session-memory',
+        searchQuery: null,
+        sessionMemory: 'client-side only',
+        timestamp: Date.now(),
+      },
+    };
+  }
+
+  if (isShareGuidanceQuery(message)) {
+    return {
+      intent: 'app_qa',
+      reply: fallbackReply({
+        message,
+        listings: [],
+        shares: [],
+        intent: 'app_qa',
+        route: { source: 'platform-guide', searchQuery: '' },
+      }),
+      listings: [],
+      shares: [],
+      meta: {
+        model: 'structured',
+        responseMode: 'structured',
+        fallbackReason: null,
+        routeSource: 'platform-guide',
+        searchQuery: null,
+        sessionMemory: 'client-side only',
+        timestamp: Date.now(),
+      },
+    };
+  }
+
+  const route = await classifyMessage({ message, history });
+  const intent = route.intent;
+  const listings = await getRelevantListings(message, intent, history, route);
   const shares = await getRelevantShares(message, user, intent);
 
-  const systemPrompt = buildSystemPrompt({ user });
-  const userPrompt = buildUserPrompt({ message, listings, shares });
+  if (['listing_discovery', 'sharing'].includes(intent)) {
+    return {
+      intent,
+      reply: fallbackReply({
+        message,
+        listings,
+        shares,
+        intent,
+        route,
+      }),
+      listings,
+      shares,
+      meta: {
+        model: 'structured',
+        responseMode: 'structured',
+        fallbackReason: null,
+        routeSource: route.source,
+        searchQuery: route.searchQuery || null,
+        sessionMemory: 'client-side only',
+        timestamp: Date.now(),
+      },
+    };
+  }
+
+  const systemPrompt = buildSystemPrompt({ user, intent });
+  const userPrompt = buildUserPrompt({ message, listings, shares, intent, route });
 
   const geminiResult = await callGemini({
     prompt: userPrompt,
@@ -416,7 +792,7 @@ const generateAssistantReply = async ({ user, message, history }) => {
     systemPrompt,
   });
 
-  let reply = geminiResult.text;
+  let reply = cleanReply(geminiResult.text);
   let responseMode = 'gemini';
 
   if (!reply) {
@@ -426,6 +802,7 @@ const generateAssistantReply = async ({ user, message, history }) => {
       shares,
       intent,
       fallbackReason: geminiResult.reason,
+      route,
     });
     responseMode = 'fallback';
   }
@@ -436,9 +813,11 @@ const generateAssistantReply = async ({ user, message, history }) => {
     listings,
     shares,
     meta: {
-      model: responseMode === 'gemini' ? (geminiResult.model || GEMINI_MODEL_CANDIDATES[0]) : 'fallback',
+      model: responseMode === 'gemini' ? (geminiResult.model || GEMINI_MODEL_ORDER[0]) : 'fallback',
       responseMode,
       fallbackReason: responseMode === 'fallback' ? geminiResult.reason : null,
+      routeSource: route.source,
+      searchQuery: route.searchQuery || null,
       sessionMemory: 'client-side only',
       timestamp: Date.now(),
     },

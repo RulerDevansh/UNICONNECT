@@ -22,7 +22,8 @@ UniConnect is an all-in-one campus platform where students can:
 - Browse and search listings by category, tags, price range, and college domain
 - Create listings with up to 5 images (uploaded to Cloudinary, max 5 MB each)
 - Edit and delete your own listings
-- Listing detail page with full info, images, and seller contact
+- Listing detail page with full info, images, location, and seller contact
+- View product location (latitude, longitude, address) on product detail page
 - Listings are filtered to show content relevant to the user's college domain
 
 ### 🔨 Bidding / Auctions
@@ -44,6 +45,13 @@ UniConnect is an all-in-one campus platform where students can:
 - Finalize a share to lock in the split amounts
 - View all your active and past shares
 
+### 📍 Location-Based Recommendations
+- Automatic geolocation collection when users log in and create listings/shares
+- Haversine distance formula for accurate geographic calculations
+- Smart location-based recommendations on Home page showing nearby products and shares
+- Only displayed when ML service is available (graceful degradation)
+- K-means clustering algorithm for grouping products by location
+
 ### 🏠 Rentals
 - Create and discover rental listings using `listingType: rental`
 - Set per-day rental pricing with availability window and minimum rental days
@@ -64,6 +72,11 @@ UniConnect is an all-in-one campus platform where students can:
 - FastAPI microservice provides personalized listing recommendations
 - Moderation heuristics flag suspicious or policy-violating listings automatically before admin review
 - Trained recommender model (`recommender.joblib`)
+
+### 💬 AI Assistant (Gemini)
+- Gemini-powered chatbot helps explain app features, rentals, sharing, bidding, reports, and admin flows
+- Uses live product and sharing search results so answers stay grounded in current app data
+- Automatically falls back across Gemini models when one is rate-limited or unavailable
 
 ### 🛡️ Admin Dashboard
 - View and manage flagged/reported listings
@@ -210,6 +223,11 @@ SMTP_PASS=your-16-char-app-password
 
 ML_SERVICE_URL=http://localhost:8001
 
+GEMINI_API_KEY=your-gemini-api-key
+GEMINI_BASE_URL=https://generativelanguage.googleapis.com/v1beta
+AI_RATE_LIMIT_MAX=20
+AI_ASSISTANT_ENABLED=true
+
 RATE_LIMIT_WINDOW_MS=60000
 RATE_LIMIT_MAX=120
 ```
@@ -241,7 +259,10 @@ cd backend && npm test
 cd frontend && npm run test
 
 # ML Service
-cd ml_service && pytest
+cd ml_service && source .venv/bin/activate && pytest
+
+# Test location-based recommendations (when ML service is running)
+curl -X POST http://localhost:8001/health
 ```
 
 ---

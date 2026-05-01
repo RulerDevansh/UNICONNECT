@@ -158,10 +158,10 @@ const Navbar = () => {
                   {getInitials()}
                 </button>
                 {showProfileDropdown && (
-                  <div className="absolute right-0 top-full mt-2 w-48 rounded-lg border border-slate-800 bg-slate-900 py-2 shadow-xl">
+                  <div className="absolute right-0 top-full z-50 mt-2 w-56 max-w-[calc(100vw-1.5rem)] overflow-hidden rounded-lg border border-slate-800 bg-slate-900 py-2 shadow-xl">
                     <div className="border-b border-slate-800 px-4 py-2">
-                      <p className="text-sm font-semibold text-white">{user.name}</p>
-                      <p className="text-xs text-slate-400">{user.email}</p>
+                      <p className="text-sm font-semibold text-white truncate">{user.name}</p>
+                      <p className="text-xs text-slate-400 truncate">{user.email}</p>
                     </div>
                     <button
                       onClick={() => {

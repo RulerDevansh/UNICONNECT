@@ -19,7 +19,7 @@ const sendNotification = async ({ userId, type, title, message, shareId }) => {
       io.to(`user:${userId}`).emit('notification', notification);
     }
     return notification;
-  } catch (_err) {
+  } catch {
     return null;
   }
 };

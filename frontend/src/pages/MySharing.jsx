@@ -40,8 +40,8 @@ const MySharing = () => {
   const [myShares, setMyShares] = useState([]);
   const [form, setForm] = useState(defaultForm);
   const [error, setError] = useState('');
-  const [successMessage, setSuccessMessage] = useState('');
-  const [joiningId, setJoiningId] = useState('');
+  const [, setSuccessMessage] = useState('');
+  const [joiningId] = useState('');
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [showUpdateForm, setShowUpdateForm] = useState(false);
   const [updateShareId, setUpdateShareId] = useState(null);
@@ -89,7 +89,7 @@ const MySharing = () => {
         return isHost;
       });
       setMyShares(hostShares);
-    } catch (_err) {
+    } catch {
       // handled by error state
     }
   };
@@ -1010,7 +1010,7 @@ const MySharing = () => {
             ))}
           </div>
         ) : (
-          <p className="text-sm text-slate-400">You haven't created any shares yet.</p>
+          <p className="text-sm text-slate-400">You haven&apos;t created any shares yet.</p>
         )}
       </section>
     </main>

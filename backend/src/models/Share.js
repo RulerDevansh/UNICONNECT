@@ -63,11 +63,20 @@ const shareSchema = new mongoose.Schema(
       default: [],
     },
     status: { type: String, enum: ['open', 'closed'], default: 'open' },
+    location: {
+      latitude: { type: Number },
+      longitude: { type: Number },
+      address: { type: String },
+      accuracy: { type: Number },
+      source: { type: String, enum: ['browser', 'manual'], default: 'manual' },
+      updatedAt: { type: Date },
+    },
   },
   { timestamps: true }
 );
 
 shareSchema.index({ host: 1, status: 1 });
 shareSchema.index({ collegeDomain: 1, status: 1 });
+shareSchema.index({ 'location.latitude': 1, 'location.longitude': 1 });
 
 module.exports = mongoose.model('Share', shareSchema);

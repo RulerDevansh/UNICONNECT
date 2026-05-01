@@ -10,18 +10,18 @@ describe('checkAlcoholImage', () => {
   });
 
   it('marks beer bottle predictions as blocked', async () => {
-    axios.post.mockResolvedValue({
-      data: {
-        predicted_label: 'Beer Bottle',
-        confidence: 0.95,
-        is_beer: true,
-        flagged: true,
-        scores: { 'Beer Bottle': 0.95, 'Plastic Bottle': 0.05 },
-      },
-    });
-
     let checkAlcoholImage;
     jest.isolateModules(() => {
+      const isolatedAxios = require('axios');
+      isolatedAxios.post.mockResolvedValue({
+        data: {
+          predicted_label: 'Beer Bottle',
+          confidence: 0.95,
+          is_beer: true,
+          flagged: true,
+          scores: { 'Beer Bottle': 0.95, 'Plastic Bottle': 0.05 },
+        },
+      });
       ({ checkAlcoholImage } = require('../services/moderationService'));
     });
 
@@ -80,6 +80,15 @@ describe('createListing alcohol policy', () => {
     jest.doMock('../models/Chat', () => ({}));
     jest.doMock('../models/Message', () => ({}));
     jest.doMock('../models/Report', () => reportModelMock);
+    jest.doMock('../models/User', () => ({
+      find: jest.fn(() => ({ lean: jest.fn().mockResolvedValue([]) })),
+    }));
+    jest.doMock('../models/Notification', () => ({
+      create: jest.fn().mockResolvedValue({}),
+    }));
+    jest.doMock('../services/socketService', () => ({
+      getIO: jest.fn(() => null),
+    }));
     jest.doMock('../services/moderationService', () => serviceMock);
 
     let createListing;

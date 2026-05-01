@@ -11,7 +11,6 @@ const STARTER_MESSAGE = {
 
 const AIAssistantWidget = () => {
 	const { isAuthenticated, loading } = useAuth();
-	const assistantEnabled = String(import.meta.env.VITE_AI_ASSISTANT_ENABLED ?? 'true').toLowerCase() !== 'false';
 	const [open, setOpen] = useState(false);
 	const [input, setInput] = useState('');
 	const [messages, setMessages] = useState([STARTER_MESSAGE]);
@@ -27,7 +26,7 @@ const AIAssistantWidget = () => {
 	const requestHistory = useMemo(
 		() =>
 			messages
-				.slice(-8)
+				.slice(-12)
 				.filter((m) => m.role === 'assistant' || m.role === 'user')
 				.map((m) => ({ role: m.role, content: m.content })),
 		[messages]
@@ -78,7 +77,7 @@ const AIAssistantWidget = () => {
 		setShowClearConfirm(false);
 	};
 
-	if (!assistantEnabled || loading || !isAuthenticated) return null;
+	if (loading || !isAuthenticated) return null;
 
 	return (
 		<>
@@ -157,23 +156,45 @@ const AIAssistantWidget = () => {
 									{Array.isArray(message.listings) && message.listings.length > 0 && (
 										<div className="mt-2 space-y-2">
 											{message.listings.slice(0, 3).map((item) => (
-												<div key={item.id} className="rounded border border-slate-600 bg-slate-900/70 p-2 text-xs text-slate-200">
-													<p className="font-medium text-slate-100">{item.title}</p>
-													<p>{item.category} • INR {item.price}</p>
-												</div>
+												<a
+													key={item.id}
+													href={`/listings/${item.id}`}
+													aria-label={`Open ${item.title} listing`}
+													className="block rounded border border-slate-600 bg-slate-900/70 p-2 text-xs text-slate-200 transition hover:border-brand-primary hover:bg-slate-900 focus:outline-none focus:ring-2 focus:ring-brand-primary/70"
+												>
+													<div className="flex items-center gap-2">
+														{item.image && (
+															<img
+																src={item.image}
+																alt=""
+																className="h-10 w-10 flex-none rounded object-cover"
+																loading="lazy"
+															/>
+														)}
+														<div className="min-w-0">
+															<p className="truncate font-medium text-slate-100">{item.title}</p>
+															<p>{item.category} • INR {item.price}</p>
+														</div>
+													</div>
+												</a>
 											))}
 										</div>
 									)}
 									{Array.isArray(message.shares) && message.shares.length > 0 && (
 										<div className="mt-2 space-y-2">
 											{message.shares.slice(0, 3).map((item) => (
-												<div key={item.id} className="rounded border border-cyan-700/60 bg-cyan-950/40 p-2 text-xs text-cyan-100">
+												<a
+													key={item.id}
+													href="/shares"
+													aria-label={`Open ${item.name} sharing option`}
+													className="block rounded border border-cyan-700/60 bg-cyan-950/40 p-2 text-xs text-cyan-100 transition hover:border-cyan-400 hover:bg-cyan-950/60 focus:outline-none focus:ring-2 focus:ring-cyan-400/70"
+												>
 													<p className="font-medium text-cyan-50">{item.name}</p>
 													<p>{item.shareType} • INR {item.totalAmount}</p>
 													{item.route && <p>{item.route}</p>}
 													{item.foodItems && <p>{item.foodItems}</p>}
 													{item.productName && <p>{item.productName}</p>}
-												</div>
+												</a>
 											))}
 										</div>
 									)}

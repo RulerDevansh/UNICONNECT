@@ -4,6 +4,9 @@ const toPlain = (member) =>
 const calculateSplit = (share, overrides = []) => {
   const activeMembers = share.members.filter((m) => m.status === 'joined');
   if (!activeMembers.length) return [];
+  const overrideByUserId = new Map(
+    overrides.map((override) => [String(override.userId), override])
+  );
 
   if (share.splitType === 'equal') {
     const amount = Number((share.totalAmount / activeMembers.length).toFixed(2));
@@ -15,7 +18,7 @@ const calculateSplit = (share, overrides = []) => {
 
   if (share.splitType === 'percentage') {
     return activeMembers.map((member) => {
-      const override = overrides.find((o) => o.userId === member.user.toString());
+      const override = overrideByUserId.get(member.user.toString());
       const pct = override?.percentage ?? member.percentage ?? 0;
       return {
         ...toPlain(member),
@@ -34,7 +37,7 @@ const calculateSplit = (share, overrides = []) => {
     : 0;
 
   return activeMembers.map((member) => {
-    const override = overrides.find((o) => o.userId === member.user.toString());
+    const override = overrideByUserId.get(member.user.toString());
     const base = toPlain(member);
 
     if (member.user.toString() === hostId) {

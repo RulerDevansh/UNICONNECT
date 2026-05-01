@@ -139,9 +139,7 @@ const UserHistory = () => {
               allHostShares.map((share) => {
                 // Check if trip/order was completed or cancelled
                 const joinedCount = share.members.filter(m => m.status === 'joined').length;
-                const cancelledCount = share.members.filter(m => m.status === 'cancelled').length;
-                const totalMembers = share.members.length;
-                
+
                 // Check minimum requirements for food and other sharing
                 let meetsMinimum = true;
                 if (share.shareType === 'food' && share.minPersons) {

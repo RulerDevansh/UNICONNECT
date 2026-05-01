@@ -86,19 +86,10 @@ const AdminListings = () => {
             const sellerName = listing.seller?.name || '';
             const sellerEmail = listing.seller?.email || 'unknown';
             const source = listing.moderation?.source || (listing.moderation?.reportedBy ? 'report' : 'system');
-            const showCriteria = scoreValue === 0 || scoreValue === null;
             const rawReason = listing.moderation?.reason || 'other';
             const formattedReason = rawReason.startsWith('keyword:')
               ? `${rawReason.replace('keyword:', '').trim()} (keyword)`
               : rawReason;
-            const criteria = [
-              listing.moderation?.reason ? `Reason: ${listing.moderation.reason}` : null,
-              listing.mlPredictionLabel ? `Label: ${listing.mlPredictionLabel}` : null,
-              Number.isFinite(listing.mlConfidence)
-                ? `ML confidence: ${Math.round(listing.mlConfidence * 100)}%`
-                : null,
-              listing.mlNeedsReview ? 'Needs review: true' : null,
-            ].filter(Boolean);
             const rawReportReason = listing.moderation?.reportReason || '';
             const rawReportDetails = listing.moderation?.reportMessage || '';
             const combinedMatch = rawReportDetails.match(/^User provided reason:\s*(.+?)\s*Details:\s*(.+)$/i);

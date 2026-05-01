@@ -31,7 +31,7 @@ const ForgotPassword = () => {
       <div className="rounded-2xl sm:rounded-3xl border border-slate-800 bg-slate-900/70 p-6 sm:p-8 shadow-2xl shadow-black/40">
         <h1 className="text-2xl sm:text-3xl font-semibold text-white">Forgot password?</h1>
         <p className="mt-2 text-sm text-slate-400">
-          Enter your registered email and we'll send a 6-digit code to reset your password.
+          Enter your registered email and we&apos;ll send a 6-digit code to reset your password.
         </p>
 
         {message && (

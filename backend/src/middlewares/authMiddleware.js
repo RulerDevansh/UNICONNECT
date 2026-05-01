@@ -23,7 +23,7 @@ const auth = (roles = []) => (req, res, next) => {
     }
     req.user = decoded;
     next();
-  } catch (_err) {
+  } catch {
     return res.status(401).json({ message: 'Invalid token' });
   }
 };

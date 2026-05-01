@@ -16,7 +16,7 @@ const { getIO } = require('../services/socketService');
 const TEMP_DIR = path.join(__dirname, '../../tmp');
 if (!fs.existsSync(TEMP_DIR)) fs.mkdirSync(TEMP_DIR);
 
-const BEER_BLOCK_MESSAGE = 'Your listing appears to contain an abusive product and cannot be posted. If you think this is an error, request review.';
+const BEER_BLOCK_MESSAGE = 'Your listing appears to contain a beer bottle or restricted product and cannot be posted. If you think this is an error, request review.';
 const TEXT_BLOCK_MESSAGE = 'Your listing appears to contain blocked keywords and cannot be posted. If you think this is an error, request review.';
 
 const normalizeRentalPayload = (rental = {}) => {
@@ -79,7 +79,7 @@ const notifyAdminsListingFlagged = async ({ listing, reason, source }) => {
         io.to(`user:${admin._id.toString()}`).emit('notification', payload);
       });
     }
-  } catch (_err) {
+  } catch {
     // best-effort
   }
 };
@@ -173,12 +173,14 @@ const listListings = async (req, res, next) => {
       priceDesc: { price: -1 },
     };
     const mongoQuery = buildQuery(req.query);
-    const listings = await Listing.find(mongoQuery)
-      .populate('seller', 'name email')
-      .sort(sortMap[sort] || sortMap.newest)
-      .skip((page - 1) * limit)
-      .limit(limit);
-    const total = await Listing.countDocuments(mongoQuery);
+    const [listings, total] = await Promise.all([
+      Listing.find(mongoQuery)
+        .populate('seller', 'name email')
+        .sort(sortMap[sort] || sortMap.newest)
+        .skip((page - 1) * limit)
+        .limit(limit),
+      Listing.countDocuments(mongoQuery),
+    ]);
     
     res.json({ data: listings, page, pages: Math.ceil(total / limit), total });
   } catch (err) {
@@ -330,7 +332,7 @@ const updateListing = async (req, res, next) => {
     if (updates.auction && typeof updates.auction === 'string') {
       try {
         updates.auction = JSON.parse(updates.auction);
-      } catch (err) {
+      } catch {
         return res.status(400).json({ message: 'Invalid auction data format' });
       }
     }
@@ -338,7 +340,7 @@ const updateListing = async (req, res, next) => {
     if (updates.rental && typeof updates.rental === 'string') {
       try {
         updates.rental = JSON.parse(updates.rental);
-      } catch (err) {
+      } catch {
         return res.status(400).json({ message: 'Invalid rental data format' });
       }
     }
@@ -355,7 +357,7 @@ const updateListing = async (req, res, next) => {
       for (const oldImage of listing.images) {
         try {
           await deleteImage(oldImage.publicId);
-        } catch (_err) {
+        } catch {
           // best-effort cleanup
         }
       }
@@ -371,7 +373,7 @@ const updateListing = async (req, res, next) => {
         } finally {
           try {
             await fs.promises.unlink(tempPath);
-          } catch (_err) {
+          } catch {
             // best-effort cleanup
           }
         }
@@ -390,7 +392,7 @@ const updateListing = async (req, res, next) => {
           for (const img of newImages) {
             try {
               await deleteImage(img.publicId);
-            } catch (_err) {
+            } catch {
               // best-effort cleanup
             }
           }
@@ -419,7 +421,7 @@ const updateListing = async (req, res, next) => {
       for (const publicId of oldPublicIds) {
         try {
           await deleteImage(publicId);
-        } catch (_err) {
+        } catch {
           // best-effort cleanup
         }
       }

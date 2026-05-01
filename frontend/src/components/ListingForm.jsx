@@ -1,5 +1,7 @@
 import { useEffect, useState } from 'react';
 import api from '../services/api';
+import LocationPicker from './LocationPicker';
+import { useGeolocation } from '../hooks/useGeolocation';
 
 const createEmptyForm = () => ({
   title: '',
@@ -73,6 +75,9 @@ const ListingForm = ({
   const [submitting, setSubmitting] = useState(false);
   const [image, setImage] = useState(null);
   const [error, setError] = useState('');
+  const { getCurrentLocation } = useGeolocation();
+  const [locationMode, setLocationMode] = useState('auto');
+  const [manualLocation, setManualLocation] = useState(null);
 
   useEffect(() => {
     if (initialData) {
@@ -153,6 +158,26 @@ const ListingForm = ({
     setError('');
     setSubmitting(true);
     try {
+      // Collect location for the listing
+      let location = null;
+      if (locationMode === 'manual' && manualLocation) {
+        location = manualLocation;
+      } else {
+        try {
+          location = await getCurrentLocation({
+            enableHighAccuracy: true,
+            timeout: 15000,
+            maximumAge: 60000,
+            watchForAccuracy: true,
+            desiredAccuracy: 200,
+            watchTimeout: 20000,
+          });
+        } catch (err) {
+          console.log('Failed to collect listing location:', err.message);
+          // Continue without location - it's optional
+        }
+      }
+
       const payload = {
         ...form,
         price: Number(form.price),
@@ -161,6 +186,17 @@ const ListingForm = ({
           .map((tag) => tag.trim())
           .filter(Boolean),
       };
+
+      // Include location data if collected
+      if (location) {
+        payload.location = {
+          latitude: location.latitude,
+          longitude: location.longitude,
+          address: location.address || '',
+          accuracy: location.accuracy,
+          source: location.source || 'manual',
+        };
+      }
 
       // Include auction data when auction type selected
       if (form.listingType === 'auction') {
@@ -437,6 +473,38 @@ const ListingForm = ({
           onChange={handleChange}
           className="mt-1 w-full rounded border border-slate-700 bg-slate-950/60 px-3 py-2 text-slate-100"
         />
+      </div>
+      <div>
+        <label className="text-sm font-medium text-slate-300">Location</label>
+        <div className="mt-2 flex flex-wrap gap-2">
+          <button
+            type="button"
+            onClick={() => setLocationMode('auto')}
+            className={`rounded-full border px-3 py-1 text-xs font-semibold transition ${
+              locationMode === 'auto'
+                ? 'border-white/60 bg-white/10 text-white'
+                : 'border-slate-700 text-slate-300 hover:border-slate-500'
+            }`}
+          >
+            Use Current Location
+          </button>
+          <button
+            type="button"
+            onClick={() => setLocationMode('manual')}
+            className={`rounded-full border px-3 py-1 text-xs font-semibold transition ${
+              locationMode === 'manual'
+                ? 'border-white/60 bg-white/10 text-white'
+                : 'border-slate-700 text-slate-300 hover:border-slate-500'
+            }`}
+          >
+            Enter Manually
+          </button>
+        </div>
+        {locationMode === 'manual' && (
+          <div className="mt-3">
+            <LocationPicker value={manualLocation} onChange={setManualLocation} />
+          </div>
+        )}
       </div>
       <div>
         <label className="text-sm font-medium text-slate-300">Image</label>

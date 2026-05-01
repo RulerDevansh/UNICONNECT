@@ -16,7 +16,6 @@ const ListingDetail = () => {
   const startChat = useChatLauncher();
   const [listing, setListing] = useState(null);
   const [headerPrice, setHeaderPrice] = useState(null);
-  const [offers, setOffers] = useState([]);
   const [showOffer, setShowOffer] = useState(false);
   const [hasPendingRequest, setHasPendingRequest] = useState(false);
   const [biddingEndInfo, setBiddingEndInfo] = useState(null);
@@ -48,10 +47,6 @@ const ListingDetail = () => {
     } else {
       setHeaderPrice(data.price);
     }
-    if (user && data.seller?._id === user.id) {
-      const offerRes = await api.get(`/offers/listing/${id}`);
-      setOffers(offerRes.data);
-    }
     // Check if user already has a pending buy request for this listing
     if (user && data.seller?._id !== user.id) {
       try {
@@ -62,7 +57,7 @@ const ListingDetail = () => {
             ['pending', 'approved', 'payment_sent'].includes(t.status)
         );
         setHasPendingRequest(pendingForThisListing);
-      } catch (_err) {
+      } catch {
         // silent
       }
     }
@@ -155,7 +150,9 @@ const ListingDetail = () => {
     const listingId = listing._id;
     try {
       socket.emit('auction:join', { listingId });
-    } catch {}
+    } catch {
+      // best-effort socket room join
+    }
     const onUpdate = (payload) => {
       if (payload.listingId !== listingId) return;
       // Update header price: show currentBid if > 0, else show startBid
@@ -234,6 +231,24 @@ const ListingDetail = () => {
                 Condition: {listing.condition}
               </span>
             </div>
+            {listing.location && (listing.location.latitude || listing.location.longitude) && (
+              <div className="mt-4 rounded-xl border border-slate-700 bg-slate-800/40 p-3 text-sm">
+                <p className="text-xs uppercase tracking-wide text-slate-400 font-semibold mb-2">📍 Location</p>
+                <p className="text-slate-200">
+                  <span className="font-medium">Coordinates:</span> {listing.location.latitude?.toFixed(4)}, {listing.location.longitude?.toFixed(4)}
+                </p>
+                {listing.location.address && (
+                  <p className="text-slate-200 mt-1">
+                    <span className="font-medium">Address:</span> {listing.location.address}
+                  </p>
+                )}
+                {listing.location.updatedAt && (
+                  <p className="text-slate-400 text-xs mt-1">
+                    Last updated: {new Date(listing.location.updatedAt).toLocaleDateString()}
+                  </p>
+                )}
+              </div>
+            )}
             {isRental && (
               <div className="mt-4 rounded-xl border border-slate-700 bg-slate-800/40 p-3 text-sm text-slate-200">
                 <p>

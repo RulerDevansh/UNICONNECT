@@ -96,7 +96,7 @@ async function getBiddingStatus(req, res, next) {
           }).sort({ createdAt: -1 }).lean();
           winnerOpen = !!(tx && tx.status !== 'completed');
           if (tx?.amount != null) finalBid = tx.amount;
-        } catch (_) {
+        } catch {
           // ignore tx lookup failures
         }
       }

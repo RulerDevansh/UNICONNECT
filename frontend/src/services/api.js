@@ -31,12 +31,13 @@ api.interceptors.response.use(
   (response) => response,
   async (error) => {
     const original = error.config;
-    if (error.response?.status === 401 && !original._retry) {
+    if (error.response?.status === 401 && original && !original._retry) {
       if (refreshing) {
         return new Promise((resolve, reject) => {
           queue.push({ resolve, reject });
         })
           .then((token) => {
+            original.headers = original.headers || {};
             original.headers.Authorization = `Bearer ${token}`;
             return api(original);
           })
@@ -52,6 +53,7 @@ api.interceptors.response.use(
         });
         localStorage.setItem('accessToken', data.accessToken);
         processQueue(null, data.accessToken);
+        original.headers = original.headers || {};
         original.headers.Authorization = `Bearer ${data.accessToken}`;
         return api(original);
       } catch (refreshErr) {

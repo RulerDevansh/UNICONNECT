@@ -237,7 +237,7 @@ const startCleanupService = () => {
           });
         }
       }
-    } catch (_err) {
+    } catch {
       // cleanup errors are non-fatal
     }
   });

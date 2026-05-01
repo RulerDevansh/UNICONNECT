@@ -23,6 +23,14 @@ const userSchema = new mongoose.Schema(
       categories: [String],
       tags: [String],
     },
+    location: {
+      latitude: { type: Number },
+      longitude: { type: Number },
+      address: { type: String },
+      accuracy: { type: Number },
+      source: { type: String, enum: ['browser', 'manual'], default: 'manual' },
+      updatedAt: { type: Date },
+    },
   },
   { timestamps: true }
 );

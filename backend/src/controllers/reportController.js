@@ -23,7 +23,7 @@ const notifyAdminsListingFlagged = async ({ listing, reason, source }) => {
         io.to(`user:${admin._id.toString()}`).emit('notification', payload);
       });
     }
-  } catch (_err) {
+  } catch {
     // best-effort
   }
 };

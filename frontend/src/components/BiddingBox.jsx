@@ -25,7 +25,7 @@ const BiddingBox = ({ listing, user }) => {
       if (data.status === 'ended' && data.isWinner && (data.winnerOpen ?? true)) {
         setWonMsg(`You won with ${formatCurrency(data.finalBid ?? data.currentBid?.amount ?? 0)}!`);
       }
-    } catch (err) {
+    } catch {
       // silently ignore if not available
     }
   };

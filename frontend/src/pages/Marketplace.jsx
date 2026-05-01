@@ -24,7 +24,7 @@ const Marketplace = () => {
       
       const { data } = await api.get('/listings', { params });
       setListings(data.data);
-    } catch (_err) {
+    } catch {
       setError('Unable to load listings right now.');
     } finally {
       setLoading(false);

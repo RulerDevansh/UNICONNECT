@@ -111,7 +111,7 @@ const VerifyEmail = () => {
         </form>
 
         <div className="mt-4 flex items-center justify-between text-sm text-slate-400">
-          <span>Didn't receive the code?</span>
+          <span>Didn&apos;t receive the code?</span>
           <button
             type="button"
             onClick={handleResend}

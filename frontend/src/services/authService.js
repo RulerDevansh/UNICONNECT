@@ -9,3 +9,4 @@ export const verifyEmail = (payload) => api.post('/auth/verify-email', payload);
 export const resendVerification = (payload) => api.post('/auth/resend-verification', payload);
 export const forgotPassword = (payload) => api.post('/auth/forgot-password', payload);
 export const resetPassword = (payload) => api.post('/auth/reset-password', payload);
+export const updateLocation = (payload) => api.post('/users/location', payload);
