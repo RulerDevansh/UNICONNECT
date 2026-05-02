@@ -31,6 +31,11 @@ const initSocket = (io) => {
       socket.join(`chat:${chatId}`);
     });
 
+    socket.on('ping', (callback) => {
+      // Respond to heartbeat ping
+      if (callback) callback({ pong: true });
+    });
+
     socket.on('leaveChat', (chatId) => {
       socket.leave(`chat:${chatId}`);
     });
@@ -39,25 +44,50 @@ const initSocket = (io) => {
       socket.to(`chat:${chatId}`).emit('typing', { user: socket.user.id });
     });
 
-    socket.on('message', async ({ chatId, content }) => {
-      const message = await Message.create({
-        chat: chatId,
-        sender: socket.user.id,
-        content,
-      });
-      
-      // Update chat last message time
-      const chat = await Chat.findByIdAndUpdate(
-        chatId, 
-        { lastMessageAt: new Date() },
-        { new: true }
-      ).populate('participants', '_id name');
-      
-      await message.populate('sender', 'name email');
-      io.to(`chat:${chatId}`).emit('message', message);
-      
-      // Create notification for other participants (only if they are NOT in this chat room)
-      if (chat && chat.participants) {
+    socket.on('message', async ({ chatId, content }, callback) => {
+      try {
+        // Validate chat exists and user is participant
+        const chat = await Chat.findById(chatId);
+        if (!chat) {
+          const error = 'Chat not found';
+          if (callback) callback({ success: false, error });
+          socket.emit('message:error', { error });
+          return;
+        }
+
+        if (!chat.participants.map(p => p.toString()).includes(socket.user.id)) {
+          const error = 'Forbidden';
+          if (callback) callback({ success: false, error });
+          socket.emit('message:error', { error });
+          return;
+        }
+
+        // Create and save message
+        const message = await Message.create({
+          chat: chatId,
+          sender: socket.user.id,
+          content,
+        });
+        
+        // Update chat last message time
+        await Chat.findByIdAndUpdate(
+          chatId, 
+          { lastMessageAt: new Date() },
+          { new: true }
+        );
+        
+        // Populate sender info
+        await message.populate('sender', 'name email avatar');
+        
+        // Acknowledge to sender with message ID for confirmation
+        if (callback) {
+          callback({ success: true, messageId: message._id });
+        }
+        
+        // Broadcast message to all users in chat room
+        io.to(`chat:${chatId}`).emit('message', message);
+        
+        // Create notifications for users NOT in the chat room
         const recipients = chat.participants
           .filter(p => p._id.toString() !== socket.user.id)
           .map(p => p._id);
@@ -87,6 +117,10 @@ const initSocket = (io) => {
             io.to(`user:${recipientStr}`).emit('notification', notification);
           }
         }
+      } catch (err) {
+        const error = err.message || 'Failed to save message';
+        if (callback) callback({ success: false, error });
+        socket.emit('message:error', { error });
       }
     });
 

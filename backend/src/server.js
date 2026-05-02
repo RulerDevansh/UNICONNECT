@@ -15,6 +15,10 @@ const io = new Server(server, {
     credentials: true,
   },
   connectionStateRecovery: true,
+  maxHttpBufferSize: 1e6,
+  transports: ['websocket', 'polling'],
+  pingInterval: 25000,
+  pingTimeout: 60000,
 });
 
 initSocket(io);

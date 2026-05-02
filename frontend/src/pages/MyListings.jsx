@@ -1,23 +1,21 @@
 ﻿import { useEffect, useState } from 'react';
-import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import ListingCard from '../components/ListingCard';
 import api from '../services/api';
 import { formatCurrency } from '../utils/currency';
 import useChatLauncher from '../hooks/useChatLauncher';
 
-const MyListings = ({ forceRentalMode = false }) => {
+const MyListings = () => {
   const [listings, setListings] = useState([]);
   const [updatingId, setUpdatingId] = useState('');
   const [error, setError] = useState('');
-  const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const location = useLocation();
-  const rentalMode = forceRentalMode || searchParams.get('section') === 'rental';
   const [toast, setToast] = useState('');
   const [pendingDelete, setPendingDelete] = useState(null);
   
   // New states for tabs and requests
-  const [activeTab, setActiveTab] = useState('available'); // available, buyRequests, myRequests
+  const [activeTab, setActiveTab] = useState('buyRequests'); // buyRequests, myRequests
   const [buyRequests, setBuyRequests] = useState([]);
   const [myRequests, setMyRequests] = useState([]);
   const [loadingRequests, setLoadingRequests] = useState(false);
@@ -207,21 +205,15 @@ const MyListings = ({ forceRentalMode = false }) => {
 
   // Badge counts: exclude cancelled, rejected, completed, withdrawn
   const isActiveTx = (s) => !['cancelled', 'rejected', 'completed', 'withdrawn'].includes(s);
-  const filteredListings = listings.filter((listing) =>
-    rentalMode ? listing.listingType === 'rental' : listing.listingType !== 'rental'
-  );
-  const displayedBuyRequests = buyRequests.filter((request) =>
-    rentalMode ? request.transactionType === 'rental_booking' : request.transactionType !== 'rental_booking'
-  );
-  const displayedMyRequests = myRequests.filter((request) =>
-    rentalMode ? request.transactionType === 'rental_booking' : request.transactionType !== 'rental_booking'
-  );
+  const filteredListings = listings;
+  const displayedBuyRequests = buyRequests;
+  const displayedMyRequests = myRequests;
   const buyActiveCount = displayedBuyRequests.filter((r) => isActiveTx(r.status)).length;
   const myActiveCount = displayedMyRequests.filter((r) => isActiveTx(r.status)).length;
 
   return (
     <main className="mx-auto max-w-full px-4 py-4 sm:py-8">
-      <h1 className="mb-4 sm:mb-6 text-2xl sm:text-3xl font-bold text-white">{rentalMode ? 'My Rentals' : 'My Listings'}</h1>
+      <h1 className="mb-4 sm:mb-6 text-2xl sm:text-3xl font-bold text-white">My Listings</h1>
       
       {/* Messages */}
       {(error || toast) && (
@@ -244,27 +236,34 @@ const MyListings = ({ forceRentalMode = false }) => {
         <div>
           <section className="space-y-4">
             <div className="flex items-center justify-between">
-              <h2 className="text-2xl font-semibold text-white">{rentalMode ? 'My Rentals' : 'My Listings'}</h2>
-              <button
-                type="button"
-                onClick={() => navigate(rentalMode ? '/rentals/new' : '/listings/new')}
-                className="rounded-full bg-brand-primary px-4 py-2 text-sm font-semibold text-white shadow shadow-brand-primary/40 transition hover:bg-brand-secondary"
-              >
-                + Create
-              </button>
+              <h2 className="text-2xl font-semibold text-white">My Listings</h2>
+              <div className="flex flex-wrap gap-2">
+                <button
+                  type="button"
+                  onClick={() => navigate('/listings/new')}
+                  className="rounded-full bg-brand-primary px-4 py-2 text-sm font-semibold text-white shadow shadow-brand-primary/40 transition hover:bg-brand-secondary"
+                >
+                  + Listing
+                </button>
+                <button
+                  type="button"
+                  onClick={() => navigate('/rentals/new')}
+                  className="rounded-full bg-violet-600 px-4 py-2 text-sm font-semibold text-white shadow shadow-violet-900/40 transition hover:bg-violet-500"
+                >
+                  + Rental
+                </button>
+              </div>
             </div>
             
             <div className="space-y-3">
-              <h3 className={`text-sm font-semibold uppercase tracking-wide ${rentalMode ? 'text-orange-200' : 'text-slate-300'}`}>
-                {rentalMode ? 'Rental Listings' : 'Product Listings'}
+              <h3 className="text-sm font-semibold uppercase tracking-wide text-slate-300">
+                Product & Rental Listings
               </h3>
               {filteredListings.length > 0 ? (
                 filteredListings.map((listing) => (
                   <div
                     key={listing._id}
-                    className={`space-y-3 rounded-2xl p-4 shadow shadow-black/40 ${
-                      rentalMode ? 'border border-orange-500/30 bg-slate-900/50' : 'border border-slate-800 bg-slate-900/50'
-                    }`}
+                    className="space-y-3 rounded-2xl border border-slate-800 bg-slate-900/50 p-4 shadow shadow-black/40"
                   >
                     <ListingCard listing={listing} hideBuyNowBadge />
                     {listing.status === 'blocked' && listing.moderation?.action === 'ban' && (
@@ -310,7 +309,7 @@ const MyListings = ({ forceRentalMode = false }) => {
                   </div>
                 ))
               ) : (
-                <p className="text-sm text-slate-400">{rentalMode ? 'No rental listings yet.' : 'No product listings yet.'}</p>
+                <p className="text-sm text-slate-400">No listings or rentals yet.</p>
               )}
             </div>
           </section>
@@ -331,7 +330,7 @@ const MyListings = ({ forceRentalMode = false }) => {
                     : 'text-slate-400 hover:text-slate-200'
                 }`}
               >
-                {rentalMode ? 'Rental Requests' : 'Buy Requests'} {buyActiveCount > 0 && (
+                Received Requests {buyActiveCount > 0 && (
                   <span className="ml-1 rounded-full bg-brand-primary px-2 py-0.5 text-xs text-white">{buyActiveCount}</span>
                 )}
               </button>
@@ -343,7 +342,7 @@ const MyListings = ({ forceRentalMode = false }) => {
                     : 'text-slate-400 hover:text-slate-200'
                 }`}
               >
-                {rentalMode ? 'My Rental Requests' : 'My Requests'} {myActiveCount > 0 && (
+                My Requests {myActiveCount > 0 && (
                   <span className="ml-1 rounded-full bg-brand-primary px-2 py-0.5 text-xs text-white">{myActiveCount}</span>
                 )}
               </button>
@@ -585,7 +584,7 @@ const MyListings = ({ forceRentalMode = false }) => {
                       );
                     })
                   ) : (
-                    <p className="text-sm text-slate-400">{rentalMode ? 'No rental requests yet.' : 'No buy requests yet.'}</p>
+                    <p className="text-sm text-slate-400">No received requests yet.</p>
                   )}
                 </div>
               )}
@@ -806,7 +805,7 @@ const MyListings = ({ forceRentalMode = false }) => {
                       );
                     })
                   ) : (
-                    <p className="text-sm text-slate-400">{rentalMode ? 'You have not made any rental requests yet.' : 'You have not made any buy requests yet.'}</p>
+                    <p className="text-sm text-slate-400">You have not made any requests yet.</p>
                   )}
                 </div>
               )}

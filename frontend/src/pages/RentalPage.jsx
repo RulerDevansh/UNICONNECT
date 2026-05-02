@@ -1,5 +1,5 @@
-import MyListings from './MyListings';
+import { Navigate } from 'react-router-dom';
 
-const RentalPage = () => <MyListings forceRentalMode />;
+const RentalPage = () => <Navigate to="/my-listings" replace />;
 
 export default RentalPage;

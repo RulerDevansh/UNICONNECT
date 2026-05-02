@@ -48,12 +48,29 @@ if (-not (Test-Path $VenvDir)) {
     }
 }
 
-$pip = Join-Path $VenvDir "Scripts/pip.exe"
-if (-not (Test-Path $pip)) {
-    throw "pip not found in venv. Expected at $pip"
+$VenvPython = Join-Path $VenvDir "Scripts/python.exe"
+if (-not (Test-Path $VenvPython)) {
+    throw "Python not found in venv. Expected at $VenvPython"
 }
 
-& $pip install --upgrade pip
-& $pip install -r (Join-Path $ServiceDir "requirements.txt")
+try {
+    & $VenvPython -m pip --version *> $null
+} catch {
+    Write-Host "[ml_service] Bootstrapping pip in venv" -ForegroundColor Yellow
+    & $VenvPython -m ensurepip --upgrade
+    if ($LASTEXITCODE -ne 0) {
+        throw "Failed to bootstrap pip in venv"
+    }
+}
+
+& $VenvPython -m pip install --upgrade pip
+if ($LASTEXITCODE -ne 0) {
+    throw "Failed to upgrade pip in venv"
+}
+
+& $VenvPython -m pip install -r (Join-Path $ServiceDir "requirements.txt")
+if ($LASTEXITCODE -ne 0) {
+    throw "Failed to install ML service requirements"
+}
 
 Write-Host "[ml_service] Environment ready -> $VenvDir" -ForegroundColor Green

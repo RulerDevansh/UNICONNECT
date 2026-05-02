@@ -11,7 +11,6 @@ const navItems = [
   { to: '/admin/users', label: 'Users', private: true, roles: ['admin'] },
   { to: '/my-listings', label: 'My Listings', private: true },
   { to: '/shares', label: 'Sharing', private: true },
-  { to: '/rentals', label: 'Rental', private: true },
   { to: '/marketplace', label: 'Marketplace', private: true },
   { to: '/chat', label: 'Chat', private: true },
 ];

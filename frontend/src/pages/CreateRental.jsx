@@ -5,7 +5,7 @@ const CreateRental = () => {
   const navigate = useNavigate();
 
   const handleSuccess = () => {
-    navigate('/rentals', { state: { toast: 'Rental listing created successfully!' } });
+    navigate('/my-listings', { state: { toast: 'Rental listing created successfully!' } });
   };
 
   return (

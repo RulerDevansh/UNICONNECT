@@ -32,6 +32,26 @@ const normalizeRentalPayload = (rental = {}) => {
   return normalized;
 };
 
+const parseJsonObjectField = (value, fieldName) => {
+  if (value == null || typeof value !== 'string') return value;
+
+  // Detect FormData stringification artifact
+  if (value === '[object Object]') {
+    console.warn(`[ListingController] Received stringified [object Object] for ${fieldName}. Skipping field.`);
+    return undefined; // Skip field instead of throwing
+  }
+
+  try {
+    const parsed = JSON.parse(value);
+    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+      throw new Error('Invalid object');
+    }
+    return parsed;
+  } catch {
+    throw new Error(`Invalid ${fieldName} data format`);
+  }
+};
+
 const validateRentalPayload = (rental = {}) => {
   if (!Number.isFinite(rental.ratePerDay) || rental.ratePerDay <= 0) {
     return 'Rental rate per day must be greater than 0';
@@ -259,6 +279,12 @@ const createListing = async (req, res, next) => {
       delete listingData.auction;
     }
 
+    try {
+      listingData.location = parseJsonObjectField(req.body.location, 'location');
+    } catch (parseError) {
+      return res.status(400).json({ message: parseError.message });
+    }
+
     const listing = await Listing.create(listingData);
 
     const primaryImageUrl = listing.images?.[0]?.url || req.body.primaryImageUrl || req.body.imageUrl;
@@ -342,6 +368,14 @@ const updateListing = async (req, res, next) => {
         updates.rental = JSON.parse(updates.rental);
       } catch {
         return res.status(400).json({ message: 'Invalid rental data format' });
+      }
+    }
+
+    if (updates.location && typeof updates.location === 'string') {
+      try {
+        updates.location = parseJsonObjectField(updates.location, 'location');
+      } catch (parseError) {
+        return res.status(400).json({ message: parseError.message });
       }
     }
     
