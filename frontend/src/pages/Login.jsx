@@ -20,7 +20,12 @@ const Login = () => {
       await login(form);
       navigate('/');
     } catch (err) {
-      setError(err.response?.data?.message || 'Invalid credentials');
+      const message = err.response?.data?.message || 'Invalid credentials';
+      if (err.response?.status === 403 && message.toLowerCase().includes('verify')) {
+        navigate(`/verify-email?email=${encodeURIComponent(form.email)}`);
+        return;
+      }
+      setError(message);
     }
   };
 

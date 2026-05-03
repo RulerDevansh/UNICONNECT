@@ -22,7 +22,12 @@ const LoginScreen = ({ navigation }) => {
         navigation.reset({ index: 0, routes: [{ name: 'MainTabs' }] });
       }
     } catch (err) {
-      setError(err.response?.data?.message || 'Invalid credentials.');
+      const message = err.response?.data?.message || 'Invalid credentials.';
+      if (err.response?.status === 403 && message.toLowerCase().includes('verify')) {
+        navigation.navigate('VerifyEmail', { email: form.email });
+        return;
+      }
+      setError(message);
     } finally {
       setSubmitting(false);
     }

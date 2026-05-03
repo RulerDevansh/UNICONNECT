@@ -14,17 +14,28 @@ const VerifyEmail = () => {
   const [resendLoading, setResendLoading] = useState(false);
   const navigate = useNavigate();
 
+  const normalizeOtpInput = (value) => {
+    const raw = String(value ?? '');
+    const matches = raw.match(/\d{6}/g);
+    if (matches && matches.length) return matches[matches.length - 1];
+    const digits = raw.replace(/\D/g, '');
+    if (!digits) return '';
+    return digits.slice(-6);
+  };
+
   const handleVerify = async (e) => {
     e.preventDefault();
     setError('');
     setMessage('');
-    if (!email || !code) {
+    const normalizedEmail = email.trim().toLowerCase();
+    const normalizedCode = normalizeOtpInput(code);
+    if (!normalizedEmail || !normalizedCode) {
       setError('Both email and code are required.');
       return;
     }
     setLoading(true);
     try {
-      const res = await verifyEmail({ email, code });
+      const res = await verifyEmail({ email: normalizedEmail, code: normalizedCode });
       setMessage(res.data.message || 'Email verified!');
       setTimeout(() => navigate('/login'), 2000);
     } catch (err) {
@@ -35,7 +46,8 @@ const VerifyEmail = () => {
   };
 
   const handleResend = async () => {
-    if (!email) {
+    const normalizedEmail = email.trim().toLowerCase();
+    if (!normalizedEmail) {
       setError('Please enter your email first.');
       return;
     }
@@ -43,7 +55,7 @@ const VerifyEmail = () => {
     setMessage('');
     setResendLoading(true);
     try {
-      const res = await resendVerification({ email });
+      const res = await resendVerification({ email: normalizedEmail });
       setMessage(res.data.message || 'New code sent!');
     } catch (err) {
       setError(err.response?.data?.message || 'Could not resend code. Please try again.');
@@ -94,7 +106,7 @@ const VerifyEmail = () => {
               inputMode="numeric"
               maxLength={6}
               value={code}
-              onChange={(e) => setCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
+              onChange={(e) => setCode(normalizeOtpInput(e.target.value))}
               placeholder="••••••"
               className="mt-1 w-full rounded border border-slate-700 bg-slate-950/60 px-3 py-2 text-center text-2xl tracking-[0.5em] text-purple-300 placeholder:text-slate-600"
               required
