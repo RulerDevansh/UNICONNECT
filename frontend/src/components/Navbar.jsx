@@ -193,7 +193,7 @@ const Navbar = () => {
                     </button>
                     <div className="border-t border-slate-800 pt-2">
                       <a
-                        href="https://drive.google.com/uc?export=download&id=1RyuTgKyMvpLSpKDT96Gk2u1EVdgadesC"
+                        href="https://drive.google.com/file/d/1nSFlQ0R0BM1mO4VrEwjyCo4G9d4Iddi_/view?usp=drive_link"
                         target="_blank"
                         rel="noopener noreferrer"
                         className="flex items-center gap-2 px-4 py-2 text-left text-sm text-slate-300 transition hover:bg-slate-800 hover:text-white"
@@ -253,7 +253,7 @@ const Navbar = () => {
                     </button>
                     <div className="border-t border-slate-800 pt-2">
                       <a
-                        href="https://drive.google.com/uc?export=download&id=1RyuTgKyMvpLSpKDT96Gk2u1EVdgadesC"
+                        href="https://drive.google.com/file/d/1nSFlQ0R0BM1mO4VrEwjyCo4G9d4Iddi_/view?usp=drive_link"
                         target="_blank"
                         rel="noopener noreferrer"
                         className="flex items-center gap-2 px-4 py-2.5 text-left text-sm text-slate-300 transition hover:bg-slate-800 hover:text-white"

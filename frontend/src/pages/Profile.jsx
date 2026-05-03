@@ -305,7 +305,7 @@ const Profile = () => {
               </div>
               <p className="text-sm text-slate-400 mb-4">Download the UniConnect mobile app for Android to get the best experience on the go.</p>
               <a
-                href="https://drive.google.com/uc?export=download&id=1RyuTgKyMvpLSpKDT96Gk2u1EVdgadesC"
+                href="https://drive.google.com/file/d/1nSFlQ0R0BM1mO4VrEwjyCo4G9d4Iddi_/view?usp=drive_link"
                 target="_blank"
                 rel="noopener noreferrer"
                 className="inline-flex items-center gap-2 rounded-full bg-gradient-to-r from-brand-primary to-brand-secondary px-6 py-3 text-sm font-semibold text-white shadow shadow-brand-primary/40 transition hover:shadow-lg hover:shadow-brand-primary/50"
