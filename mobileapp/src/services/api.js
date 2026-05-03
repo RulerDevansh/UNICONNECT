@@ -17,6 +17,11 @@ const getExpoHostApiUrl = () => {
 
 const normalizeBaseUrl = (url) => (url ? url.replace(/\/+$/, '') : '');
 
+const getSocketUrlFromApiUrl = (apiUrl) => {
+  if (!apiUrl) return '';
+  return apiUrl.replace(/\/api$/, '');
+};
+
 export const API_URL = normalizeBaseUrl(
   process.env.EXPO_PUBLIC_API_URL ||
   extra.apiUrl ||
@@ -27,7 +32,7 @@ export const API_URL = normalizeBaseUrl(
 export const SOCKET_URL = normalizeBaseUrl(
   process.env.EXPO_PUBLIC_SOCKET_URL ||
   extra.socketUrl ||
-  API_URL.replace(/\/api$/, '') ||
+  getSocketUrlFromApiUrl(API_URL) ||
   (Platform.OS === 'android' ? 'http://10.0.2.2:5000' : 'http://localhost:5000')
 );
 

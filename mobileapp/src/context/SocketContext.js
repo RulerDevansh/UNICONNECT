@@ -14,7 +14,6 @@ export const SocketProvider = ({ children }) => {
   const [isConnected, setIsConnected] = useState(false);
   const [connectionError, setConnectionError] = useState('');
   const [hasNewMessage, setHasNewMessage] = useState(false);
-  const heartbeatRef = useRef(null);
 
   useEffect(() => {
     let instance;
@@ -31,32 +30,27 @@ export const SocketProvider = ({ children }) => {
         setIsConnected(false);
         setConnectionError('');
         setHasNewMessage(false);
-        if (heartbeatRef.current) clearInterval(heartbeatRef.current);
         return;
       }
 
       setIsConnected(false);
       setConnectionError('');
-      
+      const token = await tokenStorage.getAccessToken();
+      if (!active) return;
+
       instance = io(SOCKET_URL, {
         autoConnect: true,
-        transports: ['websocket', 'polling'],
+        transports: ['websocket'],
+        upgrade: false,
         reconnection: true,
         reconnectionAttempts: Infinity,
         reconnectionDelay: 1000,
         reconnectionDelayMax: 5000,
         timeout: 20000,
-        forceNew: false,
-        multiplex: true,
-        rejectUnauthorized: false, // For self-signed certs in dev
-        auth: async (callback) => {
-          try {
-            const token = await tokenStorage.getAccessToken();
-            callback({ token });
-          } catch (err) {
-            callback({ token: '' });
-          }
-        },
+        forceNew: true,
+        multiplex: false,
+        path: '/socket.io',
+        auth: { token: token || '' },
       });
 
       const handleConnect = () => {
@@ -64,50 +58,44 @@ export const SocketProvider = ({ children }) => {
         authRefreshAttempted = false;
         setIsConnected(true);
         setConnectionError('');
-        
-        // Start heartbeat to detect dead connections
-        if (heartbeatRef.current) clearInterval(heartbeatRef.current);
-        heartbeatRef.current = setInterval(() => {
-          if (instance?.connected) {
-            instance.emit('ping', () => {});
-          }
-        }, 25000); // Ping every 25 seconds
       };
 
       const handleDisconnect = (reason) => {
         if (!active) return;
         setIsConnected(false);
-        if (heartbeatRef.current) clearInterval(heartbeatRef.current);
-        
-        // Don't show error on normal disconnect, only on auth errors or network issues
-        if (reason && (reason.includes('auth') || reason.includes('ECONNREFUSED'))) {
-          setConnectionError('Chat disconnected. Reconnecting...');
+        if (reason && !reason.includes('ping timeout') && !reason.includes('transport close')) {
+          setConnectionError(`Chat disconnected: ${reason}`);
         }
       };
 
       const handleConnectError = async (err) => {
         if (!active) return;
-        const message = err?.message || 'Unable to connect chat socket.';
+        const message = err?.message || err?.data?.message || 'Unable to connect chat socket.';
         setIsConnected(false);
-        if (heartbeatRef.current) clearInterval(heartbeatRef.current);
 
-        if (authRefreshAttempted || !/auth|jwt|token/i.test(message)) {
-          // Only show error on auth issues, other errors will trigger reconnection
-          if (/auth|jwt|token/i.test(message)) {
-            setConnectionError(message);
+        if (/auth|jwt|token/i.test(message)) {
+          if (authRefreshAttempted) {
+            setConnectionError('Chat session expired. Please log in again.');
+            return;
+          }
+
+          authRefreshAttempted = true;
+          try {
+            const refreshedToken = await refreshAccessToken();
+            if (!active) return;
+            instance.auth = { token: refreshedToken };
+            instance.connect();
+          } catch {
+            if (active) setConnectionError('Chat session expired. Please log in again.');
           }
           return;
         }
 
-        authRefreshAttempted = true;
-        try {
-          const token = await refreshAccessToken();
-          if (!active) return;
-          instance.auth = { token };
-          instance.connect();
-        } catch {
-          if (active) setConnectionError('Chat session expired. Please log in again.');
-        }
+        setConnectionError(
+          /websocket|transport/i.test(message)
+            ? 'Chat socket unreachable. Check deployed backend WebSockets setting.'
+            : message
+        );
       };
 
       instance.on('connect', handleConnect);
@@ -117,7 +105,6 @@ export const SocketProvider = ({ children }) => {
       
       if (!active) {
         instance.disconnect();
-        if (heartbeatRef.current) clearInterval(heartbeatRef.current);
         return;
       }
       setSocket(instance);
@@ -127,7 +114,6 @@ export const SocketProvider = ({ children }) => {
     return () => {
       active = false;
       socketRef.current = null;
-      if (heartbeatRef.current) clearInterval(heartbeatRef.current);
       instance?.disconnect();
     };
   }, [user]);
@@ -135,7 +121,7 @@ export const SocketProvider = ({ children }) => {
   const reconnectSocket = useCallback(async () => {
     const current = socketRef.current;
     if (!current) return;
-    current.auth = { token: await tokenStorage.getAccessToken() };
+    current.auth = { token: (await tokenStorage.getAccessToken()) || '' };
     current.connect();
   }, []);
 

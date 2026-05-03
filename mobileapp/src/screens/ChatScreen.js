@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { FlatList, KeyboardAvoidingView, Platform, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { MessageCircle, Send } from 'lucide-react-native';
@@ -19,6 +19,25 @@ const activeChatFilter = (chat) => {
   return true;
 };
 
+const ChatPill = memo(({ item, label, active, unread, onPress }) => (
+  <Pressable onPress={() => onPress(item._id)} style={[styles.chatPill, active && styles.chatPillActive]}>
+    <MessageCircle size={15} color={active ? colors.text : colors.muted} />
+    <Text numberOfLines={1} style={[styles.chatPillText, active && { color: colors.text }]}>
+      {label} {unread ? '*' : ''}
+    </Text>
+    <Text style={styles.chatPillDate}>{formatDateTime(item.updatedAt)}</Text>
+  </Pressable>
+));
+
+const MessageItem = memo(({ item, mine }) => (
+  <View style={[styles.messageRow, mine ? { justifyContent: 'flex-end' } : { justifyContent: 'flex-start' }]}>
+    <View style={[styles.messageBubble, mine ? styles.mine : styles.theirs]}>
+      <Text style={styles.messageMeta}>{mine ? 'You' : item.sender?.name || 'Classmate'}</Text>
+      <Text style={styles.messageText}>{item.content}</Text>
+    </View>
+  </View>
+));
+
 const ChatScreen = ({ route }) => {
   const preferredChatId = route.params?.chatId;
   const { user } = useAuth();
@@ -35,8 +54,6 @@ const ChatScreen = ({ route }) => {
   const [chatError, setChatError] = useState('');
   const listRef = useRef(null);
   const activeIdRef = useRef(activeId);
-  const pendingMessagesRef = useRef([]); // Queue for messages sent while offline
-  const messageRetryRef = useRef(new Map()); // Track retry attempts per message
 
   useEffect(() => { activeIdRef.current = activeId; }, [activeId]);
 
@@ -101,7 +118,7 @@ const ChatScreen = ({ route }) => {
     const handleMessage = (message) => {
       const messageChatId = getId(message.chat);
       if (messageChatId === activeId) {
-        setMessages((prev) => [...prev, message]);
+        setMessages((prev) => (prev.some((msg) => msg._id === message._id) ? prev : [...prev, message]));
         socket.emit('message:read', { chatId: activeId, messageId: message._id });
         clearNewMessage();
         setTimeout(() => listRef.current?.scrollToEnd?.({ animated: true }), 60);
@@ -124,40 +141,19 @@ const ChatScreen = ({ route }) => {
     socket.on('typing', handleTyping);
     socket.on('message:read', handleRead);
     socket.on('chat:unread', handleUnread);
-    socket.on('message:error', ({ error }) => {
-      setChatError(`Message error: ${error}`);
-    });
+    const handleMessageError = ({ error }) => setChatError(`Message error: ${error}`);
+    socket.on('message:error', handleMessageError);
     return () => {
       socket.emit('leaveChat', activeId);
       socket.off('message', handleMessage);
       socket.off('typing', handleTyping);
       socket.off('message:read', handleRead);
       socket.off('chat:unread', handleUnread);
-      socket.off('message:error');
+      socket.off('message:error', handleMessageError);
     };
   }, [socket, isConnected, activeId, loadChats, clearNewMessage]);
 
-  // Retry pending messages when socket reconnects
-  useEffect(() => {
-    if (!socket?.connected || !isConnected) return;
-
-    const pending = pendingMessagesRef.current;
-    if (pending.length === 0) return;
-
-    setChatError(''); // Clear timeout message
-    pending.forEach(({ text, activeId: msgChatId }) => {
-      socket.emit('message', { chatId: msgChatId, content: text }, (response) => {
-        if (response?.success) {
-          pendingMessagesRef.current = pendingMessagesRef.current.filter((m) => m.text !== text);
-          if (pendingMessagesRef.current.length === 0) {
-            setChatError('');
-          }
-        }
-      });
-    });
-  }, [socket, isConnected]);
-
-  const selectChat = (chatId) => {
+  const selectChat = useCallback((chatId) => {
     setActiveId(chatId);
     setTypingUsers([]);
     loadMessages(chatId);
@@ -166,90 +162,44 @@ const ChatScreen = ({ route }) => {
       next.delete(chatId);
       return next;
     });
-  };
+  }, [loadMessages]);
 
   const send = () => {
     const text = content.trim();
     if (!text || !activeId || sending) return;
 
-    setSending(true);
-    setChatError('');
-
-    const sendMessage = async () => {
-      try {
-        if (!socket?.connected || !isConnected) {
-          // Queue message for later sending
-          pendingMessagesRef.current.push({ text, activeId, timestamp: Date.now() });
-          setContent('');
-          setSending(false);
-          setChatError('Message queued. Will send when connected.');
-          return;
-        }
-
-        // Emit with callback to get acknowledgment from server
-        socket.emit('message', { chatId: activeId, content: text }, (response) => {
-          if (response?.success) {
-            setContent('');
-            setChatError('');
-            messageRetryRef.current.delete(text); // Clear retry count on success
-          } else {
-            const error = response?.error || 'Failed to send message';
-            setChatError(`Error: ${error}. Retrying...`);
-            // Retry the message
-            retryMessage(text, activeId);
-          }
-          setSending(false);
-        });
-
-        // Timeout if no response after 10 seconds
-        const timeoutId = setTimeout(() => {
-          if (messageRetryRef.current.has(text)) return; // Already retrying
-          setChatError('Message send timeout. Retrying...');
-          retryMessage(text, activeId);
-          setSending(false);
-        }, 10000);
-
-        return () => clearTimeout(timeoutId);
-      } catch (err) {
-        setChatError(`Error: ${err.message}`);
-        setSending(false);
-      }
-    };
-
-    sendMessage();
-  };
-
-  const retryMessage = (text, chatId) => {
-    const retries = (messageRetryRef.current.get(text) || 0) + 1;
-    if (retries > 3) {
-      setChatError('Failed to send message after 3 attempts.');
+    if (!socket?.connected || !isConnected) {
+      setChatError(connectionError || 'Chat is still connecting. Message was not sent.');
+      reconnectSocket?.();
       return;
     }
 
-    messageRetryRef.current.set(text, retries);
-    const delay = Math.min(1000 * Math.pow(2, retries - 1), 10000); // Exponential backoff
-    setTimeout(() => {
-      if (socket?.connected) {
-        socket.emit('message', { chatId, content: text }, (response) => {
-          if (response?.success) {
-            setContent('');
-            setChatError('');
-            messageRetryRef.current.delete(text);
-          } else {
-            retryMessage(text, chatId);
-          }
-        });
-      } else {
-        retryMessage(text, chatId);
-      }
-    }, delay);
+    setSending(true);
+    setChatError('');
+    socket.emit('message', { chatId: activeId, content: text });
+    setContent('');
+    setSending(false);
   };
 
-  const filteredChats = chats.filter((chat) => {
+  const filteredChats = useMemo(() => chats.filter((chat) => {
     const term = searchTerm.trim().toLowerCase();
     if (!term) return true;
     return getChatLabel(chat).toLowerCase().includes(term) || chat.participants?.some((p) => (p.name || '').toLowerCase().includes(term));
-  });
+  }), [chats, getChatLabel, searchTerm]);
+
+  const renderChatItem = useCallback(({ item }) => (
+    <ChatPill
+      item={item}
+      label={getChatLabel(item)}
+      active={activeId === item._id}
+      unread={unreadChatIds.has(item._id)}
+      onPress={selectChat}
+    />
+  ), [activeId, getChatLabel, selectChat, unreadChatIds]);
+
+  const renderMessageItem = useCallback(({ item }) => (
+    <MessageItem item={item} mine={getId(item.sender) === getId(user)} />
+  ), [user]);
 
   const participantNames = typingUsers.map((id) => {
     const participant = activeChat?.participants?.find((p) => getId(p) === id);
@@ -272,16 +222,11 @@ const ChatScreen = ({ route }) => {
               showsHorizontalScrollIndicator={false}
               data={filteredChats}
               keyExtractor={(item) => item._id}
+              initialNumToRender={6}
+              maxToRenderPerBatch={6}
+              windowSize={5}
               ListEmptyComponent={<EmptyState title="No chats yet." subtitle="Start from a listing, rental, or share." />}
-              renderItem={({ item }) => (
-                <Pressable onPress={() => selectChat(item._id)} style={[styles.chatPill, activeId === item._id && styles.chatPillActive]}>
-                  <MessageCircle size={15} color={activeId === item._id ? colors.text : colors.muted} />
-                  <Text numberOfLines={1} style={[styles.chatPillText, activeId === item._id && { color: colors.text }]}>
-                    {getChatLabel(item)} {unreadChatIds.has(item._id) ? '*' : ''}
-                  </Text>
-                  <Text style={styles.chatPillDate}>{formatDateTime(item.updatedAt)}</Text>
-                </Pressable>
-              )}
+              renderItem={renderChatItem}
             />
           </View>
 
@@ -297,19 +242,13 @@ const ChatScreen = ({ route }) => {
                   data={messages}
                   keyExtractor={(item) => item._id}
                   contentContainerStyle={[styles.messages, !messages.length && styles.messagesEmpty]}
+                  initialNumToRender={18}
+                  maxToRenderPerBatch={10}
+                  windowSize={7}
+                  removeClippedSubviews={Platform.OS === 'android'}
                   ListEmptyComponent={<EmptyState title="No messages yet." subtitle="Send the first message to begin this conversation." />}
                   onContentSizeChange={() => listRef.current?.scrollToEnd?.({ animated: true })}
-                  renderItem={({ item }) => {
-                    const mine = getId(item.sender) === getId(user);
-                    return (
-                      <View style={[styles.messageRow, mine ? { justifyContent: 'flex-end' } : { justifyContent: 'flex-start' }]}>
-                        <View style={[styles.messageBubble, mine ? styles.mine : styles.theirs]}>
-                          <Text style={styles.messageMeta}>{mine ? 'You' : item.sender?.name || 'Classmate'}</Text>
-                          <Text style={styles.messageText}>{item.content}</Text>
-                        </View>
-                      </View>
-                    );
-                  }}
+                  renderItem={renderMessageItem}
                 />
                 <View style={styles.composer}>
                   <TextInput
