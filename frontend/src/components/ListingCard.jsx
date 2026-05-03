@@ -5,6 +5,7 @@ import { useAuth } from '../context/AuthContext';
 import { formatCurrency } from '../utils/currency';
 import api from '../services/api';
 import { useSocket } from '../context/SocketContext';
+import { useToast } from '../context/ToastContext';
 
 const formatTimeRemaining = (endTime) => {
   const now = new Date();
@@ -25,6 +26,7 @@ const formatTimeRemaining = (endTime) => {
 const ListingCard = ({ listing, wideImage = false, hideBuyNowBadge = false, compactButtons = false }) => {
   const { user } = useAuth();
   const { socket } = useSocket();
+  const { pushToast } = useToast();
   const navigate = useNavigate();
     const sellerId = listing.seller?._id || listing.seller?.id || listing.seller;
     const currentUserId = user?.id || user?._id;
@@ -98,9 +100,9 @@ const ListingCard = ({ listing, wideImage = false, hideBuyNowBadge = false, comp
         listing: listing._id,
         transactionType: 'buy_request',
       });
-      alert('Buy request sent to seller! You will be notified when approved.');
+      pushToast('Buy request sent to seller. You will be notified when approved.', { type: 'success' });
     } catch (err) {
-      alert(err.response?.data?.message || 'Failed to send buy request');
+      pushToast(err.response?.data?.message || 'Failed to send buy request', { type: 'error' });
     }
   };
   const statusLabelMap = {

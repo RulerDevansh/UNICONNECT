@@ -7,12 +7,14 @@ import { useAuth } from '../context/AuthContext';
 import { useSocket } from '../context/SocketContext';
 import useChatLauncher from '../hooks/useChatLauncher';
 import { formatCurrency } from '../utils/currency';
+import { useToast } from '../context/ToastContext';
 
 const ListingDetail = () => {
   const { id } = useParams();
   const navigate = useNavigate();
   const { user } = useAuth();
   const { socket } = useSocket();
+  const { pushToast } = useToast();
   const startChat = useChatLauncher();
   const [listing, setListing] = useState(null);
   const [headerPrice, setHeaderPrice] = useState(null);
@@ -69,10 +71,10 @@ const ListingDetail = () => {
         listing: id,
         transactionType: 'buy_request',
       });
-      alert('Buy request sent to seller! You will be notified when approved.');
+      pushToast('Buy request sent to seller. You will be notified when approved.', { type: 'success' });
       setHasPendingRequest(true);
     } catch (err) {
-      alert(err.response?.data?.message || 'Failed to send buy request');
+      pushToast(err.response?.data?.message || 'Failed to send buy request', { type: 'error' });
     }
   };
 
@@ -87,10 +89,10 @@ const ListingDetail = () => {
     setSubmittingReport(true);
     try {
       await api.post('/reports', { listing: id, reason, message });
-      alert('Report submitted. Listing is temporarily blocked for review.');
+      pushToast('Report submitted. The team will review this listing.', { type: 'success' });
       await loadListing();
     } catch (err) {
-      alert(err.response?.data?.message || 'Failed to submit report');
+      pushToast(err.response?.data?.message || 'Failed to submit report', { type: 'error' });
     } finally {
       setSubmittingReport(false);
     }
@@ -98,12 +100,12 @@ const ListingDetail = () => {
 
   const handleRentalRequest = async () => {
     if (!rentalStartDate || !rentalEndDate) {
-      alert('Please select rental start and end dates.');
+      pushToast('Please select rental start and end dates.', { type: 'warning' });
       return;
     }
 
     if (new Date(rentalEndDate) <= new Date(rentalStartDate)) {
-      alert('Rental end date must be after start date.');
+      pushToast('Rental end date must be after start date.', { type: 'warning' });
       return;
     }
 
@@ -115,10 +117,10 @@ const ListingDetail = () => {
         rentalStartDate,
         rentalEndDate,
       });
-      alert('Rental request sent to owner.');
+      pushToast('Rental request sent to owner.', { type: 'success' });
       setHasPendingRequest(true);
     } catch (err) {
-      alert(err.response?.data?.message || 'Failed to send rental request');
+      pushToast(err.response?.data?.message || 'Failed to send rental request', { type: 'error' });
     } finally {
       setRequestingRental(false);
     }

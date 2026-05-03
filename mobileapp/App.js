@@ -3,6 +3,7 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { AuthProvider } from './src/context/AuthContext';
 import { SocketProvider } from './src/context/SocketContext';
 import { NotificationProvider } from './src/context/NotificationContext';
+import { ToastProvider } from './src/context/ToastContext';
 import AppNavigator from './src/navigation/AppNavigator';
 
 export default function App() {
@@ -11,8 +12,10 @@ export default function App() {
       <AuthProvider>
         <SocketProvider>
           <NotificationProvider>
-            <StatusBar style="light" />
-            <AppNavigator />
+            <ToastProvider>
+              <StatusBar style="light" />
+              <AppNavigator />
+            </ToastProvider>
           </NotificationProvider>
         </SocketProvider>
       </AuthProvider>

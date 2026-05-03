@@ -5,6 +5,7 @@ import { CalendarDays, Flag, HandCoins, MapPin, MessageCircle, ShoppingBag } fro
 import api from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import { useSocket } from '../context/SocketContext';
+import { useToast } from '../context/ToastContext';
 import BiddingBox from '../components/BiddingBox';
 import { AppButton, AppModal, Badge, Card, Field, LoadingState, Message, Screen, Title } from '../components/ui';
 import { colors, commonStyles, spacing } from '../theme';
@@ -16,6 +17,7 @@ const ListingDetailScreen = ({ navigation, route }) => {
   const { id } = route.params || {};
   const { user } = useAuth();
   const { socket } = useSocket();
+  const { pushToast } = useToast();
   const [listing, setListing] = useState(null);
   const [headerPrice, setHeaderPrice] = useState(null);
   const [hasPendingRequest, setHasPendingRequest] = useState(false);
@@ -103,10 +105,10 @@ const ListingDetailScreen = ({ navigation, route }) => {
     }
     try {
       await api.post('/transactions', { listing: id, transactionType: 'buy_request' });
-      Alert.alert('Request sent', 'You will be notified when approved.');
+      pushToast('Buy request sent. You will be notified when approved.', { type: 'success' });
       setHasPendingRequest(true);
     } catch (err) {
-      Alert.alert('Unable to buy', err.response?.data?.message || 'Failed to send buy request.');
+      pushToast(err.response?.data?.message || 'Failed to send buy request.', { type: 'error' });
     }
   };
 
@@ -116,11 +118,11 @@ const ListingDetailScreen = ({ navigation, route }) => {
       return;
     }
     if (!rentalDates.start || !rentalDates.end) {
-      Alert.alert('Dates required', 'Please enter rental start and end dates.');
+      pushToast('Please enter rental start and end dates.', { type: 'warning' });
       return;
     }
     if (new Date(rentalDates.end) <= new Date(rentalDates.start)) {
-      Alert.alert('Invalid dates', 'Rental end date must be after start date.');
+      pushToast('Rental end date must be after start date.', { type: 'warning' });
       return;
     }
     try {
@@ -130,10 +132,10 @@ const ListingDetailScreen = ({ navigation, route }) => {
         rentalStartDate: new Date(rentalDates.start).toISOString(),
         rentalEndDate: new Date(rentalDates.end).toISOString(),
       });
-      Alert.alert('Request sent', 'Rental request sent to owner.');
+      pushToast('Rental request sent to owner.', { type: 'success' });
       setHasPendingRequest(true);
     } catch (err) {
-      Alert.alert('Unable to request rental', err.response?.data?.message || 'Failed to send rental request.');
+      pushToast(err.response?.data?.message || 'Failed to send rental request.', { type: 'error' });
     }
   };
 
@@ -146,10 +148,10 @@ const ListingDetailScreen = ({ navigation, route }) => {
       await api.post('/offers', { listing: id, amount: Number(offer.amount), notes: offer.notes });
       setShowOffer(false);
       setOffer({ amount: '', notes: '' });
-      Alert.alert('Offer sent', 'Your offer was sent to the seller.');
+      pushToast('Offer sent to the seller.', { type: 'success' });
       loadListing();
     } catch (err) {
-      Alert.alert('Unable to submit offer', err.response?.data?.message || 'Failed to submit offer.');
+      pushToast(err.response?.data?.message || 'Failed to submit offer.', { type: 'error' });
     }
   };
 
@@ -159,17 +161,17 @@ const ListingDetailScreen = ({ navigation, route }) => {
       return;
     }
     if (!report.reason.trim()) {
-      Alert.alert('Reason required', 'Please enter a report reason.');
+      pushToast('Please enter a report reason.', { type: 'warning' });
       return;
     }
     try {
       await api.post('/reports', { listing: id, reason: report.reason.trim(), message: report.message.trim() });
       setShowReport(false);
       setReport({ reason: '', message: '' });
-      Alert.alert('Report submitted', 'Listing is temporarily blocked for review.');
+      pushToast('Report submitted. The team will review this listing.', { type: 'success' });
       loadListing();
     } catch (err) {
-      Alert.alert('Unable to report', err.response?.data?.message || 'Failed to submit report.');
+      pushToast(err.response?.data?.message || 'Failed to submit report.', { type: 'error' });
     }
   };
 

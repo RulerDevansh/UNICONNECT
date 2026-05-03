@@ -1,8 +1,9 @@
 import { useCallback, useState } from 'react';
-import { Alert, StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, Text, View } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import api from '../services/api';
 import { useNotifications } from '../context/NotificationContext';
+import { useToast } from '../context/ToastContext';
 import { AppButton, Card, EmptyState, LoadingState, Screen, Title } from '../components/ui';
 import { colors, spacing } from '../theme';
 import { formatDateTime } from '../utils/format';
@@ -30,6 +31,7 @@ const NotificationsScreen = () => {
   const [notifications, setNotifications] = useState([]);
   const [loading, setLoading] = useState(true);
   const { markAllReadLocal, decrementUnread } = useNotifications();
+  const { pushToast } = useToast();
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -63,19 +65,11 @@ const NotificationsScreen = () => {
     if (target && !target.read) decrementUnread();
   };
 
-  const clearAll = () => {
-    Alert.alert('Clear notifications', 'Remove all notifications?', [
-      { text: 'Cancel', style: 'cancel' },
-      {
-        text: 'Clear',
-        style: 'destructive',
-        onPress: async () => {
-          await api.delete('/notifications/clear-all');
-          setNotifications([]);
-          markAllReadLocal();
-        },
-      },
-    ]);
+  const clearAll = async () => {
+    await api.delete('/notifications/clear-all');
+    setNotifications([]);
+    markAllReadLocal();
+    pushToast('All notifications cleared.', { type: 'success' });
   };
 
   if (loading) return <Screen><LoadingState title="Loading notifications..." /></Screen>;

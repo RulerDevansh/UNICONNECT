@@ -7,6 +7,8 @@ const AdminListings = () => {
   const [meta, setMeta] = useState({ page: 1, totalPages: 1 });
   const [filters, setFilters] = useState({ source: '', reason: '', q: '' });
   const [loading, setLoading] = useState(true);
+  const [reviewModal, setReviewModal] = useState({ open: false, action: '', listing: null });
+  const [reviewNotes, setReviewNotes] = useState('');
 
   const load = async (page = meta.page) => {
     setLoading(true);
@@ -25,17 +27,20 @@ const AdminListings = () => {
     load(1);
   }, [filters]);
 
-  const handleReview = async (id, action) => {
-    const notes = window.prompt('Add review notes (optional):', '');
-    if (action === 'block') {
-      const ok = window.confirm('Block this listing? The seller can request review.');
-      if (!ok) return;
-    }
-    if (action === 'ban') {
-      const ok = window.confirm('Ban this listing permanently? The seller cannot request review.');
-      if (!ok) return;
-    }
-    await reviewListing(id, { action, notes });
+  const openReviewModal = (listing, action) => {
+    setReviewNotes('');
+    setReviewModal({ open: true, action, listing });
+  };
+
+  const closeReviewModal = () => {
+    setReviewModal({ open: false, action: '', listing: null });
+    setReviewNotes('');
+  };
+
+  const submitReview = async () => {
+    if (!reviewModal.listing) return;
+    await reviewListing(reviewModal.listing._id, { action: reviewModal.action, notes: reviewNotes || '' });
+    closeReviewModal();
     load();
   };
 
@@ -162,21 +167,21 @@ const AdminListings = () => {
                     </span>
                     <button
                       type="button"
-                      onClick={() => handleReview(listing._id, 'approve')}
+                      onClick={() => openReviewModal(listing, 'approve')}
                       className="rounded-full bg-emerald-500/80 px-3 py-1 text-xs text-white"
                     >
                       Approve
                     </button>
                     <button
                       type="button"
-                      onClick={() => handleReview(listing._id, 'block')}
+                      onClick={() => openReviewModal(listing, 'block')}
                       className="rounded-full bg-amber-500/80 px-3 py-1 text-xs text-white"
                     >
                       Block
                     </button>
                     <button
                       type="button"
-                      onClick={() => handleReview(listing._id, 'ban')}
+                      onClick={() => openReviewModal(listing, 'ban')}
                       className="rounded-full bg-red-600/80 px-3 py-1 text-xs text-white"
                     >
                       Ban
@@ -227,6 +232,70 @@ const AdminListings = () => {
               alt={imagePreview.title}
               className="mt-8 max-h-[75vh] w-full rounded-2xl object-contain"
             />
+          </div>
+        </div>
+      )}
+
+      {reviewModal.open && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80 px-4">
+          <div className="w-full max-w-lg rounded-2xl border border-slate-800 bg-slate-900/90 p-5 shadow-2xl">
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <h3 className="text-lg font-semibold text-white">Review listing</h3>
+                <p className="text-xs text-slate-400">
+                  {reviewModal.action === 'ban'
+                    ? 'Ban this listing permanently. The seller cannot request review.'
+                    : reviewModal.action === 'block'
+                      ? 'Block this listing. The seller can request review.'
+                      : 'Approve this listing and restore visibility.'}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={closeReviewModal}
+                className="rounded-full border border-slate-700 px-2 py-1 text-xs text-slate-300"
+              >
+                Close
+              </button>
+            </div>
+
+            <div className="mt-4">
+              <label className="text-xs uppercase text-slate-500">Review notes (optional)</label>
+              <textarea
+                rows={3}
+                value={reviewNotes}
+                onChange={(e) => setReviewNotes(e.target.value)}
+                className="mt-2 w-full rounded-lg border border-slate-800 bg-slate-950/60 px-3 py-2 text-sm text-slate-200"
+                placeholder="Add context for the seller"
+              />
+            </div>
+
+            <div className="mt-5 flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={closeReviewModal}
+                className="rounded-full border border-slate-700 px-4 py-2 text-xs text-slate-300"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={submitReview}
+                className={`rounded-full px-4 py-2 text-xs text-white ${
+                  reviewModal.action === 'ban'
+                    ? 'bg-red-600/80'
+                    : reviewModal.action === 'block'
+                      ? 'bg-amber-500/80'
+                      : 'bg-emerald-500/80'
+                }`}
+              >
+                {reviewModal.action === 'ban'
+                  ? 'Ban listing'
+                  : reviewModal.action === 'block'
+                    ? 'Block listing'
+                    : 'Approve listing'}
+              </button>
+            </div>
           </div>
         </div>
       )}

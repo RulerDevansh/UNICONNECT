@@ -1,11 +1,13 @@
 import { useEffect, useState } from 'react';
 import api from '../services/api';
 import { useNotifications } from '../context/NotificationContext';
+import { useToast } from '../context/ToastContext';
 
 const Notifications = () => {
   const [notifications, setNotifications] = useState([]);
   const [loading, setLoading] = useState(true);
   const { markAllReadLocal, decrementUnread } = useNotifications();
+  const { pushToast } = useToast();
 
   const loadNotifications = async () => {
     try {
@@ -63,8 +65,10 @@ const Notifications = () => {
       await api.delete('/notifications/clear-all');
       setNotifications([]);
       markAllReadLocal();
+      pushToast('All notifications cleared.', { type: 'success' });
     } catch (err) {
       console.error('Failed to clear all notifications:', err);
+      pushToast('Failed to clear notifications.', { type: 'error' });
     }
   };
 

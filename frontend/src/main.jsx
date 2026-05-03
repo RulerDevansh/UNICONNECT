@@ -7,6 +7,7 @@ import './styles/tailwind.css';
 import { AuthProvider } from './context/AuthContext';
 import { SocketProvider } from './context/SocketContext';
 import { NotificationProvider } from './context/NotificationContext';
+import { ToastProvider } from './context/ToastContext';
 
 ReactDOM.createRoot(document.getElementById('root')).render(
   <React.StrictMode>
@@ -14,7 +15,9 @@ ReactDOM.createRoot(document.getElementById('root')).render(
       <AuthProvider>
         <SocketProvider>
           <NotificationProvider>
-            <App />
+            <ToastProvider>
+              <App />
+            </ToastProvider>
           </NotificationProvider>
         </SocketProvider>
       </AuthProvider>

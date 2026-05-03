@@ -8,6 +8,8 @@ const AdminUsers = () => {
   const [loading, setLoading] = useState(true);
   const [warningModal, setWarningModal] = useState({ open: false, user: null });
   const [warningReason, setWarningReason] = useState('');
+  const [suspensionModal, setSuspensionModal] = useState({ open: false, user: null, suspended: false });
+  const [suspensionReason, setSuspensionReason] = useState('');
   const warningPresets = [
     'Inappropriate listing',
     'Spam activity',
@@ -27,12 +29,24 @@ const AdminUsers = () => {
     load(1);
   }, [filters]);
 
-  const toggleSuspension = async (user) => {
+  const openSuspensionModal = (user) => {
     const suspended = !user.suspended;
-    const reason = suspended ? window.prompt('Suspension reason (optional):', '') : '';
-    const confirmText = suspended ? 'Suspend this user?' : 'Unsuspend this user?';
-    if (!window.confirm(confirmText)) return;
-    await updateUserSuspension(user._id, { suspended, reason });
+    setSuspensionReason('');
+    setSuspensionModal({ open: true, user, suspended });
+  };
+
+  const closeSuspensionModal = () => {
+    setSuspensionModal({ open: false, user: null, suspended: false });
+    setSuspensionReason('');
+  };
+
+  const submitSuspension = async () => {
+    if (!suspensionModal.user) return;
+    await updateUserSuspension(suspensionModal.user._id, {
+      suspended: suspensionModal.suspended,
+      reason: suspensionModal.suspended ? suspensionReason : '',
+    });
+    closeSuspensionModal();
     load();
   };
 
@@ -112,7 +126,7 @@ const AdminUsers = () => {
                     </button>
                     <button
                       type="button"
-                      onClick={() => toggleSuspension(user)}
+                      onClick={() => openSuspensionModal(user)}
                       className={`rounded-full px-3 py-1 text-xs ${
                         user.suspended ? 'bg-emerald-500/70 text-white' : 'bg-red-500/70 text-white'
                       }`}
@@ -206,6 +220,64 @@ const AdminUsers = () => {
                 className="rounded-full bg-amber-500/80 px-4 py-2 text-xs text-white"
               >
                 Send warning
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {suspensionModal.open && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80 px-4">
+          <div className="w-full max-w-lg rounded-2xl border border-slate-800 bg-slate-900/90 p-5 shadow-2xl">
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <h3 className="text-lg font-semibold text-white">
+                  {suspensionModal.suspended ? 'Suspend user' : 'Unsuspend user'}
+                </h3>
+                <p className="text-xs text-slate-400">
+                  {suspensionModal.suspended
+                    ? `Suspend ${suspensionModal.user?.name || 'user'}?`
+                    : `Unsuspend ${suspensionModal.user?.name || 'user'}?`}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={closeSuspensionModal}
+                className="rounded-full border border-slate-700 px-2 py-1 text-xs text-slate-300"
+              >
+                Close
+              </button>
+            </div>
+
+            {suspensionModal.suspended && (
+              <div className="mt-4">
+                <label className="text-xs uppercase text-slate-500">Reason (optional)</label>
+                <textarea
+                  rows={3}
+                  value={suspensionReason}
+                  onChange={(e) => setSuspensionReason(e.target.value)}
+                  className="mt-2 w-full rounded-lg border border-slate-800 bg-slate-950/60 px-3 py-2 text-sm text-slate-200"
+                  placeholder="Add a suspension reason"
+                />
+              </div>
+            )}
+
+            <div className="mt-5 flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={closeSuspensionModal}
+                className="rounded-full border border-slate-700 px-4 py-2 text-xs text-slate-300"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={submitSuspension}
+                className={`rounded-full px-4 py-2 text-xs text-white ${
+                  suspensionModal.suspended ? 'bg-red-500/70' : 'bg-emerald-500/70'
+                }`}
+              >
+                {suspensionModal.suspended ? 'Suspend user' : 'Unsuspend user'}
               </button>
             </div>
           </div>

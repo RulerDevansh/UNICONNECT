@@ -9,6 +9,8 @@ const AdminDisputes = () => {
   const [resolvingId, setResolvingId] = useState('');
   const [toast, setToast] = useState('');
   const [error, setError] = useState('');
+  const [resolveModal, setResolveModal] = useState({ open: false, action: '', disputeId: '' });
+  const [resolveNotes, setResolveNotes] = useState('');
 
   const load = useCallback(async (page = meta.page) => {
     setLoading(true);
@@ -31,20 +33,25 @@ const AdminDisputes = () => {
     load(1);
   }, [load]);
 
-  const handleResolve = async (disputeId, action) => {
-    const confirmationText = action === 'release'
-      ? 'Resolve dispute and release deposit?'
-      : 'Resolve dispute and forfeit deposit?';
-    if (!window.confirm(confirmationText)) return;
+  const openResolveModal = (disputeId, action) => {
+    setResolveNotes('');
+    setResolveModal({ open: true, action, disputeId });
+  };
 
-    const notes = window.prompt('Resolution notes (optional):', '') || '';
-    setResolvingId(disputeId);
+  const closeResolveModal = () => {
+    setResolveModal({ open: false, action: '', disputeId: '' });
+    setResolveNotes('');
+  };
+
+  const submitResolve = async () => {
+    if (!resolveModal.disputeId) return;
+    setResolvingId(resolveModal.disputeId);
     setToast('');
-
     try {
-      await resolveDispute(disputeId, { action, notes });
-      setToast(action === 'release' ? 'Dispute resolved and deposit released.' : 'Dispute resolved and deposit forfeited.');
+      await resolveDispute(resolveModal.disputeId, { action: resolveModal.action, notes: resolveNotes || '' });
+      setToast(resolveModal.action === 'release' ? 'Dispute resolved and deposit released.' : 'Dispute resolved and deposit forfeited.');
       await load();
+      closeResolveModal();
     } catch (err) {
       setError(err.response?.data?.message || 'Failed to resolve dispute');
     } finally {
@@ -145,7 +152,7 @@ const AdminDisputes = () => {
                       <>
                         <button
                           type="button"
-                          onClick={() => handleResolve(dispute._id, 'release')}
+                          onClick={() => openResolveModal(dispute._id, 'release')}
                           disabled={resolvingId === dispute._id}
                           className="rounded-full bg-blue-600 px-3 py-1 text-xs text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-slate-700"
                         >
@@ -153,7 +160,7 @@ const AdminDisputes = () => {
                         </button>
                         <button
                           type="button"
-                          onClick={() => handleResolve(dispute._id, 'forfeit')}
+                          onClick={() => openResolveModal(dispute._id, 'forfeit')}
                           disabled={resolvingId === dispute._id}
                           className="rounded-full border border-red-500/60 px-3 py-1 text-xs text-red-200 hover:border-red-300 disabled:cursor-not-allowed disabled:border-slate-700 disabled:text-slate-500"
                         >
@@ -193,6 +200,60 @@ const AdminDisputes = () => {
           </button>
         </div>
       </div>
+
+      {resolveModal.open && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80 px-4">
+          <div className="w-full max-w-lg rounded-2xl border border-slate-800 bg-slate-900/90 p-5 shadow-2xl">
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <h3 className="text-lg font-semibold text-white">Resolve dispute</h3>
+                <p className="text-xs text-slate-400">
+                  {resolveModal.action === 'release'
+                    ? 'Release the deposit to the buyer?'
+                    : 'Forfeit the deposit to the seller?'}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={closeResolveModal}
+                className="rounded-full border border-slate-700 px-2 py-1 text-xs text-slate-300"
+              >
+                Close
+              </button>
+            </div>
+
+            <div className="mt-4">
+              <label className="text-xs uppercase text-slate-500">Resolution notes (optional)</label>
+              <textarea
+                rows={3}
+                value={resolveNotes}
+                onChange={(e) => setResolveNotes(e.target.value)}
+                className="mt-2 w-full rounded-lg border border-slate-800 bg-slate-950/60 px-3 py-2 text-sm text-slate-200"
+                placeholder="Add context for the resolution"
+              />
+            </div>
+
+            <div className="mt-5 flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={closeResolveModal}
+                className="rounded-full border border-slate-700 px-4 py-2 text-xs text-slate-300"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={submitResolve}
+                className={`rounded-full px-4 py-2 text-xs text-white ${
+                  resolveModal.action === 'release' ? 'bg-blue-600' : 'bg-red-600'
+                }`}
+              >
+                {resolveModal.action === 'release' ? 'Release deposit' : 'Forfeit deposit'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

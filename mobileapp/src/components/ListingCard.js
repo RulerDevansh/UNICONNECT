@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Alert, Image, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { Clock3, Eye, Gavel, HandCoins, ImageIcon, MapPin, Package, ShoppingBag, Tag } from 'lucide-react-native';
 import api from '../services/api';
@@ -9,6 +9,7 @@ import { getCategoryLabel, getListingDisplayPrice, getListingPriceText, getListi
 import { getId, sameId } from '../utils/id';
 import { useAuth } from '../context/AuthContext';
 import { useSocket } from '../context/SocketContext';
+import { useToast } from '../context/ToastContext';
 import { AppButton, Badge } from './ui';
 
 const typeTone = {
@@ -29,6 +30,7 @@ const ListingCard = ({ listing, onView, compact = false, onChanged }) => {
   const navigation = useNavigation();
   const { user } = useAuth();
   const { socket } = useSocket();
+  const { pushToast } = useToast();
   const isAuction = isAuctionListing(listing);
   const isRental = listing.listingType === 'rental';
   const sellerId = getId(listing.seller);
@@ -82,10 +84,10 @@ const ListingCard = ({ listing, onView, compact = false, onChanged }) => {
         listing: listing._id,
         transactionType: 'buy_request',
       });
-      Alert.alert('Request sent', 'Your buy request was sent to the seller.');
+      pushToast('Buy request sent to the seller.', { type: 'success' });
       onChanged?.();
     } catch (err) {
-      Alert.alert('Unable to buy', err.response?.data?.message || 'Failed to send buy request.');
+      pushToast(err.response?.data?.message || 'Failed to send buy request.', { type: 'error' });
     }
   };
 
