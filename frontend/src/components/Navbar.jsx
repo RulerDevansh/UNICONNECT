@@ -191,6 +191,19 @@ const Navbar = () => {
                     >
                       Logout
                     </button>
+                    <div className="border-t border-slate-800 pt-2">
+                      <a
+                        href="https://drive.google.com/uc?export=download&id=1RyuTgKyMvpLSpKDT96Gk2u1EVdgadesC"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="flex items-center gap-2 px-4 py-2 text-left text-sm text-slate-300 transition hover:bg-slate-800 hover:text-white"
+                      >
+                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="h-4 w-4">
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 19.5l15-15m0 0H8.25m11.25 0v11.25" />
+                        </svg>
+                        <span>Download APK</span>
+                      </a>
+                    </div>
                   </div>
                 )}
               </div>
@@ -238,6 +251,19 @@ const Navbar = () => {
                     >
                       Logout
                     </button>
+                    <div className="border-t border-slate-800 pt-2">
+                      <a
+                        href="https://drive.google.com/uc?export=download&id=1RyuTgKyMvpLSpKDT96Gk2u1EVdgadesC"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="flex items-center gap-2 px-4 py-2.5 text-left text-sm text-slate-300 transition hover:bg-slate-800 hover:text-white"
+                      >
+                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="h-4 w-4">
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 19.5l15-15m0 0H8.25m11.25 0v11.25" />
+                        </svg>
+                        <span>Download APK</span>
+                      </a>
+                    </div>
                   </div>
                 )}
               </div>

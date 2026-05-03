@@ -283,6 +283,51 @@ const Profile = () => {
                 </form>
               )}
             </div>
+
+            {/* APK Download Section */}
+            <div className="border-t border-slate-800 pt-6">
+              <div className="flex items-center gap-3 mb-4">
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  strokeWidth={1.5}
+                  stroke="currentColor"
+                  className="h-5 w-5 text-slate-300"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    d="M12 16.5V9.75m0 0l3 3m-3-3l-3 3M6.75 19.5a4.5 4.5 0 01-1.41-8.775 5.25 5.25 0 0110.233-2.33A3 3 0 0116.5 19.5H6.75z"
+                  />
+                </svg>
+                <h3 className="text-sm font-semibold text-slate-200">Download Mobile App</h3>
+              </div>
+              <p className="text-sm text-slate-400 mb-4">Download the UniConnect mobile app for Android to get the best experience on the go.</p>
+              <a
+                href="https://drive.google.com/uc?export=download&id=1RyuTgKyMvpLSpKDT96Gk2u1EVdgadesC"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-2 rounded-full bg-gradient-to-r from-brand-primary to-brand-secondary px-6 py-3 text-sm font-semibold text-white shadow shadow-brand-primary/40 transition hover:shadow-lg hover:shadow-brand-primary/50"
+              >
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  strokeWidth={2}
+                  stroke="currentColor"
+                  className="h-4 w-4"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    d="M4.5 19.5l15-15m0 0H8.25m11.25 0v11.25"
+                  />
+                </svg>
+                Download APK
+              </a>
+              <p className="text-xs text-slate-500 mt-3">Version: 1.0.0 • Size: ~45 MB • Android 8.0+</p>
+            </div>
           </div>
         )}
       </div>
