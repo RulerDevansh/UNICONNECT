@@ -1,6 +1,7 @@
 import { useMemo, useRef, useState } from 'react';
 import { Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Send, Sparkles, Trash2, X } from 'lucide-react-native';
 import { chatWithAssistant } from '../services/assistantService';
 import { useAuth } from '../context/AuthContext';
@@ -15,6 +16,7 @@ const starter = {
 
 const AIAssistantOverlay = () => {
   const navigation = useNavigation();
+  const insets = useSafeAreaInsets();
   const { isAuthenticated, loading } = useAuth();
   const [open, setOpen] = useState(false);
   const [input, setInput] = useState('');
@@ -70,7 +72,7 @@ const AIAssistantOverlay = () => {
 
   return (
     <>
-      <Pressable style={styles.fab} onPress={() => setOpen(true)}>
+      <Pressable style={[styles.fab, { bottom: 82 + Math.max(insets.bottom, 12) }]} onPress={() => setOpen(true)}>
         <Sparkles size={23} color="#fff" strokeWidth={2.6} />
       </Pressable>
       <Modal visible={open} animationType="slide" onRequestClose={() => setOpen(false)}>
@@ -140,7 +142,6 @@ const styles = StyleSheet.create({
   fab: {
     position: 'absolute',
     right: 18,
-    bottom: 92,
     width: 56,
     height: 56,
     borderRadius: 28,

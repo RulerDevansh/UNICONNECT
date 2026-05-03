@@ -2,6 +2,7 @@ import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
 import { NavigationContainer, DarkTheme } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ClipboardList, Home, LogIn, Menu, MessageCircle, Store, UsersRound } from 'lucide-react-native';
 import { useAuth } from '../context/AuthContext';
 import { useSocket } from '../context/SocketContext';
@@ -52,6 +53,8 @@ const MainTabs = () => {
   const { isAuthenticated } = useAuth();
   const { hasNewMessage } = useSocket();
   const { unreadCount } = useNotifications();
+  const insets = useSafeAreaInsets();
+  const bottomInset = Math.max(insets.bottom, 12);
 
   return (
     <View style={{ flex: 1 }}>
@@ -61,9 +64,9 @@ const MainTabs = () => {
           tabBarStyle: {
             backgroundColor: '#07111f',
             borderTopColor: 'rgba(51,65,85,0.75)',
-            height: 74,
+            height: 62 + bottomInset,
             paddingTop: 8,
-            paddingBottom: 10,
+            paddingBottom: bottomInset,
             elevation: 14,
           },
           tabBarActiveTintColor: colors.text,

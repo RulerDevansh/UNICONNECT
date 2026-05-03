@@ -97,6 +97,10 @@ const ListingDetailScreen = ({ navigation, route }) => {
   };
 
   const buyNow = async () => {
+    if (!user) {
+      navigation.navigate('Login');
+      return;
+    }
     try {
       await api.post('/transactions', { listing: id, transactionType: 'buy_request' });
       Alert.alert('Request sent', 'You will be notified when approved.');
@@ -107,6 +111,10 @@ const ListingDetailScreen = ({ navigation, route }) => {
   };
 
   const requestRental = async () => {
+    if (!user) {
+      navigation.navigate('Login');
+      return;
+    }
     if (!rentalDates.start || !rentalDates.end) {
       Alert.alert('Dates required', 'Please enter rental start and end dates.');
       return;
@@ -130,6 +138,10 @@ const ListingDetailScreen = ({ navigation, route }) => {
   };
 
   const submitOffer = async () => {
+    if (!user) {
+      navigation.navigate('Login');
+      return;
+    }
     try {
       await api.post('/offers', { listing: id, amount: Number(offer.amount), notes: offer.notes });
       setShowOffer(false);

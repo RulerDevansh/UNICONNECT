@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Alert, Image, Pressable, StyleSheet, Text, View } from 'react-native';
+import { useNavigation } from '@react-navigation/native';
 import { Clock3, Eye, Gavel, HandCoins, ImageIcon, MapPin, Package, ShoppingBag, Tag } from 'lucide-react-native';
 import api from '../services/api';
 import { colors, commonStyles, radius, spacing } from '../theme';
@@ -25,6 +26,7 @@ const typeIcon = {
 };
 
 const ListingCard = ({ listing, onView, compact = false, onChanged }) => {
+  const navigation = useNavigation();
   const { user } = useAuth();
   const { socket } = useSocket();
   const isAuction = isAuctionListing(listing);
@@ -70,6 +72,11 @@ const ListingCard = ({ listing, onView, compact = false, onChanged }) => {
   );
 
   const handleBuy = async () => {
+    if (!user) {
+      const root = navigation.getParent?.();
+      (root || navigation).navigate('Login');
+      return;
+    }
     try {
       await api.post('/transactions', {
         listing: listing._id,
