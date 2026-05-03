@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate, useSearchParams, Link } from 'react-router-dom';
 import { verifyEmail, resendVerification } from '../services/authService';
 
@@ -12,30 +12,28 @@ const VerifyEmail = () => {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const [resendLoading, setResendLoading] = useState(false);
+  const [resendCooldown, setResendCooldown] = useState(0);
   const navigate = useNavigate();
 
-  const normalizeOtpInput = (value) => {
-    const raw = String(value ?? '');
-    const matches = raw.match(/\d{6}/g);
-    if (matches && matches.length) return matches[matches.length - 1];
-    const digits = raw.replace(/\D/g, '');
-    if (!digits) return '';
-    return digits.slice(-6);
-  };
+  useEffect(() => {
+    if (resendCooldown <= 0) return undefined;
+    const timer = setInterval(() => {
+      setResendCooldown((prev) => Math.max(0, prev - 1));
+    }, 1000);
+    return () => clearInterval(timer);
+  }, [resendCooldown]);
 
   const handleVerify = async (e) => {
     e.preventDefault();
     setError('');
     setMessage('');
-    const normalizedEmail = email.trim().toLowerCase();
-    const normalizedCode = normalizeOtpInput(code);
-    if (!normalizedEmail || !normalizedCode) {
+    if (!email || !code) {
       setError('Both email and code are required.');
       return;
     }
     setLoading(true);
     try {
-      const res = await verifyEmail({ email: normalizedEmail, code: normalizedCode });
+      const res = await verifyEmail({ email, code });
       setMessage(res.data.message || 'Email verified!');
       setTimeout(() => navigate('/login'), 2000);
     } catch (err) {
@@ -46,17 +44,18 @@ const VerifyEmail = () => {
   };
 
   const handleResend = async () => {
-    const normalizedEmail = email.trim().toLowerCase();
-    if (!normalizedEmail) {
+    if (!email) {
       setError('Please enter your email first.');
       return;
     }
+    if (resendCooldown > 0) return;
     setError('');
     setMessage('');
     setResendLoading(true);
     try {
-      const res = await resendVerification({ email: normalizedEmail });
+      const res = await resendVerification({ email });
       setMessage(res.data.message || 'New code sent!');
+      setResendCooldown(15);
     } catch (err) {
       setError(err.response?.data?.message || 'Could not resend code. Please try again.');
     } finally {
@@ -106,7 +105,7 @@ const VerifyEmail = () => {
               inputMode="numeric"
               maxLength={6}
               value={code}
-              onChange={(e) => setCode(normalizeOtpInput(e.target.value))}
+              onChange={(e) => setCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
               placeholder="••••••"
               className="mt-1 w-full rounded border border-slate-700 bg-slate-950/60 px-3 py-2 text-center text-2xl tracking-[0.5em] text-purple-300 placeholder:text-slate-600"
               required
@@ -127,10 +126,10 @@ const VerifyEmail = () => {
           <button
             type="button"
             onClick={handleResend}
-            disabled={resendLoading}
+            disabled={resendLoading || resendCooldown > 0}
             className="font-semibold text-purple-400 hover:underline disabled:opacity-50"
           >
-            {resendLoading ? 'Sending…' : 'Resend code'}
+            {resendLoading ? 'Sending…' : resendCooldown > 0 ? `Resend in ${resendCooldown}s` : 'Resend code'}
           </button>
         </div>
 

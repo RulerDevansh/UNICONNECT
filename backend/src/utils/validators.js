@@ -1,13 +1,13 @@
 const { body } = require('express-validator');
 
 const registerValidationRules = () => [
-  body('email').isEmail().normalizeEmail(),
+  body('email').isEmail().normalizeEmail({ gmail_remove_dots: false, gmail_remove_subaddress: false }),
   body('password').isLength({ min: 8 }),
   body('name').notEmpty(),
 ];
 
 const loginValidationRules = () => [
-  body('email').isEmail().normalizeEmail(),
+  body('email').isEmail().normalizeEmail({ gmail_remove_dots: false, gmail_remove_subaddress: false }),
   body('password').isLength({ min: 8 }),
 ];
 
