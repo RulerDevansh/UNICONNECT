@@ -1,4 +1,4 @@
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import classNames from 'classnames';
 import { useEffect, useState } from 'react';
 import { useAuth } from '../context/AuthContext';
@@ -25,6 +25,7 @@ const formatTimeRemaining = (endTime) => {
 const ListingCard = ({ listing, wideImage = false, hideBuyNowBadge = false, compactButtons = false }) => {
   const { user } = useAuth();
   const { socket } = useSocket();
+  const navigate = useNavigate();
     const sellerId = listing.seller?._id || listing.seller?.id || listing.seller;
     const currentUserId = user?.id || user?._id;
   const status = listing.status || 'active';
@@ -88,6 +89,10 @@ const ListingCard = ({ listing, wideImage = false, hideBuyNowBadge = false, comp
   }, [socket, isAuction, listing._id, listing.auction?.startBid]);
 
   const handleBuyNow = async () => {
+    if (!user) {
+      navigate('/login');
+      return;
+    }
     try {
       await api.post('/transactions', {
         listing: listing._id,

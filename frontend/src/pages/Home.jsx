@@ -155,9 +155,24 @@ const Home = () => {
             <img 
               src={logo} 
               alt="UniConnect Logo" 
-              className="h-6 w-6 sm:h-8 sm:w-8 rounded-full object-cover" 
+              className="h-5 w-5 sm:h-7 sm:w-7 rounded-full object-cover" 
             />
             <p className="text-sm uppercase tracking-[0.2em] text-brand-secondary">UniConnect</p>
+            {!isAuthenticated && (
+              <a
+                href="https://drive.google.com/file/d/1nSFlQ0R0BM1mO4VrEwjyCo4G9d4Iddi_/view?usp=drive_link"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center rounded-full border border-brand-secondary/40 px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.14em] text-brand-secondary transition hover:border-brand-secondary/70 hover:bg-brand-secondary/10 whitespace-nowrap"
+              >
+                <span className="inline-flex items-center gap-1 whitespace-nowrap">
+                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="h-[30px] w-[30px] text-emerald-400">
+                    <path d="M17.6 9.48l1.84-3.18c.08-.14.03-.32-.11-.4-.14-.08-.32-.03-.4.11l-1.85 3.2A8.94 8.94 0 0012 8c-1.88 0-3.62.58-5.08 1.57L5.07 6.01c-.08-.14-.26-.19-.4-.11-.14.08-.19.26-.11.4L6.4 9.48A8.92 8.92 0 003 16h18a8.92 8.92 0 00-3.4-6.52zM8.75 12.5a.75.75 0 110-1.5.75.75 0 010 1.5zm6.5 0a.75.75 0 110-1.5.75.75 0 010 1.5zM7 19.5h10a1 1 0 001-1v-.5H6v.5a1 1 0 001 1z" />
+                  </svg>
+                  <span>Get Mobile APP</span>
+                </span>
+              </a>
+            )}
           </div>
           <h1 className="mt-1 text-2xl sm:text-4xl font-semibold text-white">Marketplace + Sharing hub</h1>
           <p className="mt-2 text-sm sm:text-base text-slate-400">Everything classmates are selling and splitting, side by side.</p>
