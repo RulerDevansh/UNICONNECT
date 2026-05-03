@@ -58,8 +58,9 @@ const SharingScreen = () => {
   useEffect(() => {
     if (!socket || !user) return undefined;
     const refresh = () => load();
-    ['share:updated', 'share:request', 'share:approved', 'share:rejected', 'share:cancelled'].forEach((event) => socket.on(event, refresh));
-    return () => ['share:updated', 'share:request', 'share:approved', 'share:rejected', 'share:cancelled'].forEach((event) => socket.off(event, refresh));
+    const events = ['share:updated', 'share:request', 'share:approved', 'share:rejected', 'share:cancelled', 'share:deleted'];
+    events.forEach((event) => socket.on(event, refresh));
+    return () => events.forEach((event) => socket.off(event, refresh));
   }, [socket, user, load]);
 
   const myShares = useMemo(() => shares.filter((share) => {

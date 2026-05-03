@@ -45,6 +45,7 @@ const ShareCard = ({
   const isMember = !!currentMembership;
   const isCancelled = currentMembership?.status === 'cancelled' && share.status === 'open';
   const pendingIds = (share.pendingRequests || []).map(getId);
+  const currentRejection = (share.rejectedRequests || []).find((entry) => getId(entry.user) === currentUserId);
   const rejectedIds = (share.rejectedRequests || []).map((entry) => getId(entry.user));
   const isPending = pendingIds.includes(currentUserId);
   const isRejected = rejectedIds.includes(currentUserId);
@@ -53,8 +54,17 @@ const ShareCard = ({
   const isDeadlinePassed = deadline ? new Date() > new Date(deadline) : false;
   const max = share.shareType === 'cab' ? share.maxPassengers : share.shareType === 'food' ? share.maxPersons : share.otherMaxPersons;
   const isFull = max ? joinedCount >= max : false;
-  const disabled = share.status !== 'open' || isHost || isMember || isPending || isDeadlinePassed || isFull || isRejected;
+  const hasJoinAction = typeof onJoin === 'function';
+  const disabled = !hasJoinAction || share.status !== 'open' || isHost || isMember || isPending || isDeadlinePassed || isFull || isRejected;
   const calculatedShare = currentMembership?.share || (isMember && joinedCount ? Number(share.totalAmount || 0) / joinedCount : 0);
+  const canRequestAgain = hasJoinAction && !isHost && !isPending && (isCancelled || isRejected) && share.status === 'open' && !isDeadlinePassed && !isFull;
+  const retryLabel = isRejected
+    ? 'Request Again'
+    : share.shareType === 'food'
+      ? 'Reorder'
+      : share.shareType === 'cab'
+        ? 'Rebook This Trip'
+        : 'Rebook';
 
   const confirmDelete = () => {
     Alert.alert('Delete share', `Delete "${share.name}"?`, [
@@ -130,6 +140,25 @@ const ShareCard = ({
         <Text style={styles.ownShare}>Your share: {formatCurrency(calculatedShare)}</Text>
       )}
 
+      {isCancelled && !isHost && (
+        <View style={[styles.statePanel, styles.cancelledPanel]}>
+          <Text style={styles.stateTitle}>Booking cancelled</Text>
+          <Text style={styles.stateText}>
+            {canRequestAgain ? 'A spot is available. You can request this share again.' : 'This share will stay here until its deadline.'}
+          </Text>
+        </View>
+      )}
+
+      {isRejected && !isHost && (
+        <View style={[styles.statePanel, styles.rejectedPanel]}>
+          <Text style={styles.stateTitle}>Request not accepted</Text>
+          <Text style={styles.stateText}>
+            {currentRejection?.reason || 'The host could not accept your request.'}
+            {canRequestAgain ? ' You can request again now.' : ''}
+          </Text>
+        </View>
+      )}
+
       {isHost && share.pendingRequests?.length > 0 && (
         <View style={styles.panel}>
           <Text style={styles.panelTitle}>Pending Requests</Text>
@@ -158,10 +187,18 @@ const ShareCard = ({
       )}
 
       <View style={styles.actions}>
-        {!isHost && share.status === 'open' && (isPending || (isMember && !isCancelled)) && (
+        {!isHost && share.status === 'open' && typeof onCancel === 'function' && (isPending || (isMember && !isCancelled)) && (
           <AppButton title={cancellingId === share._id ? 'Cancelling...' : 'Cancel Booking'} variant="danger" onPress={() => onCancel?.(share._id)} />
         )}
-        {!isHost && share.status === 'open' && !isPending && !isMember && (
+        {canRequestAgain && (
+          <AppButton
+            title={joiningId === share._id ? 'Requesting...' : retryLabel}
+            variant="success"
+            onPress={() => onJoin?.(share._id)}
+            disabled={joiningId === share._id}
+          />
+        )}
+        {!isHost && share.status === 'open' && hasJoinAction && !isPending && !isMember && !isRejected && (
           <AppButton title={joiningId === share._id ? 'Requesting...' : ctaLabel} onPress={() => onJoin?.(share._id)} disabled={disabled || joiningId === share._id} />
         )}
         {isHost && (
@@ -218,6 +255,30 @@ const styles = StyleSheet.create({
     marginTop: spacing.sm,
     fontWeight: '800',
   },
+  statePanel: {
+    borderWidth: 1,
+    borderRadius: radius.md,
+    padding: spacing.md,
+    marginTop: spacing.md,
+  },
+  cancelledPanel: {
+    borderColor: 'rgba(239,68,68,0.38)',
+    backgroundColor: 'rgba(239,68,68,0.1)',
+  },
+  rejectedPanel: {
+    borderColor: 'rgba(249,115,22,0.38)',
+    backgroundColor: 'rgba(249,115,22,0.1)',
+  },
+  stateTitle: {
+    color: colors.text,
+    fontWeight: '800',
+  },
+  stateText: {
+    color: colors.muted,
+    marginTop: 4,
+    fontSize: 12,
+    lineHeight: 17,
+  },
   panel: {
     borderWidth: 1,
     borderColor: colors.border,
@@ -254,4 +315,3 @@ const styles = StyleSheet.create({
 });
 
 export default ShareCard;
-

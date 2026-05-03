@@ -5,10 +5,11 @@ import { MapPin, Navigation, Save, Store, UsersRound } from 'lucide-react-native
 import api from '../services/api';
 import { updateLocation } from '../services/authService';
 import { useAuth } from '../context/AuthContext';
+import { useSocket } from '../context/SocketContext';
 import { useGeolocation } from '../hooks/useGeolocation';
 import ListingCard from '../components/ListingCard';
 import ShareCard from '../components/ShareCard';
-import { AppButton, Card, EmptyState, Field, LoadingState, Screen, SegmentTabs, Title } from '../components/ui';
+import { AppButton, Card, EmptyState, Field, LoadingState, Message, Screen, SegmentTabs, Title } from '../components/ui';
 import { colors, commonStyles, spacing } from '../theme';
 import { getId } from '../utils/id';
 
@@ -27,12 +28,17 @@ const hasCoordinates = (location) => location?.latitude != null && location?.lon
 
 const HomeScreen = ({ navigation }) => {
   const { isAuthenticated, user, refreshProfile } = useAuth();
+  const { socket } = useSocket();
   const [listings, setListings] = useState([]);
   const [shares, setShares] = useState([]);
   const [nearestListings, setNearestListings] = useState([]);
   const [nearestShares, setNearestShares] = useState([]);
   const [listingType, setListingType] = useState('');
   const [loading, setLoading] = useState(true);
+  const [shareMessage, setShareMessage] = useState('');
+  const [shareError, setShareError] = useState('');
+  const [joiningId, setJoiningId] = useState('');
+  const [cancellingId, setCancellingId] = useState('');
   const [showLocation, setShowLocation] = useState(false);
   const [locationDraft, setLocationDraft] = useState({
     latitude: '',
@@ -63,7 +69,7 @@ const HomeScreen = ({ navigation }) => {
       const { data } = await api.get('/recommendations/nearby', { params: { maxDistanceKm: 10, limit: 6 } });
       if (data?.success) {
         setNearestListings(data.data?.listings || []);
-        setNearestShares(data.data?.shares || []);
+        setNearestShares((data.data?.shares || []).filter(activeShare));
       }
     } catch {
       setNearestListings([]);
@@ -76,6 +82,17 @@ const HomeScreen = ({ navigation }) => {
   useEffect(() => {
     loadNearby();
   }, [loadNearby]);
+
+  useEffect(() => {
+    if (!socket || !isAuthenticated) return undefined;
+    const refreshShares = () => {
+      load();
+      loadNearby();
+    };
+    const events = ['share:updated', 'share:request', 'share:approved', 'share:rejected', 'share:cancelled', 'share:deleted'];
+    events.forEach((event) => socket.on(event, refreshShares));
+    return () => events.forEach((event) => socket.off(event, refreshShares));
+  }, [socket, isAuthenticated, load, loadNearby]);
 
   useEffect(() => {
     if (user?.location?.latitude && user?.location?.longitude) {
@@ -113,9 +130,45 @@ const HomeScreen = ({ navigation }) => {
     }
   };
 
+  const refreshShares = async () => {
+    await Promise.all([load(), loadNearby()]);
+  };
+
+  const joinShare = async (shareId) => {
+    setShareMessage('');
+    setShareError('');
+    setJoiningId(shareId);
+    try {
+      await api.post(`/shares/${shareId}/join`);
+      setShareMessage('Join request submitted.');
+      await refreshShares();
+    } catch (err) {
+      setShareError(err.response?.data?.message || 'Failed to request join.');
+    } finally {
+      setJoiningId('');
+    }
+  };
+
+  const cancelShare = async (shareId) => {
+    setShareMessage('');
+    setShareError('');
+    setCancellingId(shareId);
+    try {
+      await api.post(`/shares/${shareId}/cancel`);
+      setShareMessage('Booking cancelled successfully.');
+      await refreshShares();
+    } catch (err) {
+      setShareError(err.response?.data?.message || 'Failed to cancel booking.');
+    } finally {
+      setCancellingId('');
+    }
+  };
+
   return (
     <Screen>
       <Title subtitle="Everything classmates are selling and splitting, side by side.">Marketplace + Sharing hub</Title>
+      {!!shareMessage && <Message type="success">{shareMessage}</Message>}
+      {!!shareError && <Message type="error">{shareError}</Message>}
 
       {isAuthenticated && (
         <Card style={{ marginBottom: spacing.lg }}>
@@ -156,7 +209,15 @@ const HomeScreen = ({ navigation }) => {
           <Text style={commonStyles.h2}>Nearest Shares</Text>
           <View style={{ marginTop: spacing.md }}>
             {nearestShares.map((share) => (
-              <ShareCard key={share._id} share={share} currentUserId={getId(user)} />
+              <ShareCard
+                key={share._id}
+                share={share}
+                currentUserId={getId(user)}
+                onJoin={joinShare}
+                onCancel={cancelShare}
+                joiningId={joiningId}
+                cancellingId={cancellingId}
+              />
             ))}
           </View>
           <AppButton title="Open Sharing" onPress={() => navigation.navigate('Sharing')} />
@@ -192,7 +253,17 @@ const HomeScreen = ({ navigation }) => {
         <AppButton title="Manage" icon={UsersRound} variant="outline" onPress={() => navigation.navigate('Sharing')} />
       </View>
       {isAuthenticated ? (
-        shares.length ? shares.map((share) => <ShareCard key={share._id} share={share} currentUserId={getId(user)} />) : <EmptyState title="No shares created yet." />
+        shares.length ? shares.map((share) => (
+          <ShareCard
+            key={share._id}
+            share={share}
+            currentUserId={getId(user)}
+            onJoin={joinShare}
+            onCancel={cancelShare}
+            joiningId={joiningId}
+            cancellingId={cancellingId}
+          />
+        )) : <EmptyState title="No shares created yet." />
       ) : (
         <EmptyState title="Login to view shares." />
       )}

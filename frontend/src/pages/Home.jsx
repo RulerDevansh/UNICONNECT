@@ -155,7 +155,7 @@ const Home = () => {
             <img 
               src={logo} 
               alt="UniConnect Logo" 
-              className="h-6 w-6 sm:h-8 sm:w-8" 
+              className="h-6 w-6 sm:h-8 sm:w-8 rounded-full object-cover" 
             />
             <p className="text-sm uppercase tracking-[0.2em] text-brand-secondary">UniConnect</p>
           </div>

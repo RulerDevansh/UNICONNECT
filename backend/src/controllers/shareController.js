@@ -28,6 +28,44 @@ const shareTypeName = (shareType) =>
   shareType === 'cab' ? 'Cab Share' :
   shareType === 'food' ? 'Food Share' : 'Share';
 
+const joinedMemberCount = (share) =>
+  share.members?.filter((member) => member.status === 'joined').length || 0;
+
+const getCapacityConfig = (share) => {
+  if (share.shareType === 'cab') {
+    return {
+      limit: share.maxPassengers,
+      fullMessage: 'Trip is fully occupied',
+    };
+  }
+
+  if (share.shareType === 'food') {
+    return {
+      limit: share.maxPersons,
+      fullMessage: 'Order is fully occupied',
+    };
+  }
+
+  return {
+    limit: share.otherMaxPersons,
+    fullMessage: 'Share is fully occupied',
+  };
+};
+
+const isShareFull = (share) => {
+  const { limit } = getCapacityConfig(share);
+  return Boolean(limit && joinedMemberCount(share) >= limit);
+};
+
+const emitShareEvent = (share, event = 'share:updated', payload = {}) => {
+  const io = getIO();
+  if (!io || !share?.collegeDomain) return;
+  io.to(`college:${share.collegeDomain}`).emit(event, {
+    shareId: share._id,
+    ...payload,
+  });
+};
+
 /**
  * @route GET /api/shares
  */
@@ -148,6 +186,7 @@ const createShare = async (req, res, next) => {
       isGroup: true,
       shareRef: share._id,
     });
+    emitShareEvent(share, 'share:updated', { type: 'share_created' });
     res.status(201).json(share);
   } catch (err) {
     next(err);
@@ -164,21 +203,27 @@ const requestJoin = async (req, res, next) => {
     if (share.collegeDomain !== req.user.collegeDomain) {
       return res.status(403).json({ message: 'College domain mismatch' });
     }
-    if (share.status === 'closed') {
+    if (share.status !== 'open') {
       return res.status(400).json({ message: 'Share closed' });
     }
     
-    // Check booking deadline for cab sharing
+    const now = new Date();
+
     if (share.shareType === 'cab' && share.bookingDeadline) {
-      if (new Date() > new Date(share.bookingDeadline)) {
+      if (now > new Date(share.bookingDeadline)) {
         return res.status(400).json({ message: 'Booking deadline has passed' });
       }
     }
     
-    // Check deadline for food sharing
     if (share.shareType === 'food' && share.deadlineTime) {
-      if (new Date() > new Date(share.deadlineTime)) {
+      if (now > new Date(share.deadlineTime)) {
         return res.status(400).json({ message: 'Order deadline has passed' });
+      }
+    }
+
+    if (share.shareType === 'other' && share.otherDeadline) {
+      if (now > new Date(share.otherDeadline)) {
+        return res.status(400).json({ message: 'Share deadline has passed' });
       }
     }
     
@@ -196,24 +241,20 @@ const requestJoin = async (req, res, next) => {
     if (share.pendingRequests.some((id) => id.toString() === req.user.id)) {
       return res.status(409).json({ message: 'Already requested' });
     }
+
+    const capacity = getCapacityConfig(share);
+    if (isShareFull(share)) {
+      return res.status(400).json({
+        message: capacity.fullMessage,
+        reason: 'share_full',
+      });
+    }
     
-    // Check if user's request was previously rejected (trip was full)
+    // Re-requesting is allowed once capacity opens again.
     const rejectedIndex = share.rejectedRequests?.findIndex(
       (rejected) => rejected.user.toString() === req.user.id
     );
     if (rejectedIndex !== undefined && rejectedIndex !== -1) {
-      // Allow re-requesting: remove from rejected requests if seats are now available
-      const joinedMembersCount = share.members.filter(m => m.status === 'joined').length;
-      const isFullyBooked = share.maxPassengers && joinedMembersCount >= share.maxPassengers;
-      
-      if (isFullyBooked) {
-        return res.status(400).json({ 
-          message: 'Trip is still fully occupied',
-          reason: 'trip_full'
-        });
-      }
-      
-      // Remove from rejected requests to allow new request
       share.rejectedRequests.splice(rejectedIndex, 1);
     }
     
@@ -238,6 +279,7 @@ const requestJoin = async (req, res, next) => {
         type: 'join_request'
       });
     }
+    emitShareEvent(share, 'share:updated', { type: 'join_request' });
     
     res.json({ message: 'Request submitted' });
   } catch (err) {
@@ -360,6 +402,7 @@ const cancelRequest = async (req, res, next) => {
         });
       }
     }
+    emitShareEvent(share, 'share:updated', { type: 'member_cancelled' });
     
     // Note: Cancelled members remain visible until departure time passes
     // Share and chat data deletion is handled by cleanup service after departure time
@@ -390,6 +433,12 @@ const approveMember = async (req, res, next) => {
     if (!share.pendingRequests.some((id) => id.toString() === userId)) {
       return res.status(404).json({ message: 'Request not found' });
     }
+
+    const capacity = getCapacityConfig(share);
+    if (isShareFull(share)) {
+      return res.status(400).json({ message: capacity.fullMessage });
+    }
+
     share.pendingRequests = share.pendingRequests.filter((id) => id.toString() !== userId);
     
     // If user was previously cancelled, update their status instead of adding new entry
@@ -545,6 +594,7 @@ const approveMember = async (req, res, next) => {
         });
       }
     }
+    emitShareEvent(share, 'share:updated', { type: 'member_approved' });
     
     // Populate and return updated share
     const updatedShare = await Share.findById(share._id)
@@ -606,6 +656,7 @@ const rejectMember = async (req, res, next) => {
         type: 'request_rejected'
       });
     }
+    emitShareEvent(share, 'share:updated', { type: 'member_rejected' });
     
     // Populate and return updated share
     const updatedShare = await Share.findById(share._id)
@@ -652,9 +703,10 @@ const finalizeShare = async (req, res, next) => {
     }
     
     share.members = calculateSplit(share, req.body.overrides || []);
-  share.markModified('members');
+    share.markModified('members');
     share.status = 'closed';
     await share.save();
+    emitShareEvent(share, 'share:updated', { type: 'share_finalized' });
     
     const typeName = shareTypeName(share.shareType);
     
@@ -848,6 +900,7 @@ const updateShare = async (req, res, next) => {
     if (io) {
       io.to(`share:${share._id}`).emit('share:updated', updatedShare);
     }
+    emitShareEvent(share, 'share:updated', { type: 'share_updated' });
     
     res.json(updatedShare);
   } catch (err) {
@@ -867,6 +920,7 @@ const deleteShare = async (req, res, next) => {
     await Share.findByIdAndDelete(req.params.id);
     // Also delete the associated chat
     await Chat.deleteOne({ shareRef: req.params.id });
+    emitShareEvent(share, 'share:deleted', { type: 'share_deleted' });
     res.json({ message: 'Share deleted successfully' });
   } catch (err) {
     next(err);

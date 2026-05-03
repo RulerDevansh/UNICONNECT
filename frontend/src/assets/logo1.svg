@@ -1,0 +1,40 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 400" fill="none">
+  <!-- Shopping Cart Body -->
+  <path d="M100 160 L120 160 L150 280 L320 280 L350 200 L140 200" 
+        stroke="#2563EB" 
+        stroke-width="16" 
+        stroke-linecap="round" 
+        stroke-linejoin="round" 
+        fill="none"/>
+  
+  <!-- Cart basket -->
+  <path d="M150 280 L165 310 L305 310 L320 280" 
+        stroke="#2563EB" 
+        stroke-width="16" 
+        stroke-linecap="round" 
+        stroke-linejoin="round" 
+        fill="#1E3A8A"/>
+  
+  <!-- Cart wheels -->
+  <circle cx="190" cy="340" r="20" fill="#2563EB"/>
+  <circle cx="280" cy="340" r="20" fill="#2563EB"/>
+  
+  <!-- Graduation Cap -->
+  <!-- Cap board (flat square) -->
+  <path d="M180 100 L360 140 L360 160 L180 120 Z" 
+        fill="#2563EB"/>
+  <path d="M180 120 L360 160 L360 180 L180 140 Z" 
+        fill="#1E40AF"/>
+  
+  <!-- Cap base (cylindrical part) -->
+  <ellipse cx="270" cy="185" rx="50" ry="15" fill="#1E40AF"/>
+  <rect x="220" y="185" width="100" height="25" fill="#1E40AF"/>
+  <ellipse cx="270" cy="210" rx="50" ry="15" fill="#2563EB"/>
+  
+  <!-- Tassel -->
+  <line x1="360" y1="150" x2="385" y2="195" stroke="#2563EB" stroke-width="4"/>
+  <circle cx="385" cy="200" r="8" fill="#2563EB"/>
+  
+  <!-- Horizontal bar connecting cart handle -->
+  <rect x="260" y="230" width="60" height="8" fill="#1E3A8A" opacity="0.3"/>
+</svg>

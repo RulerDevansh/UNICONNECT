@@ -22,6 +22,9 @@ const initSocket = (io) => {
 
   io.on('connection', (socket) => {
     socket.join(`user:${socket.user.id}`);
+    if (socket.user.collegeDomain) {
+      socket.join(`college:${socket.user.collegeDomain}`);
+    }
 
     socket.on('joinChat', (chatId) => {
       // Leave any previously joined chat room before joining the new one
