@@ -50,7 +50,6 @@ const createReport = async (req, res, next) => {
       reason,
     });
 
-    listing.status = 'blocked';
     listing.moderation = listing.moderation || {};
     listing.moderation.flagged = true;
     listing.moderation.reason = reason || listing.moderation.reason || 'user_report';
