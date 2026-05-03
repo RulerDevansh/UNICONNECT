@@ -11,10 +11,10 @@ const ToastItem = ({ toast }) => {
   const opacity = useRef(new Animated.Value(0)).current;
 
   const toneStyle = {
-    success: { borderColor: 'rgba(16,185,129,0.5)', backgroundColor: 'rgba(16,185,129,0.12)', color: '#bbf7d0' },
-    error: { borderColor: 'rgba(239,68,68,0.5)', backgroundColor: 'rgba(239,68,68,0.12)', color: '#fecaca' },
-    warning: { borderColor: 'rgba(245,158,11,0.5)', backgroundColor: 'rgba(245,158,11,0.12)', color: '#fde68a' },
-    info: { borderColor: colors.border, backgroundColor: 'rgba(30,41,59,0.8)', color: '#e2e8f0' },
+    success: { borderColor: 'rgba(16,185,129,0.7)', backgroundColor: 'rgba(16,185,129,0.45)', color: '#f8fafc' },
+    error: { borderColor: 'rgba(239,68,68,0.7)', backgroundColor: 'rgba(239,68,68,0.45)', color: '#f8fafc' },
+    warning: { borderColor: 'rgba(245,158,11,0.7)', backgroundColor: 'rgba(245,158,11,0.45)', color: '#f8fafc' },
+    info: { borderColor: colors.border, backgroundColor: 'rgba(30,41,59,0.96)', color: '#f8fafc' },
   }[toast.type || 'info'];
 
   Animated.timing(opacity, { toValue: 1, duration: 220, useNativeDriver: true }).start();
@@ -64,7 +64,7 @@ export const ToastProvider = ({ children }) => {
   return (
     <ToastContext.Provider value={value}>
       {children}
-      <View pointerEvents="none" style={[styles.host, { top: insets.top + spacing.md }]}>
+      <View pointerEvents="none" style={[styles.host, { top: insets.top + spacing.xl }]}>
         {toasts.map((toast) => (
           <ToastItem key={toast.id} toast={toast} />
         ))}
@@ -90,8 +90,8 @@ const styles = StyleSheet.create({
   toast: {
     borderWidth: 1,
     borderRadius: radius.md,
-    paddingVertical: spacing.sm,
-    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.lg,
     shadowColor: '#000',
     shadowOpacity: 0.35,
     shadowRadius: 10,
@@ -99,7 +99,7 @@ const styles = StyleSheet.create({
     elevation: 6,
   },
   toastText: {
-    fontSize: 13,
-    fontWeight: '600',
+    fontSize: 15,
+    fontWeight: '700',
   },
 });

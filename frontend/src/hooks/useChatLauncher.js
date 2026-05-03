@@ -2,11 +2,13 @@ import { useCallback } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import api from '../services/api';
 import { useAuth } from '../context/AuthContext';
+import { useToast } from '../context/ToastContext';
 
 const useChatLauncher = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const { user } = useAuth();
+  const { pushToast } = useToast();
 
   return useCallback(
     async (targetUserId, options = {}) => {
@@ -24,10 +26,10 @@ const useChatLauncher = () => {
         navigate(`/chat?chatId=${data._id}`);
       } catch (err) {
         console.error('Failed to start chat', err);
-        alert(err.response?.data?.message || 'Unable to open chat right now.');
+        pushToast(err.response?.data?.message || 'Unable to open chat right now.', { type: 'error' });
       }
     },
-    [location.pathname, location.search, navigate, user]
+    [location.pathname, location.search, navigate, pushToast, user]
   );
 };
 

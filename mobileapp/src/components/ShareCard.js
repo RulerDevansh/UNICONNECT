@@ -1,8 +1,9 @@
-import { Alert, StyleSheet, Text, View } from 'react-native';
+import { useState } from 'react';
+import { StyleSheet, Text, View } from 'react-native';
 import { colors, commonStyles, radius, spacing } from '../theme';
 import { formatCurrency, formatDateTime } from '../utils/format';
 import { getId } from '../utils/id';
-import { AppButton, Badge, Card } from './ui';
+import { AppButton, Badge, Card, ConfirmDialog } from './ui';
 
 const normalizeMembers = (share) => share.members || [];
 
@@ -38,6 +39,7 @@ const ShareCard = ({
   joiningId,
   cancellingId,
 }) => {
+  const [confirmOpen, setConfirmOpen] = useState(false);
   const hostId = getId(share.host);
   const isHost = hostId === currentUserId;
   const members = normalizeMembers(share);
@@ -66,12 +68,7 @@ const ShareCard = ({
         ? 'Rebook This Trip'
         : 'Rebook';
 
-  const confirmDelete = () => {
-    Alert.alert('Delete share', `Delete "${share.name}"?`, [
-      { text: 'Cancel', style: 'cancel' },
-      { text: 'Delete', style: 'destructive', onPress: () => onDelete?.(share._id) },
-    ]);
-  };
+  const confirmDelete = () => setConfirmOpen(true);
 
   const ctaLabel = isHost
     ? 'You are hosting'
@@ -209,6 +206,19 @@ const ShareCard = ({
           </>
         )}
       </View>
+
+      <ConfirmDialog
+        visible={confirmOpen}
+        title="Delete share?"
+        description={`Delete "${share.name}"? This action cannot be undone.`}
+        confirmLabel="Delete"
+        tone="danger"
+        onCancel={() => setConfirmOpen(false)}
+        onConfirm={() => {
+          setConfirmOpen(false);
+          onDelete?.(share._id);
+        }}
+      />
     </Card>
   );
 };

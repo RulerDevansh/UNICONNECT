@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react';
-import { Alert, Image, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import api from '../services/api';
+import { useToast } from '../context/ToastContext';
 import { colors, spacing } from '../theme';
 import { toInputDateTime, toIsoOrUndefined } from '../utils/format';
 import { useGeolocation } from '../hooks/useGeolocation';
@@ -58,6 +59,7 @@ const ListingForm = ({ mode = 'create', initialData, allowRental = true, forceLi
     address: '',
   });
   const { getCurrentLocation } = useGeolocation();
+  const { pushToast } = useToast();
 
   useEffect(() => {
     setForm(initialData ? mapListing(initialData) : emptyForm());
@@ -82,7 +84,7 @@ const ListingForm = ({ mode = 'create', initialData, allowRental = true, forceLi
   const pickImage = async () => {
     const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (permission.status !== 'granted') {
-      Alert.alert('Permission needed', 'Allow photo access to upload listing images.');
+      pushToast('Allow photo access to upload listing images.', { type: 'warning' });
       return;
     }
     const result = await ImagePicker.launchImageLibraryAsync({

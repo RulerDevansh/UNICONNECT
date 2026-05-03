@@ -22,6 +22,8 @@ const ListingDetail = () => {
   const [hasPendingRequest, setHasPendingRequest] = useState(false);
   const [biddingEndInfo, setBiddingEndInfo] = useState(null);
   const [submittingReport, setSubmittingReport] = useState(false);
+  const [reportModalOpen, setReportModalOpen] = useState(false);
+  const [reportForm, setReportForm] = useState({ reason: '', message: '' });
   const [rentalStartDate, setRentalStartDate] = useState('');
   const [rentalEndDate, setRentalEndDate] = useState('');
   const [requestingRental, setRequestingRental] = useState(false);
@@ -83,13 +85,18 @@ const ListingDetail = () => {
       navigate('/login');
       return;
     }
-    const reason = window.prompt('Report reason (required):', '')?.trim();
-    if (!reason) return;
-    const message = window.prompt('Details (optional):', '')?.trim() || '';
+    const reason = reportForm.reason.trim();
+    if (!reason) {
+      pushToast('Report reason is required.', { type: 'warning' });
+      return;
+    }
+    const message = reportForm.message.trim();
     setSubmittingReport(true);
     try {
       await api.post('/reports', { listing: id, reason, message });
       pushToast('Report submitted. The team will review this listing.', { type: 'success' });
+      setReportModalOpen(false);
+      setReportForm({ reason: '', message: '' });
       await loadListing();
     } catch (err) {
       pushToast(err.response?.data?.message || 'Failed to submit report', { type: 'error' });
@@ -215,7 +222,7 @@ const ListingDetail = () => {
             {user && !isSeller && (
               <button
                 type="button"
-                onClick={handleReport}
+                onClick={() => setReportModalOpen(true)}
                 disabled={submittingReport}
                 className="absolute bottom-3 right-3 rounded-full border border-red-500/60 bg-slate-900/70 px-3 py-1 text-[11px] font-semibold text-red-200 transition hover:border-red-300 disabled:cursor-not-allowed disabled:border-slate-700 disabled:text-slate-500"
               >
@@ -224,6 +231,66 @@ const ListingDetail = () => {
             )}
           </div>
           <div>
+
+          {reportModalOpen && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80 px-4">
+              <div className="w-full max-w-lg rounded-2xl border border-slate-800 bg-slate-900/90 p-5 shadow-2xl">
+                <div className="flex items-start justify-between gap-4">
+                  <div>
+                    <h3 className="text-lg font-semibold text-white">Report listing</h3>
+                    <p className="text-xs text-slate-400">Tell us why this listing should be reviewed.</p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setReportModalOpen(false)}
+                    className="rounded-full border border-slate-700 px-2 py-1 text-xs text-slate-300"
+                  >
+                    Close
+                  </button>
+                </div>
+
+                <div className="mt-4 space-y-3">
+                  <div>
+                    <label className="text-xs uppercase text-slate-500">Reason (required)</label>
+                    <input
+                      value={reportForm.reason}
+                      onChange={(e) => setReportForm((prev) => ({ ...prev, reason: e.target.value }))}
+                      className="mt-2 w-full rounded-lg border border-slate-800 bg-slate-950/60 px-3 py-2 text-sm text-slate-200"
+                      placeholder="Spam, fraud, policy, or other"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-xs uppercase text-slate-500">Details (optional)</label>
+                    <textarea
+                      rows={3}
+                      value={reportForm.message}
+                      onChange={(e) => setReportForm((prev) => ({ ...prev, message: e.target.value }))}
+                      className="mt-2 w-full rounded-lg border border-slate-800 bg-slate-950/60 px-3 py-2 text-sm text-slate-200"
+                      placeholder="Add any helpful details"
+                    />
+                  </div>
+                </div>
+
+                <div className="mt-5 flex justify-end gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setReportModalOpen(false)}
+                    className="rounded-full border border-slate-700 px-4 py-2 text-xs text-slate-300"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleReport}
+                    disabled={submittingReport}
+                    className="rounded-full bg-red-600/80 px-4 py-2 text-xs text-white disabled:opacity-60"
+                  >
+                    {submittingReport ? 'Submitting…' : 'Submit report'}
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
             <p className="text-sm uppercase tracking-[0.3em] text-slate-400">{listing.category}</p>
             <h1 className="mt-1 text-2xl sm:text-4xl font-semibold text-white">{listing.title}</h1>
             <p className="mt-2 sm:mt-3 text-sm sm:text-lg text-slate-300">{listing.description}</p>

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { Alert, Image, StyleSheet, Text, View } from 'react-native';
+import { Image, StyleSheet, Text, View } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { CalendarDays, Flag, HandCoins, MapPin, MessageCircle, ShoppingBag } from 'lucide-react-native';
 import api from '../services/api';
@@ -94,7 +94,7 @@ const ListingDetailScreen = ({ navigation, route }) => {
       const { data } = await api.post('/chats', payload);
       navigation.navigate('Chat', { chatId: data._id });
     } catch (err) {
-      Alert.alert('Unable to open chat', err.response?.data?.message || 'Try again later.');
+      pushToast(err.response?.data?.message || 'Unable to open chat.', { type: 'error' });
     }
   };
 

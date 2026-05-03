@@ -1,9 +1,10 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Alert, StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, Text, View } from 'react-native';
 import api from '../services/api';
 import { colors, commonStyles, radius, spacing } from '../theme';
 import { formatCurrency } from '../utils/format';
 import { useSocket } from '../context/SocketContext';
+import { useToast } from '../context/ToastContext';
 import { AppButton, Field, Message } from './ui';
 
 const BiddingBox = ({ listing, user }) => {
@@ -18,6 +19,7 @@ const BiddingBox = ({ listing, user }) => {
     endTime: listing.auction?.endTime || null,
     yourHighestBid: 0,
   });
+  const { pushToast } = useToast();
 
   const endTime = useMemo(() => (status.endTime ? new Date(status.endTime) : null), [status.endTime]);
   const [secondsLeft, setSecondsLeft] = useState(() => (endTime ? Math.max(0, Math.floor((endTime - Date.now()) / 1000)) : null));
@@ -90,7 +92,7 @@ const BiddingBox = ({ listing, user }) => {
       return;
     }
     if (!socket) {
-      Alert.alert('Offline', 'Socket connection is not ready yet.');
+      pushToast('Socket connection is not ready yet.', { type: 'warning' });
       return;
     }
     socket.emit('auction:bid', { listingId: listing._id, amount: value });

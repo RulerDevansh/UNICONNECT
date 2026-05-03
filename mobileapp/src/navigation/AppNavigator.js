@@ -3,7 +3,7 @@ import { NavigationContainer, DarkTheme } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { ClipboardList, Home, LogIn, Menu, MessageCircle, Store, UsersRound } from 'lucide-react-native';
+import { ClipboardList, Home, LogIn, Menu, MessageCircle, ShieldCheck, Store, UsersRound } from 'lucide-react-native';
 import { useAuth } from '../context/AuthContext';
 import { useSocket } from '../context/SocketContext';
 import { useNotifications } from '../context/NotificationContext';
@@ -50,7 +50,8 @@ const withProtection = (Component) => (props) => (
 );
 
 const MainTabs = () => {
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, user } = useAuth();
+  const isAdmin = user?.role === 'admin';
   const { hasNewMessage } = useSocket();
   const { unreadCount } = useNotifications();
   const insets = useSafeAreaInsets();
@@ -77,26 +78,43 @@ const MainTabs = () => {
         }}
       >
         <Tab.Screen name="Home" component={HomeScreen} options={{ tabBarIcon: (props) => <TabIcon icon={Home} {...props} /> }} />
-        <Tab.Screen name="Marketplace" component={MarketplaceScreen} options={{ tabBarLabel: 'Market', tabBarIcon: (props) => <TabIcon icon={Store} {...props} /> }} />
+        {!isAdmin && (
+          <Tab.Screen name="Marketplace" component={MarketplaceScreen} options={{ tabBarLabel: 'Market', tabBarIcon: (props) => <TabIcon icon={Store} {...props} /> }} />
+        )}
         {isAuthenticated ? (
-          <>
-            <Tab.Screen name="Sharing" component={SharingScreen} options={{ tabBarIcon: (props) => <TabIcon icon={UsersRound} {...props} /> }} />
-            <Tab.Screen
-              name="MyListings"
-              component={MyListingsScreen}
-              options={{ tabBarLabel: 'Listings', tabBarIcon: (props) => <TabIcon icon={ClipboardList} {...props} /> }}
-            />
-            <Tab.Screen
-              name="Chat"
-              component={ChatScreen}
-              options={{ tabBarBadge: hasNewMessage ? 'new' : undefined, tabBarIcon: (props) => <TabIcon icon={MessageCircle} {...props} /> }}
-            />
-            <Tab.Screen
-              name="More"
-              component={MoreScreen}
-              options={{ tabBarBadge: unreadCount || undefined, tabBarIcon: (props) => <TabIcon icon={Menu} {...props} /> }}
-            />
-          </>
+          isAdmin ? (
+            <>
+              <Tab.Screen
+                name="Admin"
+                component={AdminScreen}
+                options={{ tabBarLabel: 'Workspace', tabBarIcon: (props) => <TabIcon icon={ShieldCheck} {...props} /> }}
+              />
+              <Tab.Screen
+                name="More"
+                component={MoreScreen}
+                options={{ tabBarIcon: (props) => <TabIcon icon={Menu} {...props} /> }}
+              />
+            </>
+          ) : (
+            <>
+              <Tab.Screen name="Sharing" component={SharingScreen} options={{ tabBarIcon: (props) => <TabIcon icon={UsersRound} {...props} /> }} />
+              <Tab.Screen
+                name="MyListings"
+                component={MyListingsScreen}
+                options={{ tabBarLabel: 'Listings', tabBarIcon: (props) => <TabIcon icon={ClipboardList} {...props} /> }}
+              />
+              <Tab.Screen
+                name="Chat"
+                component={ChatScreen}
+                options={{ tabBarBadge: hasNewMessage ? 'new' : undefined, tabBarIcon: (props) => <TabIcon icon={MessageCircle} {...props} /> }}
+              />
+              <Tab.Screen
+                name="More"
+                component={MoreScreen}
+                options={{ tabBarBadge: unreadCount || undefined, tabBarIcon: (props) => <TabIcon icon={Menu} {...props} /> }}
+              />
+            </>
+          )
         ) : (
           <Tab.Screen name="Guest" component={GuestScreen} options={{ tabBarLabel: 'Login', tabBarIcon: (props) => <TabIcon icon={LogIn} {...props} /> }} />
         )}

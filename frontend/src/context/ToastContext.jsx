@@ -49,12 +49,12 @@ export const ToastProvider = ({ children }) => {
                     : 'border-slate-700/80 bg-slate-900/80 text-slate-100'
             }`}
           >
-            <div className="flex items-start justify-between gap-3">
-              <p className="leading-snug">{toast.message}</p>
+            <div className="flex items-center justify-between gap-3">
+              <p className="font-semibold leading-snug">{toast.message}</p>
               <button
                 type="button"
                 onClick={() => removeToast(toast.id)}
-                className="rounded-full border border-white/10 px-2 py-0.5 text-[11px] uppercase tracking-wide text-slate-200/80"
+                className="rounded-full border border-white/10 px-2 py-0.5 text-[11px] uppercase leading-none tracking-wide text-slate-200/80"
               >
                 Close
               </button>

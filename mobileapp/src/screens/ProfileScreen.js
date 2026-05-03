@@ -1,8 +1,9 @@
 import { useCallback, useEffect, useState } from 'react';
-import { Alert, StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, Text, View } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import api from '../services/api';
 import { useAuth } from '../context/AuthContext';
+import { useToast } from '../context/ToastContext';
 import { useGeolocation } from '../hooks/useGeolocation';
 import { AppButton, Card, Field, LoadingState, Message, Screen, SegmentTabs, Title } from '../components/ui';
 import { colors, commonStyles, radius, spacing } from '../theme';
@@ -18,6 +19,7 @@ const ProfileScreen = () => {
   const [locationDraft, setLocationDraft] = useState({ latitude: '', longitude: '', address: '' });
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
+  const { pushToast } = useToast();
   const { getCurrentLocation } = useGeolocation();
 
   const load = useCallback(async () => {
@@ -91,7 +93,7 @@ const ProfileScreen = () => {
             source: 'manual',
           };
       if (!payload || !Number.isFinite(payload.latitude) || !Number.isFinite(payload.longitude)) {
-        Alert.alert('Location missing', 'Enter valid latitude and longitude.');
+        pushToast('Enter valid latitude and longitude.', { type: 'warning' });
         return;
       }
       const { data } = await api.post('/users/location', payload);
@@ -100,7 +102,9 @@ const ProfileScreen = () => {
       setMessage('Location updated successfully.');
       setMode('details');
     } catch (err) {
-      setError(err.response?.data?.message || 'Failed to update location.');
+      const errMsg = err.response?.data?.message || 'Failed to update location.';
+      setError(errMsg);
+      pushToast(errMsg, { type: 'error' });
     }
   };
 

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Alert, Image, StyleSheet, Text, View } from 'react-native';
+import { Image, StyleSheet, Text, View } from 'react-native';
 import {
   getDisputes,
   getFlaggedListings,
@@ -11,7 +11,7 @@ import {
   updateUserSuspension,
   warnUser,
 } from '../services/adminService';
-import { AppButton, AppModal, Badge, Card, EmptyState, Field, LoadingState, Message, Screen, SegmentTabs, SelectField, Title } from '../components/ui';
+import { AppButton, AppModal, Badge, Card, ConfirmDialog, EmptyState, Field, LoadingState, Message, Screen, SegmentTabs, SelectField, Title } from '../components/ui';
 import { colors, spacing } from '../theme';
 import { formatDateTime } from '../utils/format';
 
@@ -99,6 +99,7 @@ const AdminListings = () => {
   const [meta, setMeta] = useState({ page: 1, totalPages: 1 });
   const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState('');
+  const [confirmState, setConfirmState] = useState({ open: false, title: '', description: '', tone: 'primary', onConfirm: null });
 
   const load = useCallback(async (page = 1) => {
     setLoading(true);
@@ -112,18 +113,17 @@ const AdminListings = () => {
 
   const act = (listing, action) => {
     const labels = { approve: 'Approve', block: 'Block', ban: 'Ban' };
-    Alert.alert(`${labels[action]} listing`, `${labels[action]} "${listing.title}"?`, [
-      { text: 'Cancel', style: 'cancel' },
-      {
-        text: labels[action],
-        style: action === 'ban' ? 'destructive' : 'default',
-        onPress: async () => {
-          await reviewListing(listing._id, { action });
-          setMessage(`Listing ${action}d.`);
-          load(meta.page);
-        },
+    setConfirmState({
+      open: true,
+      title: `${labels[action]} listing?`,
+      description: `${labels[action]} "${listing.title}"?`,
+      tone: action === 'ban' ? 'danger' : 'primary',
+      onConfirm: async () => {
+        await reviewListing(listing._id, { action });
+        setMessage(`Listing ${action}d.`);
+        load(meta.page);
       },
-    ]);
+    });
   };
 
   return (
@@ -166,6 +166,19 @@ const AdminListings = () => {
         );
       }) : <EmptyState title="No flagged listings." />}
       <Pager meta={meta} load={load} />
+      <ConfirmDialog
+        visible={confirmState.open}
+        title={confirmState.title}
+        description={confirmState.description}
+        confirmLabel={confirmState.tone === 'danger' ? 'Confirm' : 'Confirm'}
+        tone={confirmState.tone}
+        onCancel={() => setConfirmState({ open: false, title: '', description: '', tone: 'primary', onConfirm: null })}
+        onConfirm={() => {
+          const action = confirmState.onConfirm;
+          setConfirmState({ open: false, title: '', description: '', tone: 'primary', onConfirm: null });
+          action?.();
+        }}
+      />
     </View>
   );
 };
@@ -177,6 +190,7 @@ const AdminDisputes = () => {
   const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
+  const [confirmState, setConfirmState] = useState({ open: false, title: '', description: '', tone: 'primary', onConfirm: null });
 
   const load = useCallback(async (page = 1) => {
     setLoading(true);
@@ -189,22 +203,21 @@ const AdminDisputes = () => {
   useEffect(() => { load(1); }, [load]);
 
   const resolve = (dispute, action) => {
-    Alert.alert('Resolve dispute', action === 'release' ? 'Release deposit?' : 'Forfeit deposit?', [
-      { text: 'Cancel', style: 'cancel' },
-      {
-        text: action === 'release' ? 'Release' : 'Forfeit',
-        style: action === 'forfeit' ? 'destructive' : 'default',
-        onPress: async () => {
-          try {
-            await resolveDispute(dispute._id, { action });
-            setMessage(action === 'release' ? 'Dispute resolved and deposit released.' : 'Dispute resolved and deposit forfeited.');
-            await load(meta.page);
-          } catch (err) {
-            setError(err.response?.data?.message || 'Failed to resolve dispute.');
-          }
-        },
+    setConfirmState({
+      open: true,
+      title: 'Resolve dispute?',
+      description: action === 'release' ? 'Release deposit?' : 'Forfeit deposit?',
+      tone: action === 'forfeit' ? 'danger' : 'primary',
+      onConfirm: async () => {
+        try {
+          await resolveDispute(dispute._id, { action });
+          setMessage(action === 'release' ? 'Dispute resolved and deposit released.' : 'Dispute resolved and deposit forfeited.');
+          await load(meta.page);
+        } catch (err) {
+          setError(err.response?.data?.message || 'Failed to resolve dispute.');
+        }
       },
-    ]);
+    });
   };
 
   return (
@@ -241,6 +254,19 @@ const AdminDisputes = () => {
         </Card>
       )) : <EmptyState title="No disputes found." />}
       <Pager meta={meta} load={load} />
+      <ConfirmDialog
+        visible={confirmState.open}
+        title={confirmState.title}
+        description={confirmState.description}
+        confirmLabel={confirmState.tone === 'danger' ? 'Forfeit' : 'Release'}
+        tone={confirmState.tone}
+        onCancel={() => setConfirmState({ open: false, title: '', description: '', tone: 'primary', onConfirm: null })}
+        onConfirm={() => {
+          const action = confirmState.onConfirm;
+          setConfirmState({ open: false, title: '', description: '', tone: 'primary', onConfirm: null });
+          action?.();
+        }}
+      />
     </View>
   );
 };
@@ -253,6 +279,7 @@ const AdminUsers = () => {
   const [warningUser, setWarningUser] = useState(null);
   const [warningReason, setWarningReason] = useState('');
   const [message, setMessage] = useState('');
+  const [confirmState, setConfirmState] = useState({ open: false, title: '', description: '', tone: 'primary', onConfirm: null });
 
   const load = useCallback(async (page = 1) => {
     setLoading(true);
@@ -266,18 +293,17 @@ const AdminUsers = () => {
 
   const toggleSuspension = (user) => {
     const suspended = !user.suspended;
-    Alert.alert(suspended ? 'Suspend user' : 'Unsuspend user', `${suspended ? 'Suspend' : 'Unsuspend'} ${user.name}?`, [
-      { text: 'Cancel', style: 'cancel' },
-      {
-        text: suspended ? 'Suspend' : 'Unsuspend',
-        style: suspended ? 'destructive' : 'default',
-        onPress: async () => {
-          await updateUserSuspension(user._id, { suspended, reason: suspended ? 'Admin action from mobile app' : '' });
-          setMessage(suspended ? 'User suspended.' : 'User unsuspended.');
-          load(meta.page);
-        },
+    setConfirmState({
+      open: true,
+      title: suspended ? 'Suspend user?' : 'Unsuspend user?',
+      description: `${suspended ? 'Suspend' : 'Unsuspend'} ${user.name}?`,
+      tone: suspended ? 'danger' : 'primary',
+      onConfirm: async () => {
+        await updateUserSuspension(user._id, { suspended, reason: suspended ? 'Admin action from mobile app' : '' });
+        setMessage(suspended ? 'User suspended.' : 'User unsuspended.');
+        load(meta.page);
       },
-    ]);
+    });
   };
 
   const sendWarning = async () => {
@@ -326,6 +352,19 @@ const AdminUsers = () => {
         </View>
         <AppButton title="Send Warning" onPress={sendWarning} />
       </AppModal>
+      <ConfirmDialog
+        visible={confirmState.open}
+        title={confirmState.title}
+        description={confirmState.description}
+        confirmLabel={confirmState.tone === 'danger' ? 'Suspend' : 'Unsuspend'}
+        tone={confirmState.tone}
+        onCancel={() => setConfirmState({ open: false, title: '', description: '', tone: 'primary', onConfirm: null })}
+        onConfirm={() => {
+          const action = confirmState.onConfirm;
+          setConfirmState({ open: false, title: '', description: '', tone: 'primary', onConfirm: null });
+          action?.();
+        }}
+      />
     </View>
   );
 };

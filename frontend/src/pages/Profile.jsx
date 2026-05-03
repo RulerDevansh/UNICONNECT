@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import api from '../services/api';
 import LocationPicker from '../components/LocationPicker';
+import { useToast } from '../context/ToastContext';
 
 const Profile = () => {
   const [profile, setProfile] = useState(null);
@@ -17,6 +18,7 @@ const Profile = () => {
     newPassword: '',
     confirmPassword: '',
   });
+  const { pushToast } = useToast();
 
   useEffect(() => {
     const fetchProfile = async () => {
@@ -50,20 +52,20 @@ const Profile = () => {
       const { data } = await api.put('/users/me', formData);
       setProfile(data);
       setIsEditing(false);
-      alert('Profile updated successfully!');
+      pushToast('Profile updated successfully.', { type: 'success' });
     } catch (err) {
-      alert(err.response?.data?.message || 'Failed to update profile');
+      pushToast(err.response?.data?.message || 'Failed to update profile', { type: 'error' });
     }
   };
 
   const handlePasswordChange = async (e) => {
     e.preventDefault();
     if (passwordData.newPassword !== passwordData.confirmPassword) {
-      alert('New passwords do not match!');
+      pushToast('New passwords do not match.', { type: 'warning' });
       return;
     }
     if (passwordData.newPassword.length < 6) {
-      alert('Password must be at least 6 characters long!');
+      pushToast('Password must be at least 6 characters long.', { type: 'warning' });
       return;
     }
     try {
@@ -71,7 +73,7 @@ const Profile = () => {
         currentPassword: passwordData.currentPassword,
         newPassword: passwordData.newPassword,
       });
-      alert('Password changed successfully!');
+      pushToast('Password changed successfully.', { type: 'success' });
       setShowPasswordChange(false);
       setPasswordData({
         currentPassword: '',
@@ -79,7 +81,7 @@ const Profile = () => {
         confirmPassword: '',
       });
     } catch (err) {
-      alert(err.response?.data?.message || 'Failed to change password');
+      pushToast(err.response?.data?.message || 'Failed to change password', { type: 'error' });
     }
   };
 
@@ -90,7 +92,7 @@ const Profile = () => {
       setProfile(data);
       setShowLocationEditor(false);
     } catch (err) {
-      alert(err.response?.data?.message || 'Failed to update location');
+      pushToast(err.response?.data?.message || 'Failed to update location', { type: 'error' });
     }
   };
 

@@ -180,6 +180,34 @@ export const AppModal = ({ visible, title, onClose, children }) => (
   </Modal>
 );
 
+export const ConfirmDialog = ({
+  visible,
+  title,
+  description,
+  confirmLabel = 'Confirm',
+  cancelLabel = 'Cancel',
+  tone = 'primary',
+  onConfirm,
+  onCancel,
+}) => {
+  if (!visible) return null;
+  const confirmVariant = tone === 'danger' ? 'danger' : tone === 'warning' ? 'secondary' : 'primary';
+  return (
+    <Modal visible={visible} animationType="fade" transparent onRequestClose={onCancel}>
+      <View style={styles.confirmBackdrop}>
+        <View style={styles.confirmCard}>
+          <Text style={styles.confirmTitle}>{title}</Text>
+          {!!description && <Text style={styles.confirmDescription}>{description}</Text>}
+          <View style={styles.confirmActions}>
+            <AppButton title={cancelLabel} variant="outline" onPress={onCancel} style={{ flex: 1 }} />
+            <AppButton title={confirmLabel} variant={confirmVariant} onPress={onConfirm} style={{ flex: 1 }} />
+          </View>
+        </View>
+      </View>
+    </Modal>
+  );
+};
+
 export const Divider = () => <View style={{ height: 1, backgroundColor: colors.mutedBorder, marginVertical: spacing.lg }} />;
 
 const styles = StyleSheet.create({
@@ -323,5 +351,34 @@ const styles = StyleSheet.create({
     borderColor: colors.border,
     backgroundColor: colors.surface,
     padding: spacing.lg,
+  },
+  confirmBackdrop: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(2, 6, 23, 0.7)',
+    padding: spacing.lg,
+  },
+  confirmCard: {
+    width: '100%',
+    borderRadius: radius.lg,
+    backgroundColor: colors.panel,
+    borderWidth: 1,
+    borderColor: colors.border,
+    padding: spacing.lg,
+  },
+  confirmTitle: {
+    color: colors.text,
+    fontSize: 18,
+    fontWeight: '800',
+  },
+  confirmDescription: {
+    color: colors.muted,
+    marginTop: spacing.xs,
+  },
+  confirmActions: {
+    flexDirection: 'row',
+    gap: spacing.sm,
+    marginTop: spacing.lg,
   },
 });

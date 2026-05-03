@@ -1,15 +1,16 @@
 import { useCallback, useState } from 'react';
-import { Alert } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import api from '../services/api';
 import ListingForm from '../components/ListingForm';
 import { LoadingState, Message, Screen, Title } from '../components/ui';
+import { useToast } from '../context/ToastContext';
 
 const EditListingScreen = ({ navigation, route }) => {
   const { id } = route.params || {};
   const [listing, setListing] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const { pushToast } = useToast();
 
   useFocusEffect(useCallback(() => {
     let active = true;
@@ -39,7 +40,7 @@ const EditListingScreen = ({ navigation, route }) => {
           mode="edit"
           initialData={listing}
           onSuccess={() => {
-            Alert.alert('Updated', 'Listing updated successfully.');
+            pushToast('Listing updated successfully.', { type: 'success' });
             navigation.navigate('MyListings');
           }}
         />

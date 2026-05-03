@@ -1,15 +1,16 @@
 import { useCallback, useEffect, useState } from 'react';
-import { Alert, StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, Text, View } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { MapPin, Navigation, Save, Store, UsersRound } from 'lucide-react-native';
 import api from '../services/api';
 import { updateLocation } from '../services/authService';
 import { useAuth } from '../context/AuthContext';
 import { useSocket } from '../context/SocketContext';
+import { useToast } from '../context/ToastContext';
 import { useGeolocation } from '../hooks/useGeolocation';
 import ListingCard from '../components/ListingCard';
 import ShareCard from '../components/ShareCard';
-import { AppButton, Card, EmptyState, Field, LoadingState, Message, Screen, SegmentTabs, Title } from '../components/ui';
+import { AppButton, Card, EmptyState, Field, LoadingState, Screen, SegmentTabs, Title } from '../components/ui';
 import { colors, commonStyles, spacing } from '../theme';
 import { getId } from '../utils/id';
 
@@ -35,8 +36,6 @@ const HomeScreen = ({ navigation }) => {
   const [nearestShares, setNearestShares] = useState([]);
   const [listingType, setListingType] = useState('');
   const [loading, setLoading] = useState(true);
-  const [shareMessage, setShareMessage] = useState('');
-  const [shareError, setShareError] = useState('');
   const [joiningId, setJoiningId] = useState('');
   const [cancellingId, setCancellingId] = useState('');
   const [showLocation, setShowLocation] = useState(false);
@@ -46,6 +45,7 @@ const HomeScreen = ({ navigation }) => {
     address: '',
   });
   const { getCurrentLocation } = useGeolocation();
+  const { pushToast } = useToast();
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -118,7 +118,7 @@ const HomeScreen = ({ navigation }) => {
         };
       }
       if (!payload || !Number.isFinite(payload.latitude) || !Number.isFinite(payload.longitude)) {
-        Alert.alert('Location missing', 'Enter valid latitude and longitude.');
+        pushToast('Enter valid latitude and longitude.', { type: 'warning' });
         return;
       }
       await updateLocation(payload);
@@ -126,7 +126,7 @@ const HomeScreen = ({ navigation }) => {
       setShowLocation(false);
       loadNearby();
     } catch (err) {
-      Alert.alert('Unable to save location', err.response?.data?.message || 'Try again later.');
+      pushToast(err.response?.data?.message || 'Unable to save location.', { type: 'error' });
     }
   };
 
@@ -135,30 +135,26 @@ const HomeScreen = ({ navigation }) => {
   };
 
   const joinShare = async (shareId) => {
-    setShareMessage('');
-    setShareError('');
     setJoiningId(shareId);
     try {
       await api.post(`/shares/${shareId}/join`);
-      setShareMessage('Join request submitted.');
+      pushToast('Join request submitted.', { type: 'success' });
       await refreshShares();
     } catch (err) {
-      setShareError(err.response?.data?.message || 'Failed to request join.');
+      pushToast(err.response?.data?.message || 'Failed to request join.', { type: 'error' });
     } finally {
       setJoiningId('');
     }
   };
 
   const cancelShare = async (shareId) => {
-    setShareMessage('');
-    setShareError('');
     setCancellingId(shareId);
     try {
       await api.post(`/shares/${shareId}/cancel`);
-      setShareMessage('Booking cancelled successfully.');
+      pushToast('Booking cancelled successfully.', { type: 'success' });
       await refreshShares();
     } catch (err) {
-      setShareError(err.response?.data?.message || 'Failed to cancel booking.');
+      pushToast(err.response?.data?.message || 'Failed to cancel booking.', { type: 'error' });
     } finally {
       setCancellingId('');
     }
@@ -167,8 +163,6 @@ const HomeScreen = ({ navigation }) => {
   return (
     <Screen>
       <Title subtitle="Everything classmates are selling and splitting, side by side.">Marketplace + Sharing hub</Title>
-      {!!shareMessage && <Message type="success">{shareMessage}</Message>}
-      {!!shareError && <Message type="error">{shareError}</Message>}
 
       {isAuthenticated && (
         <Card style={{ marginBottom: spacing.lg }}>

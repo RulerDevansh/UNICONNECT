@@ -3,6 +3,8 @@ import { useAuth } from '../context/AuthContext';
 import { useSocket } from '../context/SocketContext';
 import api from '../services/api';
 import BillShareCard from '../components/BillShareCard';
+import ConfirmModal from '../components/ConfirmModal';
+import { useToast } from '../context/ToastContext';
 
 const defaultForm = {
   name: '',
@@ -39,12 +41,20 @@ const MySharing = () => {
   const { socket } = useSocket();
   const [myShares, setMyShares] = useState([]);
   const [form, setForm] = useState(defaultForm);
-  const [error, setError] = useState('');
-  const [, setSuccessMessage] = useState('');
   const [joiningId] = useState('');
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [showUpdateForm, setShowUpdateForm] = useState(false);
   const [updateShareId, setUpdateShareId] = useState(null);
+  const [confirmModal, setConfirmModal] = useState({ open: false, title: '', description: '', tone: 'primary', onConfirm: null });
+  const { pushToast } = useToast();
+
+  const openConfirm = ({ title, description, tone = 'primary', onConfirm }) => {
+    setConfirmModal({ open: true, title, description, tone, onConfirm });
+  };
+
+  const closeConfirm = () => {
+    setConfirmModal({ open: false, title: '', description: '', tone: 'primary', onConfirm: null });
+  };
 
   const loadMyShares = async () => {
     try {
@@ -90,7 +100,7 @@ const MySharing = () => {
       });
       setMyShares(hostShares);
     } catch {
-      // handled by error state
+      pushToast('Failed to load shares.', { type: 'error' });
     }
   };
 
@@ -126,55 +136,44 @@ const MySharing = () => {
 
   const createShare = async (e) => {
     e.preventDefault();
-    setError('');
-    setSuccessMessage('');
     try {
       await api.post('/shares', form);
       setForm(defaultForm);
       loadMyShares();
-      setSuccessMessage('Share created successfully');
+      pushToast('Share created successfully.', { type: 'success' });
       setShowCreateForm(false);
-      setTimeout(() => setSuccessMessage(''), 3000);
     } catch (err) {
-      setError(err.response?.data?.message || 'Failed to create share');
+      pushToast(err.response?.data?.message || 'Failed to create share.', { type: 'error' });
     }
   };
 
   const approveRequest = async (shareId, userId) => {
-    setSuccessMessage('');
     try {
       await api.post(`/shares/${shareId}/approve`, { userId });
       loadMyShares();
-      setSuccessMessage('Member approved');
-      setTimeout(() => setSuccessMessage(''), 3000);
+      pushToast('Member approved.', { type: 'success' });
     } catch (err) {
-      setError(err.response?.data?.message || 'Failed to approve');
+      pushToast(err.response?.data?.message || 'Failed to approve.', { type: 'error' });
     }
   };
 
   const rejectRequest = async (shareId, userId) => {
-    setSuccessMessage('');
     try {
       await api.post(`/shares/${shareId}/reject`, { userId });
       loadMyShares();
-      setSuccessMessage('Request rejected');
-      setTimeout(() => setSuccessMessage(''), 3000);
+      pushToast('Request rejected.', { type: 'success' });
     } catch (err) {
-      setError(err.response?.data?.message || 'Failed to reject');
+      pushToast(err.response?.data?.message || 'Failed to reject.', { type: 'error' });
     }
   };
 
   const handleFinalize = async (shareId) => {
-    setSuccessMessage('');
-    setError('');
     try {
       await api.post(`/shares/${shareId}/finalize`);
       loadMyShares();
-      setSuccessMessage('Share completed successfully');
-      setTimeout(() => setSuccessMessage(''), 3000);
+      pushToast('Share completed successfully.', { type: 'success' });
     } catch (err) {
-      setError(err.response?.data?.message || 'Failed to complete share');
-      setTimeout(() => setError(''), 5000);
+      pushToast(err.response?.data?.message || 'Failed to complete share.', { type: 'error' });
     }
   };
 
@@ -237,33 +236,34 @@ const MySharing = () => {
 
   const updateShare = async (e) => {
     e.preventDefault();
-    setError('');
-    setSuccessMessage('');
     try {
       await api.put(`/shares/${updateShareId}`, form);
       setForm(defaultForm);
       setUpdateShareId(null);
       setShowUpdateForm(false);
       loadMyShares();
-      setSuccessMessage('Share updated successfully');
-      setTimeout(() => setSuccessMessage(''), 3000);
+      pushToast('Share updated successfully.', { type: 'success' });
     } catch (err) {
-      setError(err.response?.data?.message || 'Failed to update share');
+      pushToast(err.response?.data?.message || 'Failed to update share.', { type: 'error' });
     }
   };
 
   const handleDelete = async (shareId) => {
-    if (!confirm('Are you sure you want to delete this share? This action cannot be undone.')) {
-      return;
-    }
-    try {
-      await api.delete(`/shares/${shareId}`);
-      loadMyShares();
-      setSuccessMessage('Share deleted successfully');
-      setTimeout(() => setSuccessMessage(''), 3000);
-    } catch (err) {
-      setError(err.response?.data?.message || 'Failed to delete share');
-    }
+    openConfirm({
+      title: 'Delete share?',
+      description: 'This action cannot be undone.',
+      tone: 'danger',
+      onConfirm: async () => {
+        closeConfirm();
+        try {
+          await api.delete(`/shares/${shareId}`);
+          loadMyShares();
+          pushToast('Share deleted successfully.', { type: 'success' });
+        } catch (err) {
+          pushToast(err.response?.data?.message || 'Failed to delete share.', { type: 'error' });
+        }
+      },
+    });
   };
 
   return (
@@ -273,7 +273,6 @@ const MySharing = () => {
         <button
           onClick={() => {
             setForm(defaultForm);
-            setError('');
             setShowUpdateForm(false);
             setUpdateShareId(null);
             setShowCreateForm(true);
@@ -284,12 +283,8 @@ const MySharing = () => {
         </button>
       </div>
 
-      {/* Error message above dialog/modal */}
       {showCreateForm && (
         <>
-          {error && (
-            <p className="fixed left-1/2 top-8 z-[9999] w-full max-w-lg -translate-x-1/2 rounded border border-red-500/30 bg-red-500/10 px-3 py-2 text-center text-sm text-red-300 shadow-lg">{error}</p>
-          )}
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4">
             <div className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-2xl border border-slate-800 bg-slate-900 p-6 shadow-2xl">
               <div className="mb-4 flex items-center justify-between">
@@ -297,7 +292,6 @@ const MySharing = () => {
                 <button
                   onClick={() => {
                     setShowCreateForm(false);
-                    setError('');
                   }}
                   className="text-slate-400 hover:text-white"
                 >
@@ -624,12 +618,19 @@ const MySharing = () => {
         </>
       )}
 
+      <ConfirmModal
+        open={confirmModal.open}
+        title={confirmModal.title}
+        description={confirmModal.description}
+        confirmLabel={confirmModal.tone === 'danger' ? 'Delete' : 'Confirm'}
+        tone={confirmModal.tone}
+        onCancel={closeConfirm}
+        onConfirm={() => confirmModal.onConfirm?.()}
+      />
+
       {/* Update Share Modal */}
       {showUpdateForm && (
         <>
-          {error && (
-            <p className="fixed left-1/2 top-8 z-[9999] w-full max-w-lg -translate-x-1/2 rounded border border-red-500/30 bg-red-500/10 px-3 py-2 text-center text-sm text-red-300 shadow-lg">{error}</p>
-          )}
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 overflow-y-auto">
             <div className="relative w-full max-w-2xl my-8 rounded-2xl border border-slate-800 bg-slate-900 shadow-2xl">
               {/* Header */}
@@ -640,7 +641,6 @@ const MySharing = () => {
                     setShowUpdateForm(false);
                     setUpdateShareId(null);
                     setForm(defaultForm);
-                    setError('');
                   }}
                   className="rounded-full p-1 text-slate-400 transition hover:bg-slate-800 hover:text-white"
                 >

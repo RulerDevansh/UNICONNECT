@@ -1,18 +1,19 @@
 import { useCallback, useMemo, useState } from 'react';
-import { Alert, Image, StyleSheet, Text, View } from 'react-native';
+import { Image, StyleSheet, Text, View } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { CalendarPlus, MessageCircle, PackagePlus } from 'lucide-react-native';
 import api from '../services/api';
 import { useAuth } from '../context/AuthContext';
+import { useToast } from '../context/ToastContext';
 import ListingCard from '../components/ListingCard';
-import { AppButton, Badge, Card, EmptyState, LoadingState, Message, Screen, SegmentTabs, Title } from '../components/ui';
+import { AppButton, Badge, Card, ConfirmDialog, EmptyState, LoadingState, Screen, SegmentTabs, Title } from '../components/ui';
 import { colors, commonStyles, spacing } from '../theme';
 import { formatCurrency, formatDateTime } from '../utils/format';
 import { getId } from '../utils/id';
 
 const activeTx = (status) => !['cancelled', 'rejected', 'completed', 'withdrawn'].includes(status);
 
-const TxCard = ({ request, mode, onAction, onChat, updatingId }) => {
+const TxCard = ({ request, mode, onAction, onChat, onWithdraw, updatingId }) => {
   const isRental = request.transactionType === 'rental_booking';
   const title = request.listing?.title || request.listingSnapshot?.title || 'Listing unavailable';
   const image = request.listing?.images?.[0]?.url || request.listingSnapshot?.images?.[0]?.url;
@@ -52,7 +53,12 @@ const TxCard = ({ request, mode, onAction, onChat, updatingId }) => {
           <AppButton title="Mark as Paid" disabled={disabled} onPress={() => onAction(request._id, { status: 'payment_sent' }, 'Payment marked as sent.')} />
         )}
         {mode === 'buyer' && ['pending', 'approved'].includes(request.status) && !['auction'].includes(request.transactionType) && (
-          <AppButton title="Withdraw Request" variant="danger" disabled={disabled} onPress={() => onAction(request._id, { status: 'withdrawn' }, 'Request withdrawn.')} />
+          <AppButton
+            title="Withdraw Request"
+            variant="danger"
+            disabled={disabled}
+            onPress={() => (onWithdraw ? onWithdraw(request) : onAction(request._id, { status: 'withdrawn' }, 'Request withdrawn.'))}
+          />
         )}
         {mode === 'seller' && request.status === 'payment_sent' && !isRental && (
           <AppButton title="Confirm Payment" disabled={disabled} onPress={() => onAction(request._id, { status: 'payment_received' }, 'Payment confirmed.')} />
@@ -95,8 +101,8 @@ const MyListingsScreen = ({ navigation }) => {
   const [listingFilter, setListingFilter] = useState('all');
   const [loading, setLoading] = useState(true);
   const [updatingId, setUpdatingId] = useState('');
-  const [message, setMessage] = useState('');
-  const [error, setError] = useState('');
+  const [confirmState, setConfirmState] = useState({ open: false, title: '', description: '', tone: 'primary', onConfirm: null });
+  const { pushToast } = useToast();
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -131,49 +137,57 @@ const MyListingsScreen = ({ navigation }) => {
 
   const updateTx = async (transactionId, payload, successMessage) => {
     setUpdatingId(transactionId);
-    setError('');
-    setMessage('');
     try {
       await api.put(`/transactions/${transactionId}`, payload);
-      setMessage(successMessage);
+      pushToast(successMessage, { type: 'success' });
       await load();
     } catch (err) {
-      setError(err.response?.data?.message || 'Failed to update request.');
+      const errMsg = err.response?.data?.message || 'Failed to update request.';
+      pushToast(errMsg, { type: 'error' });
     } finally {
       setUpdatingId('');
     }
   };
 
+  const openConfirm = ({ title, description, tone = 'primary', onConfirm }) => {
+    setConfirmState({ open: true, title, description, tone, onConfirm });
+  };
+
+  const closeConfirm = () => {
+    setConfirmState({ open: false, title: '', description: '', tone: 'primary', onConfirm: null });
+  };
+
   const deleteListing = (listing) => {
-    Alert.alert('Delete listing', `Remove "${listing.title}" and related chats?`, [
-      { text: 'Cancel', style: 'cancel' },
-      {
-        text: 'Delete',
-        style: 'destructive',
-        onPress: async () => {
-          setUpdatingId(listing._id);
-          try {
-            await api.delete(`/listings/${listing._id}`);
-            setMessage('Listing and related chats deleted.');
-            await load();
-          } catch (err) {
-            setError(err.response?.data?.message || 'Unable to delete listing.');
-          } finally {
-            setUpdatingId('');
-          }
-        },
+    openConfirm({
+      title: 'Delete listing?',
+      description: `Remove "${listing.title}" and related chats?`,
+      tone: 'danger',
+      onConfirm: async () => {
+        closeConfirm();
+        setUpdatingId(listing._id);
+        try {
+          await api.delete(`/listings/${listing._id}`);
+          pushToast('Listing and related chats deleted.', { type: 'success' });
+          await load();
+        } catch (err) {
+          const errMsg = err.response?.data?.message || 'Unable to delete listing.';
+          pushToast(errMsg, { type: 'error' });
+        } finally {
+          setUpdatingId('');
+        }
       },
-    ]);
+    });
   };
 
   const requestReview = async (listing) => {
     setUpdatingId(listing._id);
     try {
       await api.post(`/listings/${listing._id}/review`, {});
-      setMessage('Review requested.');
+      pushToast('Review requested.', { type: 'success' });
       await load();
     } catch (err) {
-      setError(err.response?.data?.message || 'Unable to request review.');
+      const errMsg = err.response?.data?.message || 'Unable to request review.';
+      pushToast(errMsg, { type: 'error' });
     } finally {
       setUpdatingId('');
     }
@@ -187,8 +201,17 @@ const MyListingsScreen = ({ navigation }) => {
       const { data } = await api.post('/chats', payload);
       navigation.navigate('Chat', { chatId: data._id });
     } catch (err) {
-      Alert.alert('Unable to open chat', err.response?.data?.message || 'Try again later.');
+      pushToast(err.response?.data?.message || 'Unable to open chat.', { type: 'error' });
     }
+  };
+
+  const confirmWithdraw = (request) => {
+    openConfirm({
+      title: 'Withdraw this request?',
+      description: 'This will cancel your buy request to the seller.',
+      tone: 'warning',
+      onConfirm: () => updateTx(request._id, { status: 'withdrawn' }, 'Request withdrawn.'),
+    });
   };
 
   if (loading) return <Screen><LoadingState title="Loading dashboard..." /></Screen>;
@@ -196,8 +219,6 @@ const MyListingsScreen = ({ navigation }) => {
   return (
     <Screen>
       <Title subtitle="Manage products, rentals, received requests, and your own requests.">My Listings</Title>
-      {!!message && <Message type="success">{message}</Message>}
-      {!!error && <Message type="error">{error}</Message>}
       <SegmentTabs
         value={activeTab}
         onChange={setActiveTab}
@@ -261,9 +282,23 @@ const MyListingsScreen = ({ navigation }) => {
 
       {activeTab === 'mine' && (
         displayedMyRequests.length ? displayedMyRequests.map((request) => (
-          <TxCard key={request._id} request={request} mode="buyer" onAction={updateTx} onChat={openChat} updatingId={updatingId} />
+          <TxCard key={request._id} request={request} mode="buyer" onAction={updateTx} onChat={openChat} onWithdraw={confirmWithdraw} updatingId={updatingId} />
         )) : <EmptyState title="You have not made any requests yet." subtitle="Your buy, offer, auction, and rental requests will be tracked here." />
       )}
+
+      <ConfirmDialog
+        visible={confirmState.open}
+        title={confirmState.title}
+        description={confirmState.description}
+        confirmLabel={confirmState.tone === 'danger' ? 'Delete' : 'Confirm'}
+        tone={confirmState.tone}
+        onCancel={closeConfirm}
+        onConfirm={() => {
+          const action = confirmState.onConfirm;
+          closeConfirm();
+          action?.();
+        }}
+      />
     </Screen>
   );
 };

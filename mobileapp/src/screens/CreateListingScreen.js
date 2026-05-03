@@ -1,19 +1,22 @@
-import { Alert } from 'react-native';
 import ListingForm from '../components/ListingForm';
 import { Screen, Title } from '../components/ui';
+import { useToast } from '../context/ToastContext';
 
-const CreateListingScreen = ({ navigation }) => (
-  <Screen>
-    <Title subtitle="Moderation runs automatically; flagged items go to admins.">Create Listing</Title>
-    <ListingForm
-      allowRental={false}
-      onSuccess={() => {
-        Alert.alert('Created', 'Listing created successfully.');
-        navigation.navigate('MyListings');
-      }}
-    />
-  </Screen>
-);
+const CreateListingScreen = ({ navigation }) => {
+  const { pushToast } = useToast();
+  return (
+    <Screen>
+      <Title subtitle="Moderation runs automatically; flagged items go to admins.">Create Listing</Title>
+      <ListingForm
+        allowRental={false}
+        onSuccess={() => {
+          pushToast('Listing created successfully.', { type: 'success' });
+          navigation.navigate('MyListings');
+        }}
+      />
+    </Screen>
+  );
+};
 
 export default CreateListingScreen;
 

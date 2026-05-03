@@ -1,13 +1,13 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Alert } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { PlusCircle } from 'lucide-react-native';
 import api from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import { useSocket } from '../context/SocketContext';
+import { useToast } from '../context/ToastContext';
 import ShareCard from '../components/ShareCard';
 import ShareForm from '../components/ShareForm';
-import { AppButton, AppModal, EmptyState, LoadingState, Message, Screen, SegmentTabs, Title } from '../components/ui';
+import { AppButton, AppModal, EmptyState, LoadingState, Screen, SegmentTabs, Title } from '../components/ui';
 import { spacing } from '../theme';
 import { getId } from '../utils/id';
 
@@ -32,12 +32,11 @@ const SharingScreen = () => {
   const [shares, setShares] = useState([]);
   const [activeTab, setActiveTab] = useState('available');
   const [loading, setLoading] = useState(true);
-  const [message, setMessage] = useState('');
-  const [error, setError] = useState('');
   const [joiningId, setJoiningId] = useState('');
   const [cancellingId, setCancellingId] = useState('');
   const [createOpen, setCreateOpen] = useState(false);
   const [editingShare, setEditingShare] = useState(null);
+  const { pushToast } = useToast();
 
   const currentUserId = getId(user);
 
@@ -47,7 +46,7 @@ const SharingScreen = () => {
       const { data } = await api.get('/shares');
       setShares(data || []);
     } catch (err) {
-      setError(err.response?.data?.message || 'Unable to load shares.');
+      pushToast(err.response?.data?.message || 'Unable to load shares.', { type: 'error' });
     } finally {
       setLoading(false);
     }
@@ -97,14 +96,12 @@ const SharingScreen = () => {
   }), [shares, currentUserId]);
 
   const doAction = async (callback, success) => {
-    setError('');
-    setMessage('');
     try {
       await callback();
-      setMessage(success);
+      pushToast(success, { type: 'success' });
       await load();
     } catch (err) {
-      setError(err.response?.data?.message || 'Action failed.');
+      pushToast(err.response?.data?.message || 'Action failed.', { type: 'error' });
     }
   };
 
@@ -124,12 +121,7 @@ const SharingScreen = () => {
   const reject = (shareId, userId) => doAction(() => api.post(`/shares/${shareId}/reject`, { userId }), 'Request rejected.');
   const finalize = (shareId) => doAction(() => api.post(`/shares/${shareId}/finalize`), 'Share marked as complete.');
 
-  const deleteShare = (shareId) => {
-    Alert.alert('Delete share', 'This action cannot be undone.', [
-      { text: 'Cancel', style: 'cancel' },
-      { text: 'Delete', style: 'destructive', onPress: () => doAction(() => api.delete(`/shares/${shareId}`), 'Share deleted successfully.') },
-    ]);
-  };
+  const deleteShare = (shareId) => doAction(() => api.delete(`/shares/${shareId}`), 'Share deleted successfully.');
 
   const renderShares = (items, emptyText, mode = 'browse') => {
     if (!items.length) return <EmptyState title={emptyText} subtitle="This space will stay compact until there is something useful to show." />;
@@ -156,8 +148,6 @@ const SharingScreen = () => {
   return (
     <Screen>
       <Title subtitle="Cab, food, and other expense splits in one place.">Sharing</Title>
-      {!!message && <Message type="success">{message}</Message>}
-      {!!error && <Message type="error">{error}</Message>}
       <AppButton title="Create Share" icon={PlusCircle} onPress={() => setCreateOpen(true)} style={{ marginBottom: spacing.md }} />
       <SegmentTabs
         value={activeTab}
@@ -178,7 +168,7 @@ const SharingScreen = () => {
         <ShareForm
           onSuccess={() => {
             setCreateOpen(false);
-            setMessage('Share created successfully.');
+            pushToast('Share created successfully.', { type: 'success' });
             load();
           }}
         />
@@ -190,7 +180,7 @@ const SharingScreen = () => {
             initialData={editingShare}
             onSuccess={() => {
               setEditingShare(null);
-              setMessage('Share updated successfully.');
+              pushToast('Share updated successfully.', { type: 'success' });
               load();
             }}
           />

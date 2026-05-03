@@ -4,6 +4,8 @@ import ListingCard from '../components/ListingCard';
 import api from '../services/api';
 import { formatCurrency } from '../utils/currency';
 import useChatLauncher from '../hooks/useChatLauncher';
+import ConfirmModal from '../components/ConfirmModal';
+import { useToast } from '../context/ToastContext';
 
 const MyListings = () => {
   const [listings, setListings] = useState([]);
@@ -11,8 +13,12 @@ const MyListings = () => {
   const [error, setError] = useState('');
   const navigate = useNavigate();
   const location = useLocation();
-  const [toast, setToast] = useState('');
   const [pendingDelete, setPendingDelete] = useState(null);
+  const [confirmModal, setConfirmModal] = useState({ open: false, title: '', description: '', tone: 'primary', onConfirm: null });
+  const [reviewModalOpen, setReviewModalOpen] = useState(false);
+  const [reviewNote, setReviewNote] = useState('');
+  const [reviewTarget, setReviewTarget] = useState(null);
+  const { pushToast } = useToast();
   
   // New states for tabs and requests
   const [activeTab, setActiveTab] = useState('buyRequests'); // buyRequests, myRequests
@@ -34,10 +40,18 @@ const MyListings = () => {
 
   useEffect(() => {
     if (location.state?.toast) {
-      setToast(location.state.toast);
+      pushToast(location.state.toast, { type: 'success' });
       navigate(`${location.pathname}${location.search}`, { replace: true });
     }
-  }, [location.state, location.pathname, location.search, navigate]);
+  }, [location.state, location.pathname, location.search, navigate, pushToast]);
+
+  const openConfirm = ({ title, description, tone = 'primary', onConfirm }) => {
+    setConfirmModal({ open: true, title, description, tone, onConfirm });
+  };
+
+  const closeConfirm = () => {
+    setConfirmModal({ open: false, title: '', description: '', tone: 'primary', onConfirm: null });
+  };
 
   const loadBuyRequests = async () => {
     setLoadingRequests(true);
@@ -64,7 +78,7 @@ const MyListings = () => {
     setUpdatingId(transactionId);
     try {
       await api.put(`/transactions/${transactionId}`, { status: 'approved' });
-      setToast('Buy request approved! Waiting for buyer payment.');
+      pushToast('Buy request approved. Waiting for buyer payment.', { type: 'success' });
       await loadBuyRequests();
     } catch (err) {
       setError(err.response?.data?.message || 'Failed to approve request');
@@ -77,7 +91,7 @@ const MyListings = () => {
     setUpdatingId(transactionId);
     try {
       await api.put(`/transactions/${transactionId}`, { status: 'rejected' });
-      setToast('Buy request rejected.');
+      pushToast('Buy request rejected.', { type: 'success' });
       await loadBuyRequests();
     } catch (err) {
       setError(err.response?.data?.message || 'Failed to reject request');
@@ -87,66 +101,91 @@ const MyListings = () => {
   };
 
   const handleMarkAsPaid = async (transactionId) => {
-    if (!confirm('Have you completed the payment to the seller?')) return;
-    setUpdatingId(transactionId);
-    try {
-      await api.put(`/transactions/${transactionId}`, { status: 'payment_sent' });
-      setToast('Payment marked as sent! Waiting for seller confirmation.');
-      await loadMyRequests();
-    } catch (err) {
-      setError(err.response?.data?.message || 'Failed to update payment status');
-    } finally {
-      setUpdatingId('');
-    }
+    openConfirm({
+      title: 'Mark payment as sent?',
+      description: 'Confirm you have completed the payment to the seller.',
+      onConfirm: async () => {
+        closeConfirm();
+        setUpdatingId(transactionId);
+        try {
+          await api.put(`/transactions/${transactionId}`, { status: 'payment_sent' });
+          pushToast('Payment marked as sent. Waiting for seller confirmation.', { type: 'success' });
+          await loadMyRequests();
+        } catch (err) {
+          setError(err.response?.data?.message || 'Failed to update payment status');
+        } finally {
+          setUpdatingId('');
+        }
+      },
+    });
   };
 
   const handleWithdraw = async (transactionId) => {
-    if (!confirm('Are you sure you want to withdraw this buy request?')) return;
-    setUpdatingId(transactionId);
-    try {
-      await api.put(`/transactions/${transactionId}`, { status: 'withdrawn' });
-      setToast('Buy request withdrawn successfully.');
-      await loadMyRequests();
-    } catch (err) {
-      setError(err.response?.data?.message || 'Failed to withdraw request');
-    } finally {
-      setUpdatingId('');
-    }
+    openConfirm({
+      title: 'Withdraw this request?',
+      description: 'This will cancel your buy request to the seller.',
+      tone: 'warning',
+      onConfirm: async () => {
+        closeConfirm();
+        setUpdatingId(transactionId);
+        try {
+          await api.put(`/transactions/${transactionId}`, { status: 'withdrawn' });
+          pushToast('Buy request withdrawn.', { type: 'success' });
+          await loadMyRequests();
+        } catch (err) {
+          setError(err.response?.data?.message || 'Failed to withdraw request');
+        } finally {
+          setUpdatingId('');
+        }
+      },
+    });
   };
 
   const handleConfirmPayment = async (transactionId) => {
-    if (!confirm('Have you received the payment from the buyer?')) return;
-    setUpdatingId(transactionId);
-    try {
-      await api.put(`/transactions/${transactionId}`, { status: 'payment_received' });
-      setToast('Payment confirmed! Now deliver the product and mark as completed.');
-      await loadBuyRequests();
-    } catch (err) {
-      setError(err.response?.data?.message || 'Failed to confirm payment');
-    } finally {
-      setUpdatingId('');
-    }
+    openConfirm({
+      title: 'Confirm payment received?',
+      description: 'Confirm you have received the payment from the buyer.',
+      onConfirm: async () => {
+        closeConfirm();
+        setUpdatingId(transactionId);
+        try {
+          await api.put(`/transactions/${transactionId}`, { status: 'payment_received' });
+          pushToast('Payment confirmed. Deliver the product and mark as completed.', { type: 'success' });
+          await loadBuyRequests();
+        } catch (err) {
+          setError(err.response?.data?.message || 'Failed to confirm payment');
+        } finally {
+          setUpdatingId('');
+        }
+      },
+    });
   };
 
   const handleComplete = async (transactionId) => {
-    if (!confirm('Has the product been delivered to the buyer?')) return;
-    setUpdatingId(transactionId);
-    try {
-      await api.put(`/transactions/${transactionId}`, { status: 'completed' });
-      setToast('Transaction completed! The listing has been marked as sold.');
-      await loadBuyRequests();
-    } catch (err) {
-      setError(err.response?.data?.message || 'Failed to complete transaction');
-    } finally {
-      setUpdatingId('');
-    }
+    openConfirm({
+      title: 'Mark transaction completed?',
+      description: 'Confirm the product has been delivered to the buyer.',
+      onConfirm: async () => {
+        closeConfirm();
+        setUpdatingId(transactionId);
+        try {
+          await api.put(`/transactions/${transactionId}`, { status: 'completed' });
+          pushToast('Transaction completed. The listing is marked as sold.', { type: 'success' });
+          await loadBuyRequests();
+        } catch (err) {
+          setError(err.response?.data?.message || 'Failed to complete transaction');
+        } finally {
+          setUpdatingId('');
+        }
+      },
+    });
   };
 
   const handleRentalAction = async (transactionId, rentalAction, successMessage) => {
     setUpdatingId(transactionId);
     try {
       await api.put(`/transactions/${transactionId}`, { rentalAction });
-      setToast(successMessage);
+      pushToast(successMessage, { type: 'success' });
       await loadBuyRequests();
       await loadMyRequests();
     } catch (err) {
@@ -157,18 +196,25 @@ const MyListings = () => {
   };
 
   const handleRaiseRentalDispute = async (transactionId) => {
-    if (!confirm('Raise dispute for this rental request?')) return;
-    setUpdatingId(transactionId);
-    try {
-      await api.put(`/transactions/${transactionId}`, { rentalAction: 'raise_dispute' });
-      setToast('Dispute raised successfully.');
-      await loadBuyRequests();
-      await loadMyRequests();
-    } catch (err) {
-      setError(err.response?.data?.message || 'Failed to raise dispute');
-    } finally {
-      setUpdatingId('');
-    }
+    openConfirm({
+      title: 'Raise dispute?',
+      description: 'This will flag the rental for admin review.',
+      tone: 'warning',
+      onConfirm: async () => {
+        closeConfirm();
+        setUpdatingId(transactionId);
+        try {
+          await api.put(`/transactions/${transactionId}`, { rentalAction: 'raise_dispute' });
+          pushToast('Dispute raised successfully.', { type: 'success' });
+          await loadBuyRequests();
+          await loadMyRequests();
+        } catch (err) {
+          setError(err.response?.data?.message || 'Failed to raise dispute');
+        } finally {
+          setUpdatingId('');
+        }
+      },
+    });
   };
 
   const deleteListing = async () => {
@@ -178,7 +224,7 @@ const MyListings = () => {
     try {
       await api.delete(`/listings/${pendingDelete._id}`);
       await load();
-      setToast('Listing and related chats deleted.');
+      pushToast('Listing and related chats deleted.', { type: 'success' });
     } catch (err) {
       setError(err.response?.data?.message || 'Unable to delete listing');
     } finally {
@@ -188,19 +234,9 @@ const MyListings = () => {
   };
 
   const requestReview = async (listing) => {
-    if (!confirm('Request admin review for this blocked listing?')) return;
-    const note = window.prompt('Review note (optional):', '') || '';
-    setUpdatingId(listing._id);
-    setError('');
-    try {
-      await api.post(`/listings/${listing._id}/review`, { note: note || undefined });
-      setToast('Review requested. We will notify you after moderation.');
-      await load();
-    } catch (err) {
-      setError(err.response?.data?.message || 'Unable to request review');
-    } finally {
-      setUpdatingId('');
-    }
+    setReviewTarget(listing);
+    setReviewNote('');
+    setReviewModalOpen(true);
   };
 
   // Badge counts: exclude cancelled, rejected, completed, withdrawn
@@ -216,17 +252,9 @@ const MyListings = () => {
       <h1 className="mb-4 sm:mb-6 text-2xl sm:text-3xl font-bold text-white">My Listings</h1>
       
       {/* Messages */}
-      {(error || toast) && (
+      {error && (
         <div className="mb-4 space-y-2">
           {error && <p className="rounded border border-red-500/30 bg-red-500/10 px-3 py-2 text-sm text-red-300">{error}</p>}
-          {toast && (
-            <div className="flex items-start justify-between gap-4 rounded border border-emerald-500/30 bg-emerald-500/10 px-3 py-2 text-sm text-emerald-200">
-              <p>{toast}</p>
-              <button type="button" onClick={() => setToast('')} className="text-xs uppercase tracking-wide text-emerald-200/80">
-                Dismiss
-              </button>
-            </div>
-          )}
         </div>
       )}
       
@@ -842,6 +870,16 @@ const MyListings = () => {
           </div>
         </div>
       )}
+
+      <ConfirmModal
+        open={confirmModal.open}
+        title={confirmModal.title}
+        description={confirmModal.description}
+        confirmLabel={confirmModal.tone === 'warning' ? 'Withdraw' : 'Confirm'}
+        tone={confirmModal.tone}
+        onCancel={closeConfirm}
+        onConfirm={() => confirmModal.onConfirm?.()}
+      />
     </main>
   );
 };

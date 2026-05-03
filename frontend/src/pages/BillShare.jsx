@@ -4,18 +4,18 @@ import api from '../services/api';
 import BillShareCard from '../components/BillShareCard';
 import LocationPicker from '../components/LocationPicker';
 import { useGeolocation } from '../hooks/useGeolocation';
+import ConfirmModal from '../components/ConfirmModal';
+import { useToast } from '../context/ToastContext';
 
 const BillShare = () => {
   const [shares, setShares] = useState([]);
   const [myShares, setMyShares] = useState([]);
-  const [joinError, setJoinError] = useState('');
-  const [successMessage, setSuccessMessage] = useState('');
   const [joiningId, setJoiningId] = useState('');
   const [activeTab, setActiveTab] = useState('available');
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [showUpdateForm, setShowUpdateForm] = useState(false);
   const [updateShareId, setUpdateShareId] = useState(null);
-  const [error, setError] = useState('');
+  const [confirmModal, setConfirmModal] = useState({ open: false, title: '', description: '', tone: 'primary', onConfirm: null });
   const [form, setForm] = useState({
     name: '',
     description: '',
@@ -42,8 +42,17 @@ const BillShare = () => {
   });
   const { user } = useAuth();
   const { getCurrentLocation } = useGeolocation();
+  const { pushToast } = useToast();
   const [locationMode, setLocationMode] = useState('auto');
   const [manualLocation, setManualLocation] = useState(null);
+
+  const openConfirm = ({ title, description, tone = 'primary', onConfirm }) => {
+    setConfirmModal({ open: true, title, description, tone, onConfirm });
+  };
+
+  const closeConfirm = () => {
+    setConfirmModal({ open: false, title: '', description: '', tone: 'primary', onConfirm: null });
+  };
 
   const loadShares = async () => {
     const { data } = await api.get('/shares');
@@ -220,61 +229,53 @@ const BillShare = () => {
   const [cancellingId, setCancellingId] = useState('');
 
   const requestJoin = async (shareId) => {
-    setJoinError('');
     setJoiningId(shareId);
-    setSuccessMessage('');
     try {
       await api.post(`/shares/${shareId}/join`);
       loadShares();
-      setSuccessMessage('Join request submitted');
+      pushToast('Join request submitted.', { type: 'success' });
     } catch (err) {
-      setJoinError(err.response?.data?.message || 'Failed to request join');
+      pushToast(err.response?.data?.message || 'Failed to request join.', { type: 'error' });
     } finally {
       setJoiningId('');
     }
   };
 
   const cancelRequest = async (shareId) => {
-    setJoinError('');
     setCancellingId(shareId);
-    setSuccessMessage('');
     try {
       await api.post(`/shares/${shareId}/cancel`);
       loadShares();
-      setSuccessMessage('Booking cancelled successfully');
+      pushToast('Booking cancelled successfully.', { type: 'success' });
     } catch (err) {
-      setJoinError(err.response?.data?.message || 'Failed to cancel booking');
+      pushToast(err.response?.data?.message || 'Failed to cancel booking.', { type: 'error' });
     } finally {
       setCancellingId('');
     }
   };
 
   const approveRequest = async (shareId, userId) => {
-    setSuccessMessage('');
     try {
       await api.post(`/shares/${shareId}/approve`, { userId });
       loadShares();
-      setSuccessMessage('Member approved');
+      pushToast('Member approved.', { type: 'success' });
     } catch (err) {
-      setJoinError(err.response?.data?.message || 'Failed to approve member');
+      pushToast(err.response?.data?.message || 'Failed to approve member.', { type: 'error' });
     }
   };
 
   const rejectRequest = async (shareId, userId) => {
-    setSuccessMessage('');
     try {
       await api.post(`/shares/${shareId}/reject`, { userId });
       loadShares();
-      setSuccessMessage('Request rejected');
+      pushToast('Request rejected.', { type: 'success' });
     } catch (err) {
-      setJoinError(err.response?.data?.message || 'Failed to reject request');
+      pushToast(err.response?.data?.message || 'Failed to reject request.', { type: 'error' });
     }
   };
 
   const createShare = async (e) => {
     e.preventDefault();
-    setError('');
-    setSuccessMessage('');
     try {
       // Collect location for the share
       let location = null;
@@ -336,10 +337,9 @@ const BillShare = () => {
       });
       setShowCreateForm(false);
       loadShares();
-      setSuccessMessage('Share created successfully');
-      setTimeout(() => setSuccessMessage(''), 3000);
+      pushToast('Share created successfully.', { type: 'success' });
     } catch (err) {
-      setError(err.response?.data?.message || 'Failed to create share');
+      pushToast(err.response?.data?.message || 'Failed to create share.', { type: 'error' });
     }
   };
 
@@ -381,8 +381,6 @@ const BillShare = () => {
 
   const updateShare = async (e) => {
     e.preventDefault();
-    setError('');
-    setSuccessMessage('');
     try {
       await api.put(`/shares/${updateShareId}`, form);
       setForm({
@@ -412,37 +410,37 @@ const BillShare = () => {
       setUpdateShareId(null);
       setShowUpdateForm(false);
       loadShares();
-      setSuccessMessage('Share updated successfully');
-      setTimeout(() => setSuccessMessage(''), 3000);
+      pushToast('Share updated successfully.', { type: 'success' });
     } catch (err) {
-      setError(err.response?.data?.message || 'Failed to update share');
+      pushToast(err.response?.data?.message || 'Failed to update share.', { type: 'error' });
     }
   };
 
   const handleDelete = async (shareId) => {
-    if (!confirm('Are you sure you want to delete this share? This action cannot be undone.')) {
-      return;
-    }
-    try {
-      await api.delete(`/shares/${shareId}`);
-      loadShares();
-      setSuccessMessage('Share deleted successfully');
-      setTimeout(() => setSuccessMessage(''), 3000);
-    } catch (err) {
-      setError(err.response?.data?.message || 'Failed to delete share');
-    }
+    openConfirm({
+      title: 'Delete share?',
+      description: 'This action cannot be undone.',
+      tone: 'danger',
+      onConfirm: async () => {
+        closeConfirm();
+        try {
+          await api.delete(`/shares/${shareId}`);
+          loadShares();
+          pushToast('Share deleted successfully.', { type: 'success' });
+        } catch (err) {
+          pushToast(err.response?.data?.message || 'Failed to delete share.', { type: 'error' });
+        }
+      },
+    });
   };
 
   const handleFinalize = async (shareId) => {
-    setError('');
     try {
       await api.put(`/shares/${shareId}/finalize`);
       loadShares();
-      setSuccessMessage('Share marked as complete');
-      setTimeout(() => setSuccessMessage(''), 5000);
+      pushToast('Share marked as complete.', { type: 'success' });
     } catch (err) {
-      setError(err.response?.data?.message || 'Failed to complete share');
-      setTimeout(() => setError(''), 5000);
+      pushToast(err.response?.data?.message || 'Failed to complete share.', { type: 'error' });
     }
   };
 
@@ -450,19 +448,20 @@ const BillShare = () => {
     <main className="mx-auto max-w-full px-4 py-4 sm:py-8">
       <h1 className="mb-4 sm:mb-6 text-2xl sm:text-3xl font-bold text-white">Sharing</h1>
       
-      {/* Messages */}
-      {(joinError || successMessage || error) && (
-        <div className="mb-4 space-y-2">
-          {joinError && <p className="rounded border border-red-500/30 bg-red-500/10 px-3 py-2 text-sm text-red-300">{joinError}</p>}
-          {successMessage && <p className="rounded border border-emerald-500/30 bg-emerald-500/10 px-3 py-2 text-sm text-emerald-300">{successMessage}</p>}
-          {error && <p className="rounded border border-red-500/30 bg-red-500/10 px-3 py-2 text-sm text-red-300">{error}</p>}
-        </div>
-      )}
-      
       {/* Two Column Layout - Equal Half Split */}
       <div className="grid grid-cols-1 gap-4 sm:gap-8 lg:grid-cols-2">
         {/* Left Column - My Sharing */}
         <div>
+
+        <ConfirmModal
+          open={confirmModal.open}
+          title={confirmModal.title}
+          description={confirmModal.description}
+          confirmLabel={confirmModal.tone === 'danger' ? 'Delete' : 'Confirm'}
+          tone={confirmModal.tone}
+          onCancel={closeConfirm}
+          onConfirm={() => confirmModal.onConfirm?.()}
+        />
           <section className="space-y-4">
             <div className="flex items-center justify-between">
               <h2 className="text-2xl font-semibold text-white">My Sharing</h2>
@@ -613,9 +612,6 @@ const BillShare = () => {
       {/* Create Share Modal - Copy full modal from MySharing.jsx */}
       {showCreateForm && (
         <>
-          {error && (
-            <p className="fixed left-1/2 top-8 z-[9999] w-full max-w-lg -translate-x-1/2 rounded border border-red-500/30 bg-red-500/10 px-3 py-2 text-center text-sm text-red-300 shadow-lg">{error}</p>
-          )}
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4">
             <div className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-2xl border border-slate-800 bg-slate-900 p-6 shadow-2xl">
               <div className="mb-4 flex items-center justify-between">
@@ -623,7 +619,6 @@ const BillShare = () => {
                 <button
                   onClick={() => {
                     setShowCreateForm(false);
-                    setError('');
                   }}
                   className="text-slate-400 hover:text-white"
                 >
@@ -933,9 +928,6 @@ const BillShare = () => {
       {/* Update Share Modal - Complete form with all fields */}
       {showUpdateForm && (
         <>
-          {error && (
-            <p className="fixed left-1/2 top-8 z-[9999] w-full max-w-lg -translate-x-1/2 rounded border border-red-500/30 bg-red-500/10 px-3 py-2 text-center text-sm text-red-300 shadow-lg">{error}</p>
-          )}
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4">
             <div className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-2xl border border-slate-800 bg-slate-900 p-6 shadow-2xl">
               <div className="mb-4 flex items-center justify-between">
@@ -944,7 +936,6 @@ const BillShare = () => {
                   onClick={() => {
                     setShowUpdateForm(false);
                     setUpdateShareId(null);
-                    setError('');
                   }}
                   className="text-slate-400 hover:text-white"
                 >
