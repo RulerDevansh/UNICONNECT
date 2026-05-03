@@ -1,6 +1,7 @@
 const User = require('../models/User');
 const Listing = require('../models/Listing');
 const Share = require('../models/Share');
+const { normalizeLocationGeo } = require('../utils/geo');
 
 /**
  * Update user's location
@@ -10,14 +11,14 @@ const normalizeLocationPayload = ({ latitude, longitude, address, accuracy, sour
   const lon = Number(longitude);
   if (!Number.isFinite(lat) || !Number.isFinite(lon)) return null;
 
-  return {
+  return normalizeLocationGeo({
     latitude: lat,
     longitude: lon,
     address: address || '',
     accuracy: Number.isFinite(Number(accuracy)) ? Number(accuracy) : undefined,
     source: source === 'browser' ? 'browser' : 'manual',
     updatedAt: new Date(),
-  };
+  });
 };
 
 const updateUserLocation = async (userId, payload) => {

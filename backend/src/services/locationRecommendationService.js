@@ -1,30 +1,132 @@
-const axios = require('axios');
 const User = require('../models/User');
 const Listing = require('../models/Listing');
 const Share = require('../models/Share');
+const {
+  buildGeoPoint,
+  getBoundingBox,
+  hasCoordinates,
+  haversineDistanceKm,
+  roundDistanceKm,
+} = require('../utils/geo');
+
+const DEFAULT_MAX_DISTANCE_KM = 10;
+const MAX_DISTANCE_KM = 10;
+
+const clampDistance = (distanceKm) => {
+  const distance = Number(distanceKm);
+  if (!Number.isFinite(distance) || distance <= 0) return DEFAULT_MAX_DISTANCE_KM;
+  return Math.min(distance, MAX_DISTANCE_KM);
+};
+
+const addById = (map, docs = []) => {
+  docs.forEach((doc) => {
+    if (doc?._id) map.set(String(doc._id), doc);
+  });
+};
+
+const withDistance = ({ docs, userLocation, maxDistanceKm, limit, filter = () => true }) => {
+  const userLat = Number(userLocation.latitude);
+  const userLon = Number(userLocation.longitude);
+
+  return docs
+    .filter(filter)
+    .map((doc) => {
+      const distance = haversineDistanceKm(
+        userLat,
+        userLon,
+        doc.location?.latitude,
+        doc.location?.longitude
+      );
+      return {
+        ...doc,
+        distance_km: roundDistanceKm(distance),
+      };
+    })
+    .filter((doc) => doc.distance_km !== null && doc.distance_km <= maxDistanceKm)
+    .sort((a, b) => a.distance_km - b.distance_km)
+    .slice(0, limit);
+};
+
+const findNearbyDocuments = async ({
+  Model,
+  baseQuery,
+  select,
+  populate = [],
+  userLocation,
+  maxDistanceKm,
+  limit,
+  filter,
+}) => {
+  const geoPoint = buildGeoPoint(userLocation.latitude, userLocation.longitude);
+  const candidateLimit = Math.max(limit * 12, 100);
+  const docsById = new Map();
+  const runQuery = (query) => {
+    let cursor = Model.find(query).select(select);
+    populate.forEach((entry) => {
+      cursor = cursor.populate(entry);
+    });
+    return cursor.limit(candidateLimit).lean();
+  };
+
+  if (geoPoint) {
+    try {
+      const geoDocs = await runQuery({
+        ...baseQuery,
+        'location.geo': {
+          $nearSphere: {
+            $geometry: geoPoint,
+            $maxDistance: maxDistanceKm * 1000,
+          },
+        },
+      });
+      addById(docsById, geoDocs);
+    } catch {
+      // If the 2dsphere index is still building in a local/dev DB, the
+      // bounded lat/lon query below keeps nearby results available.
+    }
+  }
+
+  const bounds = getBoundingBox({
+    latitude: userLocation.latitude,
+    longitude: userLocation.longitude,
+    radiusKm: maxDistanceKm,
+  });
+
+  if (bounds) {
+    const boundedDocs = await runQuery({
+      ...baseQuery,
+      'location.latitude': { $gte: bounds.minLat, $lte: bounds.maxLat },
+      'location.longitude': { $gte: bounds.minLon, $lte: bounds.maxLon },
+    });
+    addById(docsById, boundedDocs);
+  }
+
+  return withDistance({
+    docs: Array.from(docsById.values()),
+    userLocation,
+    maxDistanceKm,
+    limit,
+    filter,
+  });
+};
 
 /**
- * Get location-based recommendations from ML service
- * Returns nearby listings and shares sorted by distance
+ * Get nearby products and shares using indexed geo queries plus Haversine
+ * distance. No ML clustering is used for this path.
  */
 const getLocationBasedRecommendations = async ({
   userId,
-  maxDistanceKm = 10,
+  maxDistanceKm = DEFAULT_MAX_DISTANCE_KM,
   limit = 5,
 }) => {
   try {
-    const mlServiceUrl = process.env.ML_SERVICE_URL;
-    if (!mlServiceUrl) {
-      // ML service unavailable - return empty (graceful degradation)
-      return { listings: [], shares: [] };
-    }
-
-    // Get user location
     const user = await User.findById(userId).select('location collegeDomain').lean();
-    if (!user || !user.location || user.location.latitude == null || user.location.longitude == null) {
+    if (!user || !hasCoordinates(user.location)) {
       return { listings: [], shares: [] };
     }
 
+    const maxDistance = clampDistance(maxDistanceKm);
+    const resultLimit = Math.min(Number(limit) || 5, 20);
     const now = new Date();
 
     const isShareActive = (share) => {
@@ -48,106 +150,41 @@ const getLocationBasedRecommendations = async ({
       return true;
     };
 
-    // Get all active listings and shares for user's college domain
-    const [allListings, allShares] = await Promise.all([
-      Listing.find({
-        collegeDomain: user.collegeDomain,
-        status: { $nin: ['archived', 'sold', 'blocked', 'flagged'] },
-        'location.latitude': { $exists: true, $ne: null },
-        'location.longitude': { $exists: true, $ne: null },
-      })
-        .select('_id title price category condition location images')
-        .lean(),
-      Share.find({
-        collegeDomain: user.collegeDomain,
-        status: 'open',
-        'location.latitude': { $exists: true, $ne: null },
-        'location.longitude': { $exists: true, $ne: null },
-      })
-        .select('_id name shareType totalAmount location bookingDeadline deadlineTime otherDeadline maxPassengers maxPersons otherMaxPersons members')
-        .lean(),
-    ]);
-
-    const filteredShares = allShares.filter(isShareActive);
-
-    // Call ML service for location-based recommendations
-    const { data } = await axios.post(
-      `${mlServiceUrl}/predict/location-based-recommendations`,
-      {
-        user_location: {
-          latitude: user.location.latitude,
-          longitude: user.location.longitude,
-          address: user.location.address || '',
+    const [listings, shares] = await Promise.all([
+      findNearbyDocuments({
+        Model: Listing,
+        baseQuery: {
+          collegeDomain: user.collegeDomain,
+          status: 'active',
         },
-        listings: allListings,
-        shares: filteredShares,
-        max_distance_km: maxDistanceKm,
-        limit,
-      },
-      { timeout: 10000 }
-    );
-
-    // Build id lists + distance maps from ML response
-    const listingIds = [];
-    const shareIds = [];
-    const distanceById = new Map();
-
-    for (const item of data) {
-      if (item?.id) {
-        distanceById.set(String(item.id), item.distance_km);
-      }
-      if (item?.type === 'listing' && item?.id) {
-        listingIds.push(String(item.id));
-      }
-      if (item?.type === 'share' && item?.id) {
-        shareIds.push(String(item.id));
-      }
-    }
-
-    const [listingDocs, shareDocs] = await Promise.all([
-      listingIds.length
-        ? Listing.find({ _id: { $in: listingIds } })
-            .select('title description price category condition listingType auction rental images seller status')
-            .lean()
-        : [],
-      shareIds.length
-        ? Share.find({ _id: { $in: shareIds } })
-            .populate('members.user', 'name email')
-            .populate('pendingRequests', 'name email')
-            .populate('rejectedRequests.user', 'name email')
-            .populate('host', 'name email')
-            .lean()
-        : [],
+        select: 'title description price category condition listingType auction rental images seller status location',
+        userLocation: user.location,
+        maxDistanceKm: maxDistance,
+        limit: resultLimit,
+      }),
+      findNearbyDocuments({
+        Model: Share,
+        baseQuery: {
+          collegeDomain: user.collegeDomain,
+          status: 'open',
+        },
+        select: '_id name description shareType totalAmount splitType host location fromCity toCity departureTime arrivalTime bookingDeadline maxPassengers vehicleType foodItems quantity minPersons maxPersons deadlineTime category otherMinPersons otherMaxPersons otherDeadline members pendingRequests rejectedRequests status createdAt',
+        populate: [
+          { path: 'members.user', select: 'name email' },
+          { path: 'pendingRequests', select: 'name email' },
+          { path: 'rejectedRequests.user', select: 'name email' },
+          { path: 'host', select: 'name email' },
+        ],
+        userLocation: user.location,
+        maxDistanceKm: maxDistance,
+        limit: resultLimit,
+        filter: isShareActive,
+      }),
     ]);
-
-    const listingById = new Map(listingDocs.map((doc) => [String(doc._id), doc]));
-    const shareById = new Map(shareDocs.map((doc) => [String(doc._id), doc]));
-
-    const listings = listingIds
-      .map((id) => {
-        const doc = listingById.get(id);
-        if (!doc) return null;
-        return {
-          ...doc,
-          distance_km: distanceById.get(id),
-        };
-      })
-      .filter(Boolean);
-
-    const shares = shareIds
-      .map((id) => {
-        const doc = shareById.get(id);
-        if (!doc) return null;
-        return {
-          ...doc,
-          distance_km: distanceById.get(id),
-        };
-      })
-      .filter(Boolean);
 
     return { listings, shares };
   } catch (err) {
-    // Log error but don't throw - graceful degradation
+    // Log error but don't throw - graceful degradation for the Home page.
     console.error('Error getting location-based recommendations:', err.message);
     return { listings: [], shares: [] };
   }

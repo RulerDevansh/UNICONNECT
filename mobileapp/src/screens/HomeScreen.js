@@ -26,6 +26,10 @@ const activeShare = (share) => {
 };
 
 const hasCoordinates = (location) => location?.latitude != null && location?.longitude != null;
+const NEARBY_RADIUS_OPTIONS = [1, 3, 5, 10].map((radius) => ({
+  value: radius,
+  label: `${radius} km`,
+}));
 
 const HomeScreen = ({ navigation }) => {
   const { isAuthenticated, user, refreshProfile } = useAuth();
@@ -38,6 +42,7 @@ const HomeScreen = ({ navigation }) => {
   const [loading, setLoading] = useState(true);
   const [joiningId, setJoiningId] = useState('');
   const [cancellingId, setCancellingId] = useState('');
+  const [nearbyRadiusKm, setNearbyRadiusKm] = useState(10);
   const [showLocation, setShowLocation] = useState(false);
   const [locationDraft, setLocationDraft] = useState({
     latitude: '',
@@ -66,7 +71,7 @@ const HomeScreen = ({ navigation }) => {
   const loadNearby = useCallback(async () => {
     if (!isAuthenticated || !hasCoordinates(user?.location)) return;
     try {
-      const { data } = await api.get('/recommendations/nearby', { params: { maxDistanceKm: 10, limit: 6 } });
+      const { data } = await api.get('/recommendations/nearby', { params: { maxDistanceKm: nearbyRadiusKm, limit: 6 } });
       if (data?.success) {
         setNearestListings(data.data?.listings || []);
         setNearestShares((data.data?.shares || []).filter(activeShare));
@@ -75,7 +80,7 @@ const HomeScreen = ({ navigation }) => {
       setNearestListings([]);
       setNearestShares([]);
     }
-  }, [isAuthenticated, user?.location]);
+  }, [isAuthenticated, user?.location, nearbyRadiusKm]);
 
   useFocusEffect(useCallback(() => { load(); }, [load]));
 
@@ -184,37 +189,54 @@ const HomeScreen = ({ navigation }) => {
               </View>
             </View>
           )}
+          {hasCoordinates(user?.location) && (
+            <View style={{ marginTop: spacing.md }}>
+              <Text style={commonStyles.label}>Nearby radius</Text>
+              <SegmentTabs
+                value={nearbyRadiusKm}
+                onChange={setNearbyRadiusKm}
+                items={NEARBY_RADIUS_OPTIONS}
+              />
+            </View>
+          )}
         </Card>
       )}
 
-      {isAuthenticated && nearestListings.length > 0 && (
+      {isAuthenticated && hasCoordinates(user?.location) && (
         <Card style={{ marginBottom: spacing.lg }}>
           <Text style={commonStyles.h2}>Nearest Listings</Text>
           <View style={{ marginTop: spacing.md }}>
-            {nearestListings.map((listing) => (
-              <ListingCard key={listing._id} listing={listing} compact onView={(item) => navigation.navigate('ListingDetail', { id: item._id })} />
-            ))}
+            {nearestListings.length ? (
+              nearestListings.map((listing) => (
+                <ListingCard key={listing._id} listing={listing} compact onView={(item) => navigation.navigate('ListingDetail', { id: item._id })} />
+              ))
+            ) : (
+              <Text style={commonStyles.muted}>No listings within {nearbyRadiusKm} km yet.</Text>
+            )}
           </View>
         </Card>
       )}
 
-      {isAuthenticated && nearestShares.length > 0 && (
+      {isAuthenticated && hasCoordinates(user?.location) && (
         <Card style={{ marginBottom: spacing.lg }}>
           <Text style={commonStyles.h2}>Nearest Shares</Text>
           <View style={{ marginTop: spacing.md }}>
-            {nearestShares.map((share) => (
-              <ShareCard
-                key={share._id}
-                share={share}
-                currentUserId={getId(user)}
-                onJoin={joinShare}
-                onCancel={cancelShare}
-                joiningId={joiningId}
-                cancellingId={cancellingId}
-              />
-            ))}
+            {nearestShares.length ? (
+              nearestShares.map((share) => (
+                <ShareCard
+                  key={share._id}
+                  share={share}
+                  currentUserId={getId(user)}
+                  onJoin={joinShare}
+                  onCancel={cancelShare}
+                  joiningId={joiningId}
+                  cancellingId={cancellingId}
+                />
+              ))
+            ) : (
+              <Text style={commonStyles.muted}>No shares within {nearbyRadiusKm} km yet.</Text>
+            )}
           </View>
-          <AppButton title="Open Sharing" onPress={() => navigation.navigate('Sharing')} />
         </Card>
       )}
 

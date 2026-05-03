@@ -11,6 +11,10 @@ vi.mock('../../context/SocketContext', () => ({
   useSocket: () => ({ socket: null }),
 }));
 
+vi.mock('../../context/ToastContext', () => ({
+  useToast: () => ({ pushToast: vi.fn() }),
+}));
+
 describe('ListingCard', () => {
   it('renders rental listing with per-day price text', () => {
     const listing = {

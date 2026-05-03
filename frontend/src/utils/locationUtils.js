@@ -21,104 +21,22 @@ export const haversineDistance = (lat1, lon1, lat2, lon2) => {
   return R * c;
 };
 
-/**
- * Calculate centroid of a list of coordinates
- * @param {Array} points - Array of { latitude, longitude } objects
- * @returns {Object} - { latitude, longitude } of centroid
- */
-export const calculateCentroid = (points) => {
-  if (!points || points.length === 0) {
-    return { latitude: 0, longitude: 0 };
-  }
+export const hasCoordinates = (location) => (
+  Number.isFinite(Number(location?.latitude)) && Number.isFinite(Number(location?.longitude))
+);
 
-  const sum = points.reduce(
-    (acc, p) => ({
-      latitude: acc.latitude + (p.latitude || 0),
-      longitude: acc.longitude + (p.longitude || 0),
-    }),
-    { latitude: 0, longitude: 0 }
+export const getDistanceKm = (fromLocation, toLocation) => {
+  if (!hasCoordinates(fromLocation) || !hasCoordinates(toLocation)) return null;
+
+  return haversineDistance(
+    Number(fromLocation.latitude),
+    Number(fromLocation.longitude),
+    Number(toLocation.latitude),
+    Number(toLocation.longitude)
   );
-
-  return {
-    latitude: sum.latitude / points.length,
-    longitude: sum.longitude / points.length,
-  };
 };
 
-/**
- * Simple k-means clustering for geographical points
- * @param {Array} points - Array of { id, latitude, longitude, ...rest } objects
- * @param {number} k - Number of clusters
- * @param {number} maxIterations - Maximum iterations (default 10)
- * @returns {Array} - Array of clusters, each containing array of points
- */
-export const kMeansClustering = (points, k = 3, maxIterations = 10) => {
-  if (!points || points.length === 0 || k <= 0) {
-    return [];
-  }
-
-  // Limit k to number of points
-  const numClusters = Math.min(k, points.length);
-
-  // Initialize centroids randomly from points
-  const centroids = [];
-  const indices = new Set();
-  while (centroids.length < numClusters) {
-    const idx = Math.floor(Math.random() * points.length);
-    if (!indices.has(idx)) {
-      indices.add(idx);
-      centroids.push({
-        latitude: points[idx].latitude,
-        longitude: points[idx].longitude,
-      });
-    }
-  }
-
-  let clusters = [];
-  let previousCentroids = null;
-
-  for (let iteration = 0; iteration < maxIterations; iteration++) {
-    // Assign points to nearest centroid
-    clusters = Array.from({ length: numClusters }, () => []);
-    for (const point of points) {
-      let nearestIdx = 0;
-      let minDistance = Infinity;
-
-      for (let i = 0; i < centroids.length; i++) {
-        const dist = haversineDistance(
-          point.latitude,
-          point.longitude,
-          centroids[i].latitude,
-          centroids[i].longitude
-        );
-        if (dist < minDistance) {
-          minDistance = dist;
-          nearestIdx = i;
-        }
-      }
-
-      clusters[nearestIdx].push(point);
-    }
-
-    // Calculate new centroids
-    const newCentroids = clusters.map((cluster) => calculateCentroid(cluster));
-
-    // Check for convergence
-    const converged = previousCentroids && previousCentroids.every((prev, idx) => {
-      const dist = haversineDistance(
-        prev.latitude,
-        prev.longitude,
-        newCentroids[idx].latitude,
-        newCentroids[idx].longitude
-      );
-      return dist < 0.1; // Convergence threshold in km
-    });
-
-    centroids.splice(0, centroids.length, ...newCentroids);
-    previousCentroids = JSON.parse(JSON.stringify(newCentroids));
-
-    if (converged) break;
-  }
-
-  return clusters;
+export const formatDistanceKm = (distanceKm) => {
+  if (typeof distanceKm !== 'number' || !Number.isFinite(distanceKm)) return null;
+  return `${distanceKm.toFixed(1)} km away`;
 };

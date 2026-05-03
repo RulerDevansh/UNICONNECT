@@ -8,7 +8,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from .config import get_settings
 from .moderation import score_listing
 from .recommender import RecommendationEngine
-from ..location_utils import find_nearest_by_location, haversine_distance, kmeans_clustering
+from ..location_utils import find_nearest_by_location
 from .schemas import (
     AlcoholDetectionRequest,
     AlcoholDetectionResponse,
@@ -138,57 +138,16 @@ def recommend_by_location(payload: LocationBasedRecommendationRequest):
     try:
         recommendations = []
 
-        def _cluster_and_rank(items):
-            if not items:
-                return []
-
+        def _rank_by_distance(items):
             user_location = {
                 'latitude': payload.user_location.latitude,
                 'longitude': payload.user_location.longitude,
             }
-
-            points = []
-            for item in items:
-                location = item.get('location') or {}
-                latitude = location.get('latitude')
-                longitude = location.get('longitude')
-                if latitude is None or longitude is None:
-                    continue
-                points.append({
-                    **item,
-                    'latitude': latitude,
-                    'longitude': longitude,
-                })
-
-            if not points:
-                return []
-
-            cluster_count = min(3, len(points))
-            clusters = kmeans_clustering(points, k=cluster_count, max_iterations=10)
-
-            nearest_cluster = None
-            nearest_distance = float('inf')
-            for cluster in clusters:
-                if not cluster:
-                    continue
-                centroid_lat = sum(p['latitude'] for p in cluster) / len(cluster)
-                centroid_lon = sum(p['longitude'] for p in cluster) / len(cluster)
-                distance = haversine_distance(
-                    user_location['latitude'],
-                    user_location['longitude'],
-                    centroid_lat,
-                    centroid_lon,
-                )
-                if distance < nearest_distance:
-                    nearest_distance = distance
-                    nearest_cluster = cluster
-
-            cluster_items = nearest_cluster or points
-            return find_nearest_by_location(user_location, cluster_items, payload.max_distance_km)
+            return find_nearest_by_location(user_location, items, payload.max_distance_km)
 
         # Process listings
         if payload.listings:
-            nearby_listings = _cluster_and_rank(payload.listings)
+            nearby_listings = _rank_by_distance(payload.listings)
             for listing in nearby_listings[:payload.limit]:
                 recommendations.append(
                     LocationBasedRecommendationResponse(
@@ -202,7 +161,7 @@ def recommend_by_location(payload: LocationBasedRecommendationRequest):
 
         # Process shares
         if payload.shares:
-            nearby_shares = _cluster_and_rank(payload.shares)
+            nearby_shares = _rank_by_distance(payload.shares)
             for share in nearby_shares[:payload.limit]:
                 recommendations.append(
                     LocationBasedRecommendationResponse(

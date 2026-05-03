@@ -98,6 +98,9 @@ const ShareCard = ({
 
       <View style={styles.badges}>
         <Badge tone="primary">{shareTypeLabel[share.shareType] || 'Share'}</Badge>
+        {typeof share.distance_km === 'number' && (
+          <Badge tone="info">{share.distance_km.toFixed(1)} km away</Badge>
+        )}
         <Badge tone={isFull ? 'danger' : 'muted'}>Capacity {getCapacity(share)}</Badge>
         {isDeadlinePassed && <Badge tone="danger">Closed</Badge>}
       </View>

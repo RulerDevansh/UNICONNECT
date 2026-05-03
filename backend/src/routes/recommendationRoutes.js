@@ -12,7 +12,7 @@ router.get('/nearby', auth(), async (req, res, next) => {
     
     const recommendations = await getLocationBasedRecommendations({
       userId: req.user.id,
-      maxDistanceKm: Math.min(Number(maxDistanceKm) || 10, 100),
+      maxDistanceKm: Math.min(Number(maxDistanceKm) || 10, 10),
       limit: Math.min(Number(limit) || 5, 20),
     });
 

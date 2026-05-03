@@ -49,7 +49,7 @@ class LocationBasedRecommendationRequest(BaseModel):
     user_location: LocationRequest
     listings: list[dict] = Field(default_factory=list, description="List of listings with location data")
     shares: list[dict] = Field(default_factory=list, description="List of shares with location data")
-    max_distance_km: float = Field(default=10.0, ge=1.0, le=100.0, description="Maximum distance in kilometers")
+    max_distance_km: float = Field(default=10.0, ge=1.0, le=10.0, description="Maximum distance in kilometers")
     limit: int = Field(default=5, ge=1, le=20)
 
 

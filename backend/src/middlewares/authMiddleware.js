@@ -28,6 +28,20 @@ const auth = (roles = []) => (req, res, next) => {
   }
 };
 
+const optionalAuth = () => (req, _res, next) => {
+  const header = req.headers.authorization || '';
+  const token = header.startsWith('Bearer ') ? header.slice(7) : '';
+  if (!token) return next();
+
+  try {
+    req.user = verifyAccessToken(token);
+  } catch {
+    // Public routes should still work when an old/invalid token is attached.
+  }
+
+  return next();
+};
+
 const authorizeCapabilities = (capabilities = []) => (req, res, next) => {
   if (!capabilities.length) return next();
   const role = req.user?.role;
@@ -36,4 +50,4 @@ const authorizeCapabilities = (capabilities = []) => (req, res, next) => {
   return next();
 };
 
-module.exports = { auth, authorizeCapabilities, ROLE_CAPABILITIES, hasCapability };
+module.exports = { auth, optionalAuth, authorizeCapabilities, ROLE_CAPABILITIES, hasCapability };

@@ -1,6 +1,6 @@
 const router = require('express').Router();
 const multer = require('multer');
-const { auth } = require('../middlewares/authMiddleware');
+const { auth, optionalAuth } = require('../middlewares/authMiddleware');
 const { handleValidation } = require('../middlewares/validateMiddleware');
 const { listingValidationRules } = require('../utils/validators');
 const {
@@ -25,7 +25,7 @@ const upload = multer({
 
 router.get('/', listListings);
 router.get('/me', auth(), listMyListings);
-router.get('/:id', getListing);
+router.get('/:id', optionalAuth(), getListing);
 router.post('/', auth(), listingValidationRules(), handleValidation, createListing);
 router.put('/:id', auth(), upload.array('images', 5), updateListing);
 router.delete('/:id', auth(), deleteListing);

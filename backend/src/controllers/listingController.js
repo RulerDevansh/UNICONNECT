@@ -12,6 +12,7 @@ const { paginate } = require('../utils/pagination');
 const { validateListingFilters } = require('../utils/validators');
 const { callModeration, checkAlcoholImage } = require('../services/moderationService');
 const { getIO } = require('../services/socketService');
+const { hasCoordinates, haversineDistanceKm, roundDistanceKm } = require('../utils/geo');
 
 const TEMP_DIR = path.join(__dirname, '../../tmp');
 if (!fs.existsSync(TEMP_DIR)) fs.mkdirSync(TEMP_DIR);
@@ -218,8 +219,21 @@ const getListing = async (req, res, next) => {
       .populate('seller', 'name email')
       .populate('auction.winner', 'name email');
     if (!listing) return res.status(404).json({ message: 'Listing not found' });
-    
-    res.json(listing);
+
+    const payload = listing.toObject();
+    if (req.user?.id && hasCoordinates(payload.location)) {
+      const user = await User.findById(req.user.id).select('location').lean();
+      if (hasCoordinates(user?.location)) {
+        payload.distance_km = roundDistanceKm(haversineDistanceKm(
+          user.location.latitude,
+          user.location.longitude,
+          payload.location.latitude,
+          payload.location.longitude
+        ));
+      }
+    }
+
+    res.json(payload);
   } catch (err) {
     next(err);
   }

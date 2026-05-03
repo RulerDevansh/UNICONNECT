@@ -1,4 +1,5 @@
 import { formatCurrency } from '../utils/currency';
+import { formatDistanceKm } from '../utils/locationUtils';
 
 const SharePreviewCard = ({ share }) => {
   const members = share.members?.filter((member) => member.status !== 'cancelled') || [];
@@ -8,6 +9,7 @@ const SharePreviewCard = ({ share }) => {
   const totalAmount = formatCurrency(share.totalAmount);
   const status = share.status || 'open';
   const statusBadgeClasses = status === 'open' ? 'bg-emerald-500/15 text-emerald-300' : 'bg-slate-800 text-slate-300';
+  const distanceText = formatDistanceKm(share.distance_km);
 
   const joinedMembersCount = members.filter((member) => member.status === 'joined').length || 0;
   const remainingSeats = share.maxPassengers ? share.maxPassengers - joinedMembersCount : null;
@@ -34,6 +36,11 @@ const SharePreviewCard = ({ share }) => {
           <span className={`rounded-full px-2.5 py-0.5 text-[11px] font-semibold ${shareTypeInfo.color}`}>
             {shareTypeInfo.label}
           </span>
+          {distanceText && (
+            <span className="rounded-full bg-blue-500/15 px-2.5 py-0.5 text-[11px] font-semibold text-blue-200">
+              {distanceText}
+            </span>
+          )}
           <span className="uppercase tracking-wide text-slate-400">{share.splitType} split</span>
         </div>
         <span className={`rounded-full px-3 py-0.5 text-[11px] font-semibold ${statusBadgeClasses}`}>{status}</span>

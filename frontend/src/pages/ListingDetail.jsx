@@ -8,6 +8,7 @@ import { useSocket } from '../context/SocketContext';
 import useChatLauncher from '../hooks/useChatLauncher';
 import { formatCurrency } from '../utils/currency';
 import { useToast } from '../context/ToastContext';
+import { formatDistanceKm, getDistanceKm, hasCoordinates } from '../utils/locationUtils';
 
 const ListingDetail = () => {
   const { id } = useParams();
@@ -208,6 +209,12 @@ const ListingDetail = () => {
   const headerPriceText = isRental
     ? `${formatCurrency(rentalRate)}/day`
     : formatCurrency(headerPrice ?? listing.price);
+  const distanceKm = typeof listing.distance_km === 'number'
+    ? listing.distance_km
+    : getDistanceKm(user?.location, listing.location);
+  const distanceText = formatDistanceKm(distanceKm);
+  const listingLatitude = Number(listing.location?.latitude);
+  const listingLongitude = Number(listing.location?.longitude);
 
   return (
     <main className="mx-auto max-w-5xl px-4 py-6 sm:py-10 text-slate-100">
@@ -300,11 +307,16 @@ const ListingDetail = () => {
                 Condition: {listing.condition}
               </span>
             </div>
-            {listing.location && (listing.location.latitude || listing.location.longitude) && (
+            {hasCoordinates(listing.location) && (
               <div className="mt-4 rounded-xl border border-slate-700 bg-slate-800/40 p-3 text-sm">
                 <p className="text-xs uppercase tracking-wide text-slate-400 font-semibold mb-2">📍 Location</p>
+                {distanceText && (
+                  <p className="mb-2 inline-flex rounded-full bg-blue-500/15 px-3 py-1 text-xs font-semibold text-blue-200">
+                    {distanceText}
+                  </p>
+                )}
                 <p className="text-slate-200">
-                  <span className="font-medium">Coordinates:</span> {listing.location.latitude?.toFixed(4)}, {listing.location.longitude?.toFixed(4)}
+                  <span className="font-medium">Coordinates:</span> {listingLatitude.toFixed(4)}, {listingLongitude.toFixed(4)}
                 </p>
                 {listing.location.address && (
                   <p className="text-slate-200 mt-1">

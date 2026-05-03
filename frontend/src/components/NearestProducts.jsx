@@ -2,10 +2,9 @@ import { useEffect, useState } from 'react';
 import ListingCard from './ListingCard';
 import api from '../services/api';
 import { useAuth } from '../context/AuthContext';
+import { hasCoordinates } from '../utils/locationUtils';
 
-const hasCoordinates = (location) => location?.latitude != null && location?.longitude != null;
-
-const NearestProducts = () => {
+const NearestProducts = ({ radiusKm = 10 }) => {
   const { user } = useAuth();
   const [listings, setListings] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -24,7 +23,7 @@ const NearestProducts = () => {
 
         const response = await api.get('/recommendations/nearby', {
           params: {
-            maxDistanceKm: 10,
+            maxDistanceKm: radiusKm,
             limit: 6,
           },
         });
@@ -35,7 +34,7 @@ const NearestProducts = () => {
           setListings([]);
         }
       } catch {
-        // Silent failure - ML service unavailable (graceful degradation)
+        // Silent failure - nearby service unavailable (graceful degradation)
         setAvailable(false);
         setListings([]);
       } finally {
@@ -44,7 +43,7 @@ const NearestProducts = () => {
     };
 
     fetchNearestProducts();
-  }, [user]);
+  }, [user, radiusKm]);
 
   if (!hasCoordinates(user?.location) || !available) {
     return null;
@@ -52,11 +51,11 @@ const NearestProducts = () => {
 
   return (
     <div>
-      <h2 className="text-2xl font-bold mb-4">Nearest Listings</h2>
+      <h2 className="text-2xl font-bold mb-4">Nearby Listings</h2>
       {loading ? (
         <p className="text-sm text-slate-400">Loading nearby products…</p>
       ) : listings.length === 0 ? (
-        <p className="text-sm text-slate-400">No nearby products yet.</p>
+        <p className="text-sm text-slate-400">No products within {radiusKm} km yet.</p>
       ) : (
         <div className="space-y-4">
           {listings.map((listing) => (

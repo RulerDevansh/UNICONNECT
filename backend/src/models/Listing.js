@@ -1,4 +1,5 @@
 const mongoose = require('mongoose');
+const { buildGeoPoint } = require('../utils/geo');
 
 const imageSchema = new mongoose.Schema({
   url: String,
@@ -86,6 +87,10 @@ const listingSchema = new mongoose.Schema(
     location: {
       latitude: { type: Number },
       longitude: { type: Number },
+      geo: {
+        type: { type: String, enum: ['Point'] },
+        coordinates: { type: [Number] },
+      },
       address: { type: String },
       accuracy: { type: Number },
       source: { type: String, enum: ['browser', 'manual'], default: 'manual' },
@@ -95,8 +100,17 @@ const listingSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
+listingSchema.pre('validate', function syncLocationGeo(next) {
+  if (this.location) {
+    const point = buildGeoPoint(this.location.latitude, this.location.longitude);
+    this.location.geo = point;
+  }
+  next();
+});
+
 listingSchema.index({ title: 'text', description: 'text', tags: 'text' });
 listingSchema.index({ category: 1, collegeDomain: 1, status: 1 });
-listingSchema.index({ 'location.latitude': 1, 'location.longitude': 1 });
+listingSchema.index({ collegeDomain: 1, status: 1, 'location.latitude': 1, 'location.longitude': 1 });
+listingSchema.index({ collegeDomain: 1, status: 1, 'location.geo': '2dsphere' });
 
 module.exports = mongoose.model('Listing', listingSchema);

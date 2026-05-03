@@ -1,4 +1,5 @@
 const mongoose = require('mongoose');
+const { buildGeoPoint } = require('../utils/geo');
 
 const memberSchema = new mongoose.Schema({
   user: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
@@ -66,6 +67,10 @@ const shareSchema = new mongoose.Schema(
     location: {
       latitude: { type: Number },
       longitude: { type: Number },
+      geo: {
+        type: { type: String, enum: ['Point'] },
+        coordinates: { type: [Number] },
+      },
       address: { type: String },
       accuracy: { type: Number },
       source: { type: String, enum: ['browser', 'manual'], default: 'manual' },
@@ -75,8 +80,17 @@ const shareSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
+shareSchema.pre('validate', function syncLocationGeo(next) {
+  if (this.location) {
+    const point = buildGeoPoint(this.location.latitude, this.location.longitude);
+    this.location.geo = point;
+  }
+  next();
+});
+
 shareSchema.index({ host: 1, status: 1 });
 shareSchema.index({ collegeDomain: 1, status: 1 });
-shareSchema.index({ 'location.latitude': 1, 'location.longitude': 1 });
+shareSchema.index({ collegeDomain: 1, status: 1, 'location.latitude': 1, 'location.longitude': 1 });
+shareSchema.index({ collegeDomain: 1, status: 1, 'location.geo': '2dsphere' });
 
 module.exports = mongoose.model('Share', shareSchema);

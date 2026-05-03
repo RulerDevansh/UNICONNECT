@@ -9,6 +9,8 @@ import SharePreviewCard from '../components/SharePreviewCard';
 import api from '../services/api';
 import logo from '../assets/logo.svg';
 
+const NEARBY_RADIUS_OPTIONS = [1, 3, 5, 10];
+
 const Home = () => {
   const { isAuthenticated, user, refreshProfile } = useAuth();
   const [listings, setListings] = useState([]);
@@ -21,6 +23,7 @@ const Home = () => {
   const [showLocationEditor, setShowLocationEditor] = useState(false);
   const [locationDraft, setLocationDraft] = useState(null);
   const [savingLocation, setSavingLocation] = useState(false);
+  const [nearbyRadiusKm, setNearbyRadiusKm] = useState(10);
 
   const loadListings = async (type = '') => {
     setListingsLoading(true);
@@ -180,7 +183,26 @@ const Home = () => {
       </div>
       {isAuthenticated && (
         <section className="mt-6 sm:mt-10">
-          <div className="mb-3 flex items-center justify-end">
+          <div className="mb-3 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="text-xs font-semibold uppercase tracking-wide text-slate-400">Nearby radius</span>
+              <div className="inline-flex rounded-full border border-slate-700 bg-slate-950/70 p-1">
+                {NEARBY_RADIUS_OPTIONS.map((radius) => (
+                  <button
+                    key={radius}
+                    type="button"
+                    onClick={() => setNearbyRadiusKm(radius)}
+                    className={`rounded-full px-3 py-1 text-xs font-semibold transition ${
+                      nearbyRadiusKm === radius
+                        ? 'bg-brand-primary text-white shadow shadow-brand-primary/30'
+                        : 'text-slate-300 hover:bg-slate-800'
+                    }`}
+                  >
+                    {radius} km
+                  </button>
+                ))}
+              </div>
+            </div>
             <button
               type="button"
               onClick={() => setShowLocationEditor((prev) => !prev)}
@@ -204,10 +226,10 @@ const Home = () => {
           )}
           <div className="grid gap-4 sm:gap-6 lg:grid-cols-2">
             <div className="rounded-2xl sm:rounded-3xl border border-white/10 bg-gradient-to-b from-slate-900 via-slate-950 to-slate-900/80 p-4 sm:p-6 shadow-2xl shadow-black/40">
-              <NearestProducts />
+              <NearestProducts radiusKm={nearbyRadiusKm} />
             </div>
             <div className="rounded-2xl sm:rounded-3xl border border-slate-800/80 bg-slate-950/70 p-4 sm:p-6 shadow-2xl shadow-black/40">
-              <NearestShares />
+              <NearestShares radiusKm={nearbyRadiusKm} />
             </div>
           </div>
         </section>

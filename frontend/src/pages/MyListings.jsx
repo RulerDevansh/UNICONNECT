@@ -239,6 +239,24 @@ const MyListings = () => {
     setReviewModalOpen(true);
   };
 
+  const submitReviewRequest = async () => {
+    if (!reviewTarget) return;
+    setUpdatingId(reviewTarget._id);
+    setError('');
+    try {
+      await api.post(`/listings/${reviewTarget._id}/review`, { note: reviewNote.trim() });
+      pushToast('Review request sent to admins.', { type: 'success' });
+      setReviewModalOpen(false);
+      setReviewTarget(null);
+      setReviewNote('');
+      await load();
+    } catch (err) {
+      setError(err.response?.data?.message || 'Failed to request review');
+    } finally {
+      setUpdatingId('');
+    }
+  };
+
   // Badge counts: exclude cancelled, rejected, completed, withdrawn
   const isActiveTx = (s) => !['cancelled', 'rejected', 'completed', 'withdrawn'].includes(s);
   const filteredListings = listings;
@@ -865,6 +883,46 @@ const MyListings = () => {
                 className="flex-1 rounded-full border border-red-500/60 px-4 py-2 text-sm font-semibold text-red-200 hover:border-red-300 disabled:cursor-not-allowed disabled:border-slate-700 disabled:text-slate-500"
               >
                 Delete Forever
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {reviewModalOpen && reviewTarget && (
+        <div className="fixed inset-0 z-30 flex items-center justify-center bg-slate-950/80 p-4">
+          <div className="w-full max-w-lg rounded-3xl border border-amber-500/30 bg-slate-950 p-6 text-slate-100 shadow-2xl shadow-black/60">
+            <p className="text-xs uppercase tracking-[0.3em] text-amber-300">Request review</p>
+            <h2 className="mt-2 text-2xl font-semibold text-white">Review &quot;{reviewTarget.title}&quot;?</h2>
+            <p className="mt-3 text-sm text-slate-400">
+              Add a short note if the listing was blocked incorrectly. Admins will review it from the moderation panel.
+            </p>
+            <textarea
+              value={reviewNote}
+              onChange={(event) => setReviewNote(event.target.value)}
+              rows={4}
+              className="mt-4 w-full rounded-2xl border border-slate-800 bg-slate-900 px-4 py-3 text-sm text-slate-100 outline-none focus:border-amber-400/70"
+              placeholder="Optional note for admins"
+            />
+            <div className="mt-6 flex flex-wrap gap-3">
+              <button
+                type="button"
+                onClick={() => {
+                  setReviewModalOpen(false);
+                  setReviewTarget(null);
+                  setReviewNote('');
+                }}
+                className="flex-1 rounded-full border border-white/20 px-4 py-2 text-sm font-semibold text-white hover:border-white/60"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={submitReviewRequest}
+                disabled={updatingId === reviewTarget._id}
+                className="flex-1 rounded-full border border-amber-400/60 px-4 py-2 text-sm font-semibold text-amber-100 hover:border-amber-300 disabled:cursor-not-allowed disabled:border-slate-700 disabled:text-slate-500"
+              >
+                Send Review
               </button>
             </div>
           </div>

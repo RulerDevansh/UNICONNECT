@@ -199,12 +199,17 @@ const ListingDetailScreen = ({ navigation, route }) => {
         </View>
         <Text style={styles.description}>{listing.description}</Text>
         <Text style={styles.meta}>Condition: {listing.condition || 'good'}</Text>
-        {!!listing.location?.latitude && (
+        {listing.location?.latitude != null && listing.location?.longitude != null && (
           <View style={styles.panel}>
             <View style={styles.panelTitleRow}>
               <MapPin size={16} color={colors.muted} />
               <Text style={styles.panelTitle}>Location</Text>
             </View>
+            {typeof listing.distance_km === 'number' && (
+              <Badge tone="info" style={{ alignSelf: 'flex-start', marginBottom: spacing.sm }}>
+                {listing.distance_km.toFixed(1)} km away
+              </Badge>
+            )}
             <Text style={styles.meta}>Coordinates: {Number(listing.location.latitude).toFixed(4)}, {Number(listing.location.longitude).toFixed(4)}</Text>
             {!!listing.location.address && <Text style={styles.meta}>Address: {listing.location.address}</Text>}
           </View>
