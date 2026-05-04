@@ -163,7 +163,7 @@ const Home = () => {
             <p className="text-sm uppercase tracking-[0.2em] text-brand-secondary">UniConnect</p>
             {!isAuthenticated && (
               <a
-                href="https://drive.google.com/file/d/1nSFlQ0R0BM1mO4VrEwjyCo4G9d4Iddi_/view?usp=drive_link"
+                href="https://drive.google.com/file/d/1jCcrAgeLTGymS0nLbcbzgCvRCJtijVOq/view?usp=sharing"
                 target="_blank"
                 rel="noopener noreferrer"
                 className="inline-flex items-center rounded-full border border-brand-secondary/40 px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.14em] text-brand-secondary transition hover:border-brand-secondary/70 hover:bg-brand-secondary/10 whitespace-nowrap"
