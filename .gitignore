@@ -21,5 +21,11 @@ coverage/
 .vscode/
 .idea/
 .DS_Store
+.env
+.env.*
+!.env.example
+**/.env
+**/.env.*
+!**/.env.example
 .vercel
 .env*.local
